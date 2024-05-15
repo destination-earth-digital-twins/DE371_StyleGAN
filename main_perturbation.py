@@ -1,0 +1,197 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Tue Mar 28 16:21:37 2023
+
+@author: brochetc
+
+Main pod sampling script
+
+"""
+
+import torch
+import argparse
+import os
+import numpy as np
+import pickle
+import pandas as pd
+from datetime import date, timedelta, datetime
+
+from time import perf_counter
+from collections import OrderedDict
+from gan.model.stylegan2 import Generator
+
+import perturbation.utils as utils
+import perturbation.smpca as smpca
+from shutil import copyfile
+device = 'cuda:0'
+
+def str2list(li):
+    if type(li)==list:
+        li2 = li
+        return li2
+    
+    elif type(li)==str:
+        li2=li[1:-1].split(',')
+        return li2
+    
+    else:
+        raise ValueError("li argument must be a string or a list, not '{}'".format(type(li)))
+        
+
+def compute_generate_save(G, params, metrics_list, Means, Maxs):
+
+    N_samples = params.N_samples
+    if params.verbose:
+        print(datename, lt)
+        print(params.date_index, params.lt_index)
+    Ens_r = torch.tensor(np.load(params.pack_dir+f'Rsemble_{datename}_{lt}.npy'), dtype = torch.float32)
+    w_ens = torch.tensor(np.load(params.data_dir + f'w_{params.date_index}_{params.lt_index}_{params.inv_step}.npy').astype(np.float32))
+    
+    # subsampling if N_conditioners is lower than initial ensemble size
+    if (params.N_conditioners<w_ens.shape[0]):
+        cond_indices = random.sample(range(w_ens.shape[0]), params.N_conditioners)
+        w_ens = w_ens[cond_indices]
+        Ens_r = Ens_r[cond_indices]
+    print('############### Perturbating ###############')
+    print('loading generation hyperparams')
+    Whitening = torch.load(params.eigendir + 'Whitening.pt') if params.sample_rule=='stochastic' else None
+    Coloring = torch.load(params.eigendir + 'Coloring.pt') if params.sample_rule=='stochastic' else None
+    w0 = torch.load(params.eigendir + 'latent_mean.pt') if params.sample_rule=='stochastic' else None
+    scale = torch.tensor(np.load(os.path.join(params.scale_dir,"ema_scale.npy")).astype(np.float32)[params.scale_interp_step], device=device)
+    interp = torch.tensor(np.load(os.path.join(params.scale_dir,"ema_interp.npy")).astype(np.float32)[params.scale_interp_step], device=device)
+
+    gen, w_new = smpca.sm_pca(w_ens, G, 
+                         N_samples, 
+                         params.style_indices, device, params.sample_rule, False, scale, interp, verbose=params.verbose,
+                         Whitening=Whitening,Coloring=Coloring,w0=w0)
+
+    if params.verbose:
+        print(gen.mean(axis=(0,-2,-1)))
+        print(Ens_r.mean(axis=(0,-2,-1)))
+    np.save(params.output_dir + f'/samples/genFsemble_{params.date_index}_{params.lt_index}_{params.inv_step}_{params.N_conditioners}.npy', gen)
+    if params.runtime_metrics:
+        gen0 = utils.rescale(gen, Means, Maxs, 1/0.95)
+        Ens_r = utils.rescale(Ens_r.detach().cpu().numpy(), Means, Maxs, 1/0.95)
+        dic = {'Mean' : {'real':Ens_r.mean(axis=(0,-2,-1)), 'fake':gen0.mean(axis=(0,-2,-1))},
+             'Std' : {'real': np.sqrt(Ens_r.var(axis=0).mean(axis=(-2,-1))), 'fake': np.sqrt(gen0.var(axis=0).mean(axis=(-2,-1)))},
+             'Max' : {'real':Ens_r.max(axis=(0,-2,-1)), 'fake':gen0.max(axis=(0,-2,-1))},
+             'Align' : 1.0 - (gen0.std(axis=0) * Ens_r.std(axis=0)).sum(axis=(-2,-1)) / (np.sqrt((Ens_r.std(axis=0) ** 2).sum(axis=(-2,-1))) *  np.sqrt((gen0.std(axis=0) **2).sum(axis=(-2,-1)))),
+        }
+        if params.verbose: print(dic)
+        return dic
+    return {}
+     
+if __name__=="__main__" :
+    
+    parser = argparse.ArgumentParser()
+    
+    ########################### Directories ###########################
+
+    parser.add_argument('--ckpt_dir', type = str, 
+                        default ='/scratch/mrmn/brochetc/GAN_2D/Exp_StyleGAN_final/Set_1/stylegan2_stylegan_dom_256_lat-dim_512_bs_4_0.002_0.002_ch-mul_2_vars_u_v_t2m_noise_True/Instance_14/models/000024.pt')
+    parser.add_argument('--real_data_dir', type = str, 
+                        default ='/scratch/work/brochetc/datasets/IS_1_1.0_0_0_0_0_0_256_large_lt_done/')
+    parser.add_argument('--data_dir', type=str, default='/scratch/mrmn/brochetc/GAN_2D/Exp_StyleGAN_final/Inversion_Val/')
+    parser.add_argument('--output_dir',type = str, 
+                        default ='/scratch/mrmn/brochetc/GAN_2D/Exp_StyleGAN_final/')
+    parser.add_argument('--add_name',type = str, default='')
+    parser.add_argument('--eigendir',type = str, 
+                        default ='/scratch/mrmn/brochetc/GAN_2D/Exp_StyleGAN_final/Eigenvalues/')
+    parser.add_argument("--pack_dir", type=str, default = '/scratch/work/brochetc/Exp_StyleGAN/Pack_Val/') # storing "packed" (normalized) real data
+    
+    parser.add_argument('--mean_file', type=str, default='Mean_4_var.npy')
+    parser.add_argument('--max_file', type=str, default='MaxNew_4_var.npy')
+
+    parser.add_argument("--var_indices", type=utils.str2intlist, default=[1,2,3])
+    parser.add_argument("--Shape", type=tuple, default=(3,256,256), help='size of the samples')
+    parser.add_argument("--N_samples", type=int, default=120, help='number of new samples')
+    parser.add_argument("--N_conditioners",type=int, default=16, help="number of 'seed' samples used for conditioning")
+    parser.add_argument("--inv_step", type=int, default=1000, help='step of inversion to load w')
+    
+    
+    ######################## PERTURBATION PARAMETERS #######################
+    
+    parser.add_argument('--sample_rule', type=str, default='stochastic', 
+                        choices = ['stochastic', 'extrapolation'])
+    parser.add_argument('--style_indices', type = str2list, default='[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]')
+    parser.add_argument('--unbias', action="store_true")
+
+    parser.add_argument('--scale_dir', type=str, default="./")
+    parser.add_argument('--scale_interp_step',type=int, default=-1)
+    
+    ########################## CONTROL of Data to perturb ######################
+
+    parser.add_argument("--dates_file", type=str, default = 'Large_lt_val_labels.csv')
+
+    parser.add_argument("--date_start", type=str, default = "2020-07-01")
+    parser.add_argument("--date_stop", type=str, default = "2020-12-31")
+    parser.add_argument("--leadtimes", type=utils.str2intlist, default=[3,6,9,12,15,18,21,24,27,30,33,36,39,42,45])
+
+    ###########################################################################
+    parser.add_argument("--runtime_metrics", action="store_true")
+    parser.add_argument("--verbose", action="store_true")
+    ###########################################################################
+    
+    params = parser.parse_args()
+    root_dir = params.output_dir 
+    params.output_dir = params.output_dir + f"{params.sample_rule}_{params.style_indices}_{params.unbias}_{params.scale_interp_step}_{params.N_conditioners}_{params.add_name}/" 
+
+    ################## selecting dates
+    print('reading dates')
+    df = pd.read_csv(params.real_data_dir + params.dates_file)
+    df_date = df.copy()
+    df_date['Date'] = pd.to_datetime(df_date['Date'])
+    df_extract = df_date[(df_date['Date']>=params.date_start) & (df_date['Date']<=params.date_stop)]
+    liste_dates = df_extract['Date'].unique()
+    
+    ################## carrying scaling info to pass it whenever needed
+    Means = np.load(f'{params.real_data_dir}{params.mean_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
+    Maxs = np.load(f'{params.real_data_dir}{params.max_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
+    scale = (1/0.95)
+    
+    ############################################################
+    
+    if not os.path.exists(params.output_dir) :
+        os.mkdir(params.output_dir)
+        os.mkdir(params.output_dir + '/samples/')
+        os.mkdir(params.output_dir + '/log/')
+        source_readme = root_dir + 'ReadMe_0.txt'
+        target_readme = params.output_dir + 'ReadMe_0.txt'
+        copyfile(source_readme, target_readme)
+    
+    
+    ################ loading network #################
+
+    device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
+    print('loading G')
+    G = Generator(params.Shape[1], 512,n_mlp=8,nb_var=params.Shape[0])
+    ckpt = torch.load(params.ckpt_dir, map_location='cpu')['g_ema']
+    if 'module' in list(ckpt.items())[0][0]: #juggling with Pytorch versioning and different module packaging
+        ckpt_adapt = OrderedDict()
+        for k in ckpt.keys():
+            k0 = k[7:]
+            ckpt_adapt[k0] = ckpt[k]
+        G.load_state_dict(ckpt_adapt)
+    else:
+        G.load_state_dict(ckpt)
+    G.eval()
+    G = G.to(device)
+
+    #############################  Main loop ###############################
+    
+    metrics_list = ['variance', 'std_diff']#, 'mean_bias']
+    metrics = {}
+    for date in liste_dates:
+        datename = date.strftime('%Y-%m-%d')
+        for lt in params.leadtimes:
+            print(datename,lt)
+            params.date_index = datename
+            params.lt_index = lt
+            try:
+                print('generating')
+                metrics[(datename,lt)] = compute_generate_save(G, params, metrics_list, Means, Maxs)
+            except FileNotFoundError as e:
+                print(f"File not found {e}")
+                pass
+    pickle.dump(metrics,open(params.output_dir + 'log/metrics.p','wb'))

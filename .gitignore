@@ -1,0 +1,10 @@
+*.pyc
+*regan*
+.idea
+__pycache__/
+*.out
+*.zip
+
+gan/configs/*
+!gan/configs/Set_Exemple
+*run*

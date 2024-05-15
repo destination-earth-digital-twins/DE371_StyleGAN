@@ -1,0 +1,53 @@
+# Path
+data_dir: /where/the/samples/are/
+output_dir: /where/all/the/files/are/saved/
+config_dir: /where/the/config/directory/is/
+id_file: where/is/your/ID_file.csv # csv path relative to data_dir
+
+
+# Path for experiments
+SET_NUM: test   # run test jobs in Set_1
+which_experiment: -1 # index of the experiment to run if pretrained_model is activated # not really used anymore
+max_relaunch: 0 # number of times we relaunch the expe after timeout
+auto_relaunch: False # set to Yes if you want an automatic relaunch. Manual relaunch (e.g. from pretrained) should be passed with auto_relaunch=False to prevent overwriting previous results.
+main_file: main_gan.py
+slurm_file: runGANhpc_N_GPU.sh # file called by slurm sbatch (expe_init_belenos) ---> belenos only option, typically replace N by the number of GPUs needed
+nb_gpus : 1 # nb of gpus used ---> runai/priam only option
+platform: priam
+
+############### Below are paremeters that OVERRIDE default ones
+############### For the complete list of parameters, refer to expe_init_{platform}.py where platform = belenos / runai
+############### Specifying several parameters in a given field (in the form of list elements) will result in several experiments launched successively
+############### If several fields contain more than one element, there will be one experiment launched by combination of these parameters (cartesian product of parameters)
+
+ensemble:
+  --total_steps: [500001]
+  --epochs_num: [25]
+  --pretrained_model: [-1] # set to -1 if there are no pretrained model
+
+  --var_names: ["[rr,u,v,t2m]"]
+  --batch_size: [8] # real batch size is batch_size * N (N is the number of GPUs used)
+
+  --var_names: ["[rr,u,v,t2m]"]
+  --batch_size: [8]
+  --lr_D: [0.002]
+  --lr_G: [0.002]
+
+  --g_channels: [3]
+  --d_channels: [3]
+
+  --path_batch_shrink: [2]
+
+  --tanh_output: [True]
+
+  --model: ['stylegan2']
+  --train_type: ['stylegan']
+  --latent_dim: [512]
+  --use_noise: [False]
+
+  --crop_indexes: ["[0,256,0,256]"]
+  --crop_size: ["[256,256]"]
+  --full_size: ["[256,256]"]
+
+  --dataset_handler_config: ['dataset_handler_config.yaml'] # relative path to {config_dir}/Set_{SET_NUM}/
+  --scheduler_config: ['scheduler_config.yaml'] # relative path to {config_dir}/Set_{SET_NUM}/

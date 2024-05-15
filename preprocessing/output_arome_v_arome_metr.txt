@@ -1,0 +1,217 @@
+True
+Program:  {0: (2, 16384), 1: (2, 16384), 2: (2, 16384), 3: (2, 16384), 4: (2, 16384), 5: (2, 16384), 6: (2, 16384), 7: (2, 16384), 8: (2, 16384), 9: (2, 16384), 10: (2, 16384), 11: (2, 16384), 12: (2, 16384), 13: (2, 16384), 14: (2, 16384), 15: (2, 16384)}
+distance metrics:  ['multivar', 'W1_random_NUMPY', 'W1_Center_NUMPY', 'SWD_metric', 'spectral_dist']
+opening ReadMe
+variables ['u', 'v', 't2m', 'z500', 't850', 'tpw850']
+[0, 256, 0, 256]
+Crop indices:  [0, 256, 0, 256]
+Indices of selected variables in samples (real/fake) : [1, 2, 3, 5, 6, 7] [0, 1, 2, 3, 4, 5]
+Loading data:  ['real0', 'real1']
+0
+length of file list 16384
+length of file list 16384
+multivar
+(1073741824, 6)
+(1073741824, 6)
+out shape (2, 15, 100, 100)
+W1_random_NUMPY
+W1_Center_NUMPY
+SWD_metric
+[1.501200720667839, 1.4946338487789035, 1.5385543229058385, 3.381025977432728] 1.9788537174463272
+spectral_dist
+Loading data:  ['real0', 'real1']
+1
+length of file list 16384
+length of file list 16384
+multivar
+(1073741824, 6)
+(1073741824, 6)
+out shape (2, 15, 100, 100)
+W1_random_NUMPY
+W1_Center_NUMPY
+SWD_metric
+[1.4964399160817266, 1.4896341599524021, 1.5495631378144026, 4.58717904984951] 2.2807040659245104
+spectral_dist
+Loading data:  ['real0', 'real1']
+2
+length of file list 16384
+length of file list 16384
+multivar
+(1073741824, 6)
+(1073741824, 6)
+out shape (2, 15, 100, 100)
+W1_random_NUMPY
+W1_Center_NUMPY
+SWD_metric
+[1.4801883371546865, 1.5428566839545965, 1.6050090780481696, 4.143004305660725] 2.1927646012045443
+spectral_dist
+Loading data:  ['real0', 'real1']
+3
+length of file list 16384
+length of file list 16384
+multivar
+(1073741824, 6)
+(1073741824, 6)
+out shape (2, 15, 100, 100)
+W1_random_NUMPY
+W1_Center_NUMPY
+SWD_metric
+[1.7890670569613576, 1.5325694112107158, 1.4490538742393255, 4.736700095236301] 2.376847609411925
+spectral_dist
+Loading data:  ['real0', 'real1']
+4
+length of file list 16384
+length of file list 16384
+multivar
+(1073741824, 6)
+(1073741824, 6)
+out shape (2, 15, 100, 100)
+W1_random_NUMPY
+W1_Center_NUMPY
+SWD_metric
+[1.6477080062031746, 1.4020907692611217, 1.5536933206021786, 3.088922007009387] 1.9231035257689655
+spectral_dist
+Loading data:  ['real0', 'real1']
+5
+length of file list 16384
+length of file list 16384
+multivar
+(1073741824, 6)
+(1073741824, 6)
+out shape (2, 15, 100, 100)
+W1_random_NUMPY
+W1_Center_NUMPY
+SWD_metric
+[1.4771807473152876, 1.5771405305713415, 1.4763050712645054, 3.9591295644640923] 2.1224389784038067
+spectral_dist
+Loading data:  ['real0', 'real1']
+6
+length of file list 16384
+length of file list 16384
+multivar
+(1073741824, 6)
+(1073741824, 6)
+out shape (2, 15, 100, 100)
+W1_random_NUMPY
+W1_Center_NUMPY
+SWD_metric
+[1.4963987050577998, 1.536393305286765, 1.4411130687221885, 4.172789864242077] 2.1616737358272076
+spectral_dist
+Loading data:  ['real0', 'real1']
+7
+length of file list 16384
+length of file list 16384
+multivar
+(1073741824, 6)
+(1073741824, 6)
+out shape (2, 15, 100, 100)
+W1_random_NUMPY
+W1_Center_NUMPY
+SWD_metric
+[1.5689185820519924, 1.5915199182927608, 1.5374529175460339, 3.919559996575117] 2.154362853616476
+spectral_dist
+Loading data:  ['real0', 'real1']
+8
+length of file list 16384
+length of file list 16384
+multivar
+(1073741824, 6)
+(1073741824, 6)
+out shape (2, 15, 100, 100)
+W1_random_NUMPY
+W1_Center_NUMPY
+SWD_metric
+[1.4792772708460689, 1.4737620949745178, 1.4626251067966223, 4.784226883202791] 2.299972838955
+spectral_dist
+Loading data:  ['real0', 'real1']
+9
+length of file list 16384
+length of file list 16384
+multivar
+(1073741824, 6)
+(1073741824, 6)
+out shape (2, 15, 100, 100)
+W1_random_NUMPY
+W1_Center_NUMPY
+SWD_metric
+[1.5546989161521196, 1.5343104023486376, 1.4610430225729942, 3.4293639473617077] 1.9948540721088648
+spectral_dist
+Loading data:  ['real0', 'real1']
+10
+length of file list 16384
+length of file list 16384
+multivar
+(1073741824, 6)
+(1073741824, 6)
+out shape (2, 15, 100, 100)
+W1_random_NUMPY
+W1_Center_NUMPY
+SWD_metric
+[1.4648870564997196, 1.4950591139495373, 1.3529649004340172, 3.9049640763550997] 2.0544687868095934
+spectral_dist
+Loading data:  ['real0', 'real1']
+11
+length of file list 16384
+length of file list 16384
+multivar
+(1073741824, 6)
+(1073741824, 6)
+out shape (2, 15, 100, 100)
+W1_random_NUMPY
+W1_Center_NUMPY
+SWD_metric
+[1.5971646644175053, 1.5830376651138067, 1.4360641362145543, 4.2548212222754955] 2.2177719220053405
+spectral_dist
+Loading data:  ['real0', 'real1']
+12
+length of file list 16384
+length of file list 16384
+multivar
+(1073741824, 6)
+(1073741824, 6)
+out shape (2, 15, 100, 100)
+W1_random_NUMPY
+W1_Center_NUMPY
+SWD_metric
+[1.480482635088265, 1.6185928834602237, 1.481852144934237, 3.910704981535673] 2.1229081612545997
+spectral_dist
+Loading data:  ['real0', 'real1']
+13
+length of file list 16384
+length of file list 16384
+multivar
+(1073741824, 6)
+(1073741824, 6)
+out shape (2, 15, 100, 100)
+W1_random_NUMPY
+W1_Center_NUMPY
+SWD_metric
+[1.4641486341133714, 1.6955945175141096, 1.5130017418414354, 4.270277917385101] 2.2357557027135044
+spectral_dist
+Loading data:  ['real0', 'real1']
+14
+length of file list 16384
+length of file list 16384
+multivar
+(1073741824, 6)
+(1073741824, 6)
+out shape (2, 15, 100, 100)
+W1_random_NUMPY
+W1_Center_NUMPY
+SWD_metric
+[1.6251993365585804, 1.6467077657580376, 1.8799582030624151, 3.5389696713536978] 2.1727087441831827
+spectral_dist
+Loading data:  ['real0', 'real1']
+15
+length of file list 16384
+length of file list 16384
+multivar
+(1073741824, 6)
+(1073741824, 6)
+out shape (2, 15, 100, 100)
+W1_random_NUMPY
+W1_Center_NUMPY
+SWD_metric
+[1.4816108159720898, 1.4292218256741762, 1.4159890124574304, 3.659570822492242] 1.9965981191489846
+spectral_dist
+Elapsed time (1 proc/16384 samp/16 draw(s)): 103730.58309094235 
