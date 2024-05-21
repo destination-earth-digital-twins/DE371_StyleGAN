@@ -4,7 +4,10 @@
 __pycache__/
 *.out
 *.zip
-
+.github/
+.devcontainer/
 gan/configs/*
 !gan/configs/Set_Exemple
 *run*
+*.pth
+*.code-workspace

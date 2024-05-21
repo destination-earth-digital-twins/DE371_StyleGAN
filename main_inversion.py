@@ -39,11 +39,11 @@ if __name__=="__main__" :
 
     parser.add_argument('--ckpt_dir', type = str, 
                         default ='/scratch/mrmn/brochetc/GAN_2D/Exp_StyleGAN_final/Set_1/stylegan2_stylegan_dom_256_lat-dim_512_bs_4_0.002_0.002_ch-mul_2_vars_u_v_t2m_noise_True/Instance_14/models/000024.pt')
-    parser.add_argument('--real_data_dir', type = str, 
-                        default ='/scratch/mrmn/brochetc/GAN_2D/datasets_full_indexing/IS_1_1.0_0_0_0_0_0_256_large_lt_done/')
+    parser.add_argument('--real_data_dir', type = str, default='/scratch/mrmn/brochetc/GAN_2D/datasets_full_indexing/IS_1_1.0_0_0_0_0_0_256_large_lt_done/')
+                        #default ='/scratch/work/brochetc/datasets/IS_1_1.0_0_0_0_0_0_256_large_lt_done/')default ='/scratch/mrmn/brochetc/GAN_2D/datasets_full_indexing/IS_1_1.0_0_0_0_0_0_256_large_lt_done/')
     parser.add_argument('--output_dir',type = str, 
-                        default ='/scratch/mrmn/brochetc/GAN_2D/Exp_StyleGAN_final/Inversion_Test_Std/')
-    parser.add_argument("--pack_dir", type=str, default = '/scratch/mrmn/brochetc/GAN_2D/Exp_StyleGAN_final/Pack_Test_Std/') # storing "packed" (normalized) real data
+                        default ='/scratch/mrmn/sanchezv/results/tests/Inversion_Test_Std/')
+    parser.add_argument("--pack_dir", type=str, default = '/scratch/mrmn/sanchezv/results/tests/Pack_Test_Std/') # storing "packed" (normalized) real data
     
     parser.add_argument('--mean_file', type=str, default='Mean_4_var.npy')
     parser.add_argument('--max_file', type=str, default='MaxNew_4_var.npy')
@@ -79,7 +79,7 @@ if __name__=="__main__" :
     )
     
     parser.add_argument("--invstep", type=int, default=1000, help="optimize iterations")
-    parser.add_argument("--var_indices", type=utils.str2intlist, default=[1,2,3])
+    parser.add_argument("--var_indices", type=utils.str2intlist, default=[1,2,3])ssword
     parser.add_argument("--Shape", type=tuple, default=(3,256,256), help='size of the samples')
     
     parser.add_argument(
@@ -89,7 +89,7 @@ if __name__=="__main__" :
         help="weight of the noise regularization (inversion)",
     )
 
-    parser.add_argument('--loss', type=str, default='mse', choices = ['mse', 'mae','mae_std'])
+    parser.add_argument('--loss', type=str, default='mse', choices = ['perceptual','mse', 'mae','mae_std'])
     parser.add_argument("--loss_intens", type=float, default=1.0, help="weight of the pixel loss")
 
     parser.add_argument("--inv_checkpoints", type=utils.str2intlist, default=[200,400,600,800,1000])

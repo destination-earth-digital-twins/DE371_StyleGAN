@@ -91,10 +91,11 @@ if __name__=="__main__" :
     parser.add_argument('--ckpt_dir', type = str, 
                         default ='/scratch/mrmn/brochetc/GAN_2D/Exp_StyleGAN_final/Set_1/stylegan2_stylegan_dom_256_lat-dim_512_bs_4_0.002_0.002_ch-mul_2_vars_u_v_t2m_noise_True/Instance_14/models/000024.pt')
     parser.add_argument('--real_data_dir', type = str, 
-                        default ='/scratch/work/brochetc/datasets/IS_1_1.0_0_0_0_0_0_256_large_lt_done/')
-    parser.add_argument('--data_dir', type=str, default='/scratch/mrmn/brochetc/GAN_2D/Exp_StyleGAN_final/Inversion_Val/')
+                        default='/scratch/mrmn/brochetc/GAN_2D/datasets_full_indexing/IS_1_1.0_0_0_0_0_0_256_large_lt_done/')
+                        #default ='/scratch/work/brochetc/datasets/IS_1_1.0_0_0_0_0_0_256_large_lt_done/')
+    parser.add_argument('--data_dir', type=str, default='/scratch/mrmn/brochetc/GAN_2D/Exp_StyleGAN_GABRIEL/Inversion_Test/') #'/scratch/mrmn/brochetc/GAN_2D/Exp_StyleGAN_final/Inversion_Val/')
     parser.add_argument('--output_dir',type = str, 
-                        default ='/scratch/mrmn/brochetc/GAN_2D/Exp_StyleGAN_final/')
+                        default ='/scratch/mrmn/sanchezv/results/tests')
     parser.add_argument('--add_name',type = str, default='')
     parser.add_argument('--eigendir',type = str, 
                         default ='/scratch/mrmn/brochetc/GAN_2D/Exp_StyleGAN_final/Eigenvalues/')
@@ -117,7 +118,7 @@ if __name__=="__main__" :
     parser.add_argument('--style_indices', type = str2list, default='[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]')
     parser.add_argument('--unbias', action="store_true")
 
-    parser.add_argument('--scale_dir', type=str, default="./")
+    parser.add_argument('--scale_dir', type=str, default="/scratch/mrmn/brochetc/GAN_2D/Exp_StyleGAN_final/ScaleTune/interp_scale_pca_10_False_1.2_bias_ones_1.0_spec_0.0/Instance_4/")
     parser.add_argument('--scale_interp_step',type=int, default=-1)
     
     ########################## CONTROL of Data to perturb ######################

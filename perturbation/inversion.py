@@ -13,8 +13,16 @@ import torch.nn.functional as F
 import numpy as np
 import pickle
 from tqdm import tqdm
+from lpips import PerceptualLoss
 
 def noise_regularize(noises):
+    r''' Regularization of noise  
+    
+        Inputs : noises (list of torch.Tensor) size : TODO
+
+        Outputs : loss (float)
+
+    '''
     loss = 0
 
     for noise in noises:
@@ -38,6 +46,13 @@ def noise_regularize(noises):
 
 
 def noise_normalize_(noises):
+    r''' Normalizing Noise 
+    
+        Input : noises (list of torch.Tensor) size : TODO
+        
+        Output : None
+
+    '''
     for noise in noises:
         mean = noise.mean()
         std = noise.std()
@@ -46,6 +61,15 @@ def noise_normalize_(noises):
 
 
 def get_lr(t, initial_lr, rampdown=0.25, rampup=0.05):
+    r''' Get the learning rate w.r.t the scheduling process 
+
+        Input : 
+            t (float) : step of training
+            initial_lr (float) : initial learning rate
+            rampdown (float) : coef. for down ramp
+            rampup (float) : coef. for up ramp
+
+    '''
     lr_ramp = min(1, (1 - t) / rampdown)
     lr_ramp = 0.5 - 0.5 * math.cos(lr_ramp * math.pi)
     lr_ramp = lr_ramp * min(1, t / rampup)
@@ -97,7 +121,8 @@ def optimize(Ens_r, g_ema, latent_mean, device, params):
         latent_mean = latent_out.mean(0)
         latent_std = ((latent_out - latent_mean).pow(2).sum() / Ens_r.shape[0]) ** 0.5
     
-
+    if params.loss=='perceptual' :
+        perceptual_loss = PerceptualLoss(pnet_rand=True)
     ###########################  FIRST STEP : latent vector optimization
     
     print(f'########## Latent vector optimisation {params.date_index} {params.lt_index} #############')
@@ -155,6 +180,10 @@ def optimize(Ens_r, g_ema, latent_mean, device, params):
         elif params.loss=='mae_std' :
             
             pixel_loss = F.l1_loss(img_gen, Ens_r) + F.l1_loss(img_gen.std(dim=0), Ens_r.std(dim=0)) 
+
+        elif params.loss=='perceptual' :
+            
+            pixel_loss = perceptual_loss.forward(img_gen, Ens_r)
             
         loss = params.loss_intens * pixel_loss
         
