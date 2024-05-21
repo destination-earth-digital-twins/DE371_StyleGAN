@@ -16,11 +16,12 @@ from tqdm import tqdm
 from perturbation.lpips import PerceptualLoss
 
 def noise_regularize(noises):
-    r''' Regularization of noise  
+    r'''
+    Regularization of noise  
     
-        Inputs : noises (list of torch.Tensor) size : TODO
+    Inputs : noises (list of torch.Tensor) size : TODO
 
-        Outputs : loss (float)
+    Outputs : loss (float)
 
     '''
     loss = 0

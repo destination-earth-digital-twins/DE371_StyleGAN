@@ -53,7 +53,7 @@ parser.add_argument("--lambda_bias",type=float, default=1.0)
 parser.add_argument("--lambda_spectrum",type=float, default=0.0)
 parser.add_argument("--lambda_spread",type=float, default=1.0)
 parser.add_argument("--convert_ff_t",action="store_true")
-
+parser.add_argument("--invert_step",type=int, default=1000)
 parser.add_argument("--fake_data_dir", type=str, 
                     default='/scratch/mrmn/brochetc/GAN_2D/Exp_StyleGAN_final/Inversion_Val/')
 parser.add_argument("--real_data_dir", type=str, 
@@ -70,7 +70,7 @@ parser.add_argument("--output_dir", type=str,
 args = parser.parse_args()
 
 
-output_dir = f"{args.output_dir}interp_scale_pca_{args.pca_cut}_{args.inflate_random}_{args.inflate}_bias_{args.start}_{args.lambda_bias}_spread_{args.lambda_spread}_ff_{args.convert_ff_t}/"
+output_dir = f"{args.output_dir}interp_scale_pca_{args.pca_cut}_{args.inflate_random}_{args.inflate}_bias_{args.start}_{args.lambda_bias}_spread_{args.lambda_spread}_ff_{args.convert_ff_t}_{args.invert_step}/"
 os.makedirs(output_dir, exist_ok=True)
 instances = len(glob(output_dir + "Instance_*/"))
 print("instances already existing", instances)
@@ -132,7 +132,7 @@ for epoch in range(args.n_epochs):
     print("#"*80)
     pbar = tqdm(len(ensemble_dataset))
     for idx, (date,lt) in enumerate(ensemble_dataset):
-        batch_w = torch.tensor(np.load(args.fake_data_dir + f"w_{date[:10]}_{lt}_1000.npy").astype(np.float32)).to(device)
+        batch_w = torch.tensor(np.load(args.fake_data_dir + f"w_{date[:10]}_{lt}_{args.invert_step}.npy").astype(np.float32)).to(device)
         batch_y = torch.tensor(np.load(args.ensemble_data_dir + f"Rsemble_{date[:10]}_{lt}.npy").astype(np.float32)).to(device)
         
         t =  idx / len(ensemble_dataset) 
@@ -141,20 +141,18 @@ for epoch in range(args.n_epochs):
         interp_noise = add_noise(interp,sigma(t,epoch),device)
 
         try:
-            Cov = torch.load(args.fake_data_dir + f'Cov_{date[:10]}_{lt}_{args.pca_cut}_1000.pt')
-            w_avg = torch.load(args.fake_data_dir + f'w_avg_{date[:10]}_{lt}_{args.pca_cut}_1000.pt')
+            Cov = torch.load(args.fake_data_dir + f'Cov_{date[:10]}_{lt}_{args.pca_cut}_{args.invert_step}.pt')
+            w_avg = torch.load(args.fake_data_dir + f'w_avg_{date[:10]}_{lt}_{args.pca_cut}_{args.invert_step}.pt')
 
             if w_avg.shape!=(args.pca_cut,512):
-                Cov, w_avg = pca.computeReducedCovarianceW(batch_w[:,:args.pca_cut],cut=args.n_samples-1,
-                                                Whitening=Whitening,Coloring=Coloring)
-                torch.save(Cov, args.fake_data_dir + f'Cov_{date[:10]}_{lt}_{args.pca_cut}_1000.pt')
-                torch.save(w_avg, args.fake_data_dir + f'w_avg_{date[:10]}_{lt}_{args.pca_cut}_1000.pt')
+                Cov, w_avg = pca.computeCovarianceW(batch_w[:,:args.pca_cut],cut=args.n_samples-1)
+                torch.save(Cov, args.fake_data_dir + f'Cov_{date[:10]}_{lt}_{args.pca_cut}_{args.invert_step}.pt')
+                torch.save(w_avg, args.fake_data_dir + f'w_avg_{date[:10]}_{lt}_{args.pca_cut}_{args.invert_step}.pt')
 
         except FileNotFoundError:
-            Cov, w_avg  = pca.computeReducedCovarianceW(batch_w[:,:args.pca_cut],cut=args.n_samples-1,
-                                                Whitening=Whitening,Coloring=Coloring)
-            torch.save(Cov, args.fake_data_dir + f'Cov_{date[:10]}_{lt}_{args.pca_cut}_1000.pt')
-            torch.save(w_avg, args.fake_data_dir + f'w_avg_{date[:10]}_{lt}_{args.pca_cut}_1000.pt')
+            Cov, w_avg  = pca.computeCovarianceW(batch_w[:,:args.pca_cut],cut=args.n_samples-1)
+            torch.save(Cov, args.fake_data_dir + f'Cov_{date[:10]}_{lt}_{args.pca_cut}_{args.invert_step}.pt')
+            torch.save(w_avg, args.fake_data_dir + f'w_avg_{date[:10]}_{lt}_{args.pca_cut}_{args.invert_step}.pt')
         
         try :
             assert w_avg.shape==(args.pca_cut,512)
@@ -260,4 +258,3 @@ for epoch in range(args.n_epochs):
     np.save(output_dir + "ema_interp.npy",track[2])
     np.save(output_dir + "ema_bias.npy",track[3])
     np.save(output_dir + "ema_spec.npy",track[4])
-

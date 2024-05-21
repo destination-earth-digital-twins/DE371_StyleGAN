@@ -11,6 +11,7 @@ import torch
 import numpy as np
 import perturbation.pca_stylegan as pca
 from math import ceil
+import random
 import torch.nn.functional as F
 
 def sample_sigma_cut_w(Cov, w_avg, N_samples,Whitening,w0,G, scale=1.0, device='cuda:0', verbose=False):
@@ -47,13 +48,26 @@ def sample_sigma_cut_w(Cov, w_avg, N_samples,Whitening,w0,G, scale=1.0, device='
 
     return res 
 
-def sm_pca(Ens_w, G, N_samples, sm_ind = [0,0,0,0,0,0,0,0,0,0,0,0,0,0], device = 'cuda:0', 
-            sample_rule = 'normal', 
-            random_unbias=False, scale=1.0, interp=0.0, verbose=False,
-            Whitening=None,Coloring=None,w0=None,renorm=False):
+def sm_pca(
+        Ens_w, 
+        G, 
+        N_samples, 
+        sm_ind = [0,0,0,0,0,0,0,0,0,0,0,0,0,0], 
+        device = 'cuda:0', 
+        sample_rule = 'stochastic',
+        N_seeds=16, 
+        random_unbias=False,
+        scale=1.0,
+        interp=0.0,
+        verbose=False,
+        Whitening=None,
+        Coloring=None,
+        w0=None,
+        renorm=False
+    ):
     
     N, R, D = Ens_w.shape
-    per_cond = int(ceil(N_samples / N))
+    per_cond = int(ceil(N_samples / N_seeds))
     
     Ens_final = np.zeros((N * per_cond,3,256,256), dtype = 'float32')
     w_final = np.zeros((N * per_cond, R, D))
@@ -71,8 +85,7 @@ def sm_pca(Ens_w, G, N_samples, sm_ind = [0,0,0,0,0,0,0,0,0,0,0,0,0,0], device =
         assert w0 is not None
         if verbose: print(f"scale {scale}")
         if n_styles_pert>0:
-            Cov, w_avg = pca.computeReducedCovarianceW(w_extract,cut=N-1,
-                                                Whitening=Whitening,Coloring=Coloring,
+            Cov, w_avg = pca.computeCovarianceW(w_extract,cut=N-1,
                                                 verbose=verbose,renorm=renorm)
         else:
             Cov, w_avg = None, None
@@ -81,17 +94,21 @@ def sm_pca(Ens_w, G, N_samples, sm_ind = [0,0,0,0,0,0,0,0,0,0,0,0,0,0], device =
 
     if sample_rule=='stochastic':
         Ens_w1 = Ens_w.to(device)
+        if N_seeds < N:
+            seeds = random.sample(range(N), N_seeds)
+            Ens_w1 = Ens_w[seeds].to(device)
+            print(Ens_w1.shape)
         
     with torch.no_grad():
-        for k in range(N) : # generating a common multiple of each conditioning sample
+        for k in range(N_seeds) : # generating a common multiple of each conditioning sample
             if verbose: print(f"member {k} is fixed")
             if sample_rule=='stochastic':
                 if n_styles_pert:
                     z = torch.empty((per_cond,D)).normal_().contiguous().to(device)
                     with torch.no_grad():
                         w = G.style(z)
-                        w  = w #* torch.rsqrt(torch.linalg.norm(w, dim=-1, keepdims=True) + 1e-8)
-                    diff = torch.bmm(Whitening.to(device).unsqueeze(0).repeat(per_cond,1,1) , (w - w.mean(dim=0)).unsqueeze(-1)) # diff of shape N_samples  x D
+                    diff = torch.bmm(Whitening.to(device).unsqueeze(0).repeat(per_cond,1,1), 
+                                     (w - w.mean(dim=0)).unsqueeze(-1)) # diff of shape N_samples  x D
                     new_w = torch.einsum('abc, dc-> dab',Cov, diff.squeeze(dim=-1))
 
                 w_start = interp.view(1,14,1) * Ens_w1.mean(dim=0) + (1.0 - interp).view(1,14,1) * Ens_w1[k]
@@ -109,7 +126,7 @@ def sm_pca(Ens_w, G, N_samples, sm_ind = [0,0,0,0,0,0,0,0,0,0,0,0,0,0], device =
                 
             elif sample_rule == 'extrapolation' :
                 w_interm = []
-                for kk in (range(k, N_cond)) :
+                for kk in range(k, N_cond) :
                     if k != kk:
                         print(k,kk)
                         w_interm.append(( Ens_w[k] + 1.5 * (Ens_w[kk] - Ens_w[k])).to(device))
