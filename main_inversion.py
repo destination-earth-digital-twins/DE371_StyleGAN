@@ -42,8 +42,8 @@ if __name__=="__main__" :
     parser.add_argument('--real_data_dir', type = str, default='/scratch/mrmn/brochetc/GAN_2D/datasets_full_indexing/IS_1_1.0_0_0_0_0_0_256_large_lt_done/')
                         #default ='/scratch/work/brochetc/datasets/IS_1_1.0_0_0_0_0_0_256_large_lt_done/')default ='/scratch/mrmn/brochetc/GAN_2D/datasets_full_indexing/IS_1_1.0_0_0_0_0_0_256_large_lt_done/')
     parser.add_argument('--output_dir',type = str, 
-                        default ='/scratch/mrmn/sanchezv/results/tests/Inversion_Test_Std/')
-    parser.add_argument("--pack_dir", type=str, default = '/scratch/mrmn/sanchezv/results/tests/Pack_Test_Std/') # storing "packed" (normalized) real data
+                        default ='/scratch/mrmn/sanchezv/project/results/tests/Inversion_Test_Std/')
+    parser.add_argument("--pack_dir", type=str, default = '/scratch/mrmn/sanchezv/project/results/tests/Pack_Test_Std/') # storing "packed" (normalized) real data
     
     parser.add_argument('--mean_file', type=str, default='Mean_4_var.npy')
     parser.add_argument('--max_file', type=str, default='MaxNew_4_var.npy')
@@ -79,7 +79,7 @@ if __name__=="__main__" :
     )
     
     parser.add_argument("--invstep", type=int, default=1000, help="optimize iterations")
-    parser.add_argument("--var_indices", type=utils.str2intlist, default=[1,2,3])ssword
+    parser.add_argument("--var_indices", type=utils.str2intlist, default=[1,2,3])
     parser.add_argument("--Shape", type=tuple, default=(3,256,256), help='size of the samples')
     
     parser.add_argument(

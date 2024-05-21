@@ -13,7 +13,7 @@ import torch.nn.functional as F
 import numpy as np
 import pickle
 from tqdm import tqdm
-from lpips import PerceptualLoss
+from perturbation.lpips import PerceptualLoss
 
 def noise_regularize(noises):
     r''' Regularization of noise  

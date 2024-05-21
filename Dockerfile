@@ -20,7 +20,8 @@ ENV MY_APT='apt -o "Acquire::https::Verify-Peer=false" -o "Acquire::AllowInsecur
 
 RUN update-ca-certificates
 
-RUN $MY_APT update && $MY_APT install -y curl ninja-build build-essential nvtop git vim nano sudo libeccodes-dev libeccodes-tools
+RUN $MY_APT update && $MY_APT install -y curl ninja-build build-essential 
+# nvtop git vim nano sudo libeccodes-dev libeccodes-tools
 
 
 COPY requirements.txt /root/requirements.txt

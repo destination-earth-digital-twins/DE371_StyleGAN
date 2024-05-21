@@ -9,4 +9,3 @@ properscoring
 pyproj
 CRPS
 tornado
-notebook
