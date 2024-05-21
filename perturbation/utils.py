@@ -34,11 +34,13 @@ def load_batch_from_timestamp(dataframe, date, lt, data_dir, Shape=(3,256,256), 
     return batch
 
 def rescale(generated, Mean, Max, scale) : 
-    
+    r''' 
+    Rescale generated data w.r.t. given mean, max and scale
+    '''
     return scale * Max * generated + Mean
 
 def collate_ensemble(data_dir, start_member, stop_member, lead_time , var_indices):
-    """
+    r"""
     Fetch individual members of the same forecast at a given lead time (as isolated files) 
     and feed them as one single array
     """
@@ -94,10 +96,7 @@ def correct_lt(lt):
 
 lstlbc = [2,20,9,5,32,15,19,21,13,1,34,12,10,31,23,11,8,24,29,22,28,25,6,33,14,7,30,27,0,18,4,26,3,16,17]
 lstic  = list(range(1,26))
-
-
 Ns = 16
-
 Nlbc = 35 
 def initsmall():
     """

@@ -8,7 +8,7 @@ from skimage.metrics import structural_similarity as ssim
 import torch
 from torch.autograd import Variable
 
-from lpips import dist_model
+from perturbation.lpips import dist_model
 
 class PerceptualLoss(torch.nn.Module):
     def __init__(self, model='net-lin', net='alex', colorspace='rgb', spatial=False, use_gpu=True, gpu_ids=[0], pnet_rand=False): # VGG using our perceptually-learned weights (LPIPS metric)

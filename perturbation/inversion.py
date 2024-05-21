@@ -79,13 +79,15 @@ def get_lr(t, initial_lr, rampdown=0.25, rampup=0.05):
 
 
 def latent_noise(latent, strength):
+    r'''
+    Adding noise to latent
+    '''
     noise = torch.randn_like(latent) * strength
-
     return latent + noise
 
 
 def optimize(Ens_r, g_ema, latent_mean, device, params):
-    """
+    r"""
     
     Inverting Ens_r and tuning the Generator g_ema
     
@@ -123,6 +125,7 @@ def optimize(Ens_r, g_ema, latent_mean, device, params):
         latent_std = ((latent_out - latent_mean).pow(2).sum() / Ens_r.shape[0]) ** 0.5
     
     if params.loss=='perceptual' :
+        print('using perceptual')
         perceptual_loss = PerceptualLoss(pnet_rand=True)
     ###########################  FIRST STEP : latent vector optimization
     

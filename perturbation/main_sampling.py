@@ -19,7 +19,7 @@ import matplotlib.pyplot as plt
 import pickle
 import metrics4ensemble as metrics
 from time import perf_counter
-
+import perturbation.utils as utils
 
 device = 'cuda:0'
 
@@ -34,11 +34,6 @@ def str2list(li):
     
     else:
         raise ValueError("li argument must be a string or a list, not '{}'".format(type(li)))
-        
-        
-def rescale(generated, Mean, Max, scale) : 
-    
-    return scale * Max * generated + Mean
 
 
 def compute_generate_save(i,j, N_samples,G, args, n_mean) :
@@ -100,8 +95,8 @@ def compute_generate_analyze_save(i,j, N_samples, G, args, n_mean, metrics_list,
                          N_samples, 
                          args.style_indices, device, args.sample_rule)
     
-    gen = rescale(gen, args.Mean, args.Maxs, args.scale)
-    Ens_r = rescale(Ens_r.detach().cpu().numpy(), args.Mean, args.Maxs, args.scale)
+    gen = utils.rescale(gen, args.Mean, args.Maxs, args.scale)
+    Ens_r = utils.rescale(Ens_r.detach().cpu().numpy(), args.Mean, args.Maxs, args.scale)
     
     print('############### Evaluating metrics ###############')
     
@@ -163,11 +158,9 @@ def analyzeNoiseimpact(i,j, G, args, n_mean):
             
     generated = np.concatenate(generated, axis = 0)
     
+    generated = utils.rescale(generated, args.Mean, args.Maxs, args.scale)
     
-    
-    generated = rescale(generated, args.Mean, args.Maxs, args.scale)
-    
-    Ens_check = rescale(Ens_r.numpy(), args.Mean, args.Maxs, args.scale)
+    Ens_check = utils.rescale(Ens_r.numpy(), args.Mean, args.Maxs, args.scale)
     
     diff_mean = (generated[0]-generated[1:].mean(axis=0))
     
