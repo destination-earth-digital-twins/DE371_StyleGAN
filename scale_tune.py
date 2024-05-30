@@ -17,6 +17,7 @@ import os
 #import spectral_loss_filtered as spec
 
 #from hyperparams.util import str2intlist, load_all_lt, select_random_dates, load_whole_model, list_all_obs
+# Tunning alpha (interp) and beta (scale) terms
 from glob import glob
 
 def add_noise(scale,sig,device):

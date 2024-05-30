@@ -1,11 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Tue Mar 28 16:21:37 2023
-
-@author: brochetc, moldovang
-
-This script performs ensemble forecast inversion using a pre-trained StyleGAN2 model. The inversion process involves optimizing an initial random latent code so that it best represents a real ensemble forecast input.
+This script performs ensemble forecast inversion using a pre-trained StyleGAN2 model.
+The inversion process involves optimizing an initial random latent code so that it best represents a real ensemble forecast input.
 
 The code uses command-line arguments for setting directories, inversion parameters, and data control parameters.
 The inversion is performed for a specified set of dates and lead times, generating latent code representations for real-ensemble data and saving the results.
@@ -17,6 +14,7 @@ import torch
 import argparse
 from gan.model.stylegan2 import Generator
 import os
+import json
 import numpy as np
 import perturbation.inversion as inv
 from time import perf_counter
@@ -30,105 +28,109 @@ import perturbation.utils as utils
 torch.manual_seed(42) #reproducibility of runs
 
 if __name__=="__main__" :
-
-
     
     parser = argparse.ArgumentParser()
     
     ########################### Directories ###########################
-
+    # Checkpoint directory - PATH to generator's weight
     parser.add_argument('--ckpt_dir', type = str, 
                         default ='/scratch/mrmn/brochetc/GAN_2D/Exp_StyleGAN_final/Set_1/stylegan2_stylegan_dom_256_lat-dim_512_bs_4_0.002_0.002_ch-mul_2_vars_u_v_t2m_noise_True/Instance_14/models/000024.pt')
+    # Real Data Directory - PATH to samples of the dataset
     parser.add_argument('--real_data_dir', type = str, default='/scratch/mrmn/brochetc/GAN_2D/datasets_full_indexing/IS_1_1.0_0_0_0_0_0_256_large_lt_done/')
-                        #default ='/scratch/work/brochetc/datasets/IS_1_1.0_0_0_0_0_0_256_large_lt_done/')default ='/scratch/mrmn/brochetc/GAN_2D/datasets_full_indexing/IS_1_1.0_0_0_0_0_0_256_large_lt_done/')
+    # Output Directory - PATH where the output of the inversion will be saved
     parser.add_argument('--output_dir',type = str, 
-                        default ='/scratch/mrmn/sanchezv/project/results/tests/Inversion_Test_Std/')
-    parser.add_argument("--pack_dir", type=str, default = '/scratch/mrmn/sanchezv/project/results/tests/Pack_Test_Std/') # storing "packed" (normalized) real data
+                        default ='/scratch/mrmn/sanchezv/project/results/test/Ens_Perceptual_Loss_Random_VGG/Inversion_Perceptual_Loss_Random_VGG/')
+    # Pack Directory - PATH where the packed ensembles will be saved
+    parser.add_argument("--pack_dir", type=str, default = '/scratch/mrmn/sanchezv/project/results/test/Ens_Perceptual_Loss_Random_VGG/Pack_Perceptual_Loss_Random_VGG/') # storing "packed" (normalized) real data
     
-    parser.add_argument('--mean_file', type=str, default='Mean_4_var.npy')
-    parser.add_argument('--max_file', type=str, default='MaxNew_4_var.npy')
+    # Dataset information
+    parser.add_argument("--normalization", type=str, default="meanmax", choices=["minmax", "meanmax"])
+    parser.add_argument('--max_file', type=str, default='MaxNew_4_var.npy') # use 'MaxNew_4_var.npy' if AROME data # max_rr_log.npy
+    parser.add_argument('--mean_file', type=str, default='Mean_4_var.npy') # not used if minmax normalization
+    parser.add_argument('--min_file', type=str, default='min_rr_log.npy')  # not used if meanmax normalization
     
-    parser.add_argument('--device', type=str, default='cuda:0')
+    parser.add_argument('--device', type=str, default='cuda:0' if torch.cuda.is_available() else 'cpu')
+
     ############################ INVERSION PARAMETERS #################    
 
-    parser.add_argument(
-        "--lr_rampup",
-        type=float,
-        default=0.05,
-        help="duration of the learning rate warmup",
-    )
-    parser.add_argument(
-        "--lr_rampdown",
-        type=float, 
-        default=0.25,
-        help="duration of the learning rate decay",
-    )
+    parser.add_argument("--lr_rampup",type=float,default=0.05,help="duration of the learning rate warmup")
+    parser.add_argument("--lr_rampdown",type=float, default=0.25,help="duration of the learning rate decay")
     
     parser.add_argument("--lr", type=float, default=0.1, help="learning rate")
     
-  
-    parser.add_argument(
-        "--noise", type=float, default=0.005, help="strength of the noise level"
-    )
+    parser.add_argument("--noise_strength", type=float, default=0.005, help="strength of the noise level")
+    parser.add_argument("--noise_ramp",type=float,default=0.75,help="duration of the noise level decay")
     
-    parser.add_argument(
-        "--noise_ramp",
-        type=float,
-        default=0.75,
-        help="duration of the noise level decay",
-    )
-    
-    parser.add_argument("--invstep", type=int, default=1000, help="optimize iterations")
     parser.add_argument("--var_indices", type=utils.str2intlist, default=[1,2,3])
     parser.add_argument("--Shape", type=tuple, default=(3,256,256), help='size of the samples')
+    parser.add_argument("--crop_indices", type=int, nargs='+', default=[0,256,0,256])
     
-    parser.add_argument(
-        "--noise_regularize",
-        type=float,
-        default=10e5,
-        help="weight of the noise regularization (inversion)",
-    )
+    parser.add_argument("--noise_normalize", type=int, default=1, choices=[0,1], help="normalize noise during optimization?")
+    parser.add_argument("--noise_optimize", type=int, default=1, choices=[0,1], help="joint optimization of noise and latent code (1) or latent code optimization only (0)?")
 
-    parser.add_argument('--loss', type=str, default='mse', choices = ['perceptual','mse', 'mae','mae_std'])
-    parser.add_argument("--loss_intens", type=float, default=1.0, help="weight of the pixel loss")
+    parser.add_argument('--pixel_loss_type', type=str, default='mse', choices = ['mse', 'mae'])
 
+    parser.add_argument("--lambda_noise", type=float, default=1.0, help="weight of the noise regularization")
+    parser.add_argument("--lambda_vgg", type=float, default=0.0, help="weight of the vgg (perceptual) loss")
+    parser.add_argument("--lambda_pixel", type=float, default=1.0, help="weight of the (mae/mse) pixel loss")
+
+    parser.add_argument("--vgg_style_layers", type=int, nargs='+', default=[], help="style layers to include in vgg loss computation")
+    parser.add_argument("--vgg_feature_layers", type=int, nargs='+', default=[], help="feature layers to include in vgg computation")
+    parser.add_argument("--vgg_alpha_feature", type=float, default=1.0, help="weight of the feature/content loss")
+    parser.add_argument("--vgg_alpha_style", type=float, default=0.01, help="weight of the style loss")
+
+    parser.add_argument("--invstep", type=int, default=1000, help="optimize iterations")
     parser.add_argument("--inv_checkpoints", type=utils.str2intlist, default=[200,400,600,800,1000])
 
     ########################## CONTROL of Data to invert ######################
 
     parser.add_argument("--dates_file", type=str, default = 'Large_lt_test_labels.csv')
-
     parser.add_argument("--date_start", type=str, default = "2021-06-01")
     parser.add_argument("--date_stop", type=str, default = "2021-11-15")
     parser.add_argument("--leadtimes", type=utils.str2intlist, default=[3,6,9,12,15,18,21,24,27,30,33,36,39,42,45])
+    
+    parser.add_argument("--seed", type=int, default=42)
+    
     params = parser.parse_args()
 
 
-    #print(params.inv_checkpoints, type(params.inv_checkpoints[0]))
-    assert type(params.inv_checkpoints[0])==int
+    # fix some of the inputs
+    params.Shape = tuple(params.Shape)
+    params.crop_indices = tuple(params.crop_indices)
+    params.noise_optimize=True if params.noise_optimize==1 else False
+    params.noise_normalize=True if params.noise_normalize==1 else False
+
+    # create output and pack directories
+    if not os.path.exists(params.output_dir):
+        os.makedirs(params.output_dir)
+    if not os.path.exists(params.pack_dir):
+        os.makedirs(params.pack_dir)
+
+    # set the seed for reproduciibility of runs
+    seed = params.seed
+    torch.manual_seed(seed)
+
     ################## loading dates and file names ##
-
     df = pd.read_csv(params.real_data_dir + params.dates_file)
-
     df_date = df.copy()
-
     df_date['Date'] = pd.to_datetime(df_date['Date'])
-
     df_extract = df_date[(df_date['Date']>=params.date_start) & (df_date['Date']<=params.date_stop)]
 
-    liste_dates = df_extract['Date'].unique()
-    Means = np.load(f'{params.real_data_dir}{params.mean_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
-
-    Maxs = np.load(f'{params.real_data_dir}{params.max_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
+    list_dates = df_extract['Date'].unique()
+    
+    if params.normalization=="meanmax":
+        Means = np.load(f'{params.real_data_dir}{params.mean_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
+        Maxs = np.load(f'{params.real_data_dir}{params.max_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
+    #    Means = np.load(f'{params.real_data_dir}stat_files/{params.mean_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
+    #    Maxs = np.load(f'{params.real_data_dir}/stat_files/{params.max_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
+    elif params.normalization=="minmax":
+       Mins = np.load(f'{params.real_data_dir}/stat_files/{params.min_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
+       Maxs = np.load(f'{params.real_data_dir}/stat_files/{params.max_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
+    else:
+       raise ValueError(f"Unknown normalization: {params.normalization}")
 
     ################ loading network #################
-
-    device = params.device if torch.cuda.is_available() else 'cpu'
-
     G = Generator(params.Shape[1], 512,n_mlp=8,nb_var=params.Shape[0])
-
-
-    #print('###########################################"##################################################################################################################')
     ckpt = torch.load(params.ckpt_dir, map_location='cpu')['g_ema']
 
     if 'module' in list(ckpt.items())[0][0]: #juglling with Pytorch versioning and different module packaging
@@ -137,52 +139,70 @@ if __name__=="__main__" :
             k0 = k[7:]
             ckpt_adapt[k0] = ckpt[k]
         G.load_state_dict(ckpt_adapt)
-
-
     else:
-        G.load_state_dict(ckpt_dic)
+        G.load_state_dict(ckpt)
+
     G.eval()
-
-    
-
-    G = G.to(device)
+    G = G.to(params.device)
 
     ################### producing latent mean #######
-
     if not os.path.exists(f'{params.output_dir}latent_mean.npy'):
-
-        latent_z = torch.empty(10000, 512).normal_().to(device)
+        latent_z = torch.empty(10000, 512).normal_().to(params.device)
         with torch.no_grad():
             w = G.style(latent_z)
-
         latent_mean = w.mean(dim=0).detach().cpu()
-
         np.save(f'{params.output_dir}latent_mean.npy',latent_mean.numpy())
     else : 
-
         lm = np.load(f'{params.output_dir}latent_mean.npy').astype(np.float32)
         latent_mean = torch.tensor(lm, dtype = torch.float32)
 
+    ########### write inversion parameters to file ############
+    config_file = params.output_dir + "inversion_params.txt"
+    print("writing params config file:", config_file)
+    try:
+        with open(config_file, 'w') as f_config:
+             f_config.write(json.dumps(params.__dict__))
+    except Exception as e:
+         print("unable to write params config file")
+         print(e)
+
+    # print inversion parameters
+    print("\nInversion parameters:")
+    for key, value in params.__dict__.items():
+        print(f"{key}: {value}")
+
 
     #################### main loop ##################
+    for date_ in list_dates:
+        print(date_)
+        datename = date_.strftime('%Y-%m-%d')
+        print("\n===========================")
 
-    for date in liste_dates:
-        datename = date.strftime('%Y-%m-%d')
-        
         for lt in params.leadtimes:
             print(datename,lt)
-            if not os.path.exists(params.output_dir +f'w_{datename}_{lt}_1000.npy'): #cecking for already teer
+            df0 = df_extract[(df_extract['Date']==date_) & (df_extract['LeadTime']==lt)]
+            if len(df0)==0:
+               print("# samples: 0")
+               continue
 
-                Ens_r = utils.load_batch_from_timestamp(df_extract, date, lt-1, params.real_data_dir, var_indices = params.var_indices)
+            Ens_r = utils.load_batch_from_timestamp(df_extract, date_, lt, params.real_data_dir, Shape=params.Shape, var_indices=params.var_indices) #, crop_indices=params.crop_indices)
 
-                Ens_r = torch.tensor(0.95 * (Ens_r - Means) / Maxs, dtype = torch.float32)
+            n_samples = np.min([Ens_r.shape[0], 6])
+            print(f"extracting {n_samples} samples for inversion\n")
+            Ens_r = Ens_r[:n_samples]
 
-                np.save(params.pack_dir+f'Rsemble_{datename}_{lt}.npy', Ens_r.numpy().astype(np.float32))
+            # normalise samples and save in pack dir. obs! make sure normalization is done correctly (according to how model was trained)
+            if params.normalization=="meanmax":
+               Ens_r = torch.tensor(0.95*(Ens_r - Means) / (Maxs), dtype = torch.float32)
+            elif params.normalization=="minmax":
+               Ens_r = torch.tensor(-1. + 2*(Ens_r - Mins) / (Maxs-Mins), dtype = torch.float32)
+            else:
+               raise ValueError(f"Unknown normalization: {params.normalization}")
+            np.save(params.pack_dir+f'Rsemble_{datename}_{lt}.npy', Ens_r.numpy().astype(np.float32))
 
-                params.date_index = datename
-                params.lt_index = lt
-            
-                inv.optimize(Ens_r, G, latent_mean, device, params)
+            params.date_index = datename
+            params.lt_index = lt
+            inv.optimize(Ens_r, G, latent_mean, params.device, params)
 
 
 
