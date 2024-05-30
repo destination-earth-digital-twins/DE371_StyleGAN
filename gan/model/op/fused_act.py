@@ -8,8 +8,7 @@ from torch.utils.cpp_extension import load
 
 
 module_path = os.path.dirname(__file__)
-
-if torch.cuda.is_available() :
+try:
     fused = load(
         "fused",
         sources=[
@@ -17,6 +16,8 @@ if torch.cuda.is_available() :
             os.path.join(module_path, "fused_bias_act_kernel.cu"),
         ],
     )
+except :
+    pass
 
 
 class FusedLeakyReLUFunctionBackward(Function):

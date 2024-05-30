@@ -19,7 +19,7 @@ import numpy as np
 import perturbation.inversion as inv
 from time import perf_counter
 from collections import OrderedDict
-
+import yaml
 import pandas as pd
 from datetime import date, timedelta, datetime
 import perturbation.utils as utils
@@ -36,12 +36,14 @@ if __name__=="__main__" :
     parser.add_argument('--ckpt_dir', type = str, 
                         default ='/scratch/mrmn/brochetc/GAN_2D/Exp_StyleGAN_final/Set_1/stylegan2_stylegan_dom_256_lat-dim_512_bs_4_0.002_0.002_ch-mul_2_vars_u_v_t2m_noise_True/Instance_14/models/000024.pt')
     # Real Data Directory - PATH to samples of the dataset
-    parser.add_argument('--real_data_dir', type = str, default='/scratch/mrmn/brochetc/GAN_2D/datasets_full_indexing/IS_1_1.0_0_0_0_0_0_256_large_lt_done/')
+    parser.add_argument('--real_data_dir', type = str, 
+                        default='/scratch/mrmn/brochetc/GAN_2D/datasets_full_indexing/IS_1_1.0_0_0_0_0_0_256_large_lt_done/')
     # Output Directory - PATH where the output of the inversion will be saved
     parser.add_argument('--output_dir',type = str, 
-                        default ='/scratch/mrmn/sanchezv/project/results/test/Ens_Perceptual_Loss_Random_VGG/Inversion_Perceptual_Loss_Random_VGG/')
+                        default ='/scratch/mrmn/sanchezv/project/results/Ens_MSE_Loss/Inversion_MSE_Loss/')
     # Pack Directory - PATH where the packed ensembles will be saved
-    parser.add_argument("--pack_dir", type=str, default = '/scratch/mrmn/sanchezv/project/results/test/Ens_Perceptual_Loss_Random_VGG/Pack_Perceptual_Loss_Random_VGG/') # storing "packed" (normalized) real data
+    parser.add_argument("--pack_dir", type=str, 
+                        default = '/scratch/mrmn/sanchezv/project/results/Ens_MSE_Loss/Pack_MSE_Loss/') # storing "packed" (normalized) real data
     
     # Dataset information
     parser.add_argument("--normalization", type=str, default="meanmax", choices=["minmax", "meanmax"])
@@ -49,7 +51,7 @@ if __name__=="__main__" :
     parser.add_argument('--mean_file', type=str, default='Mean_4_var.npy') # not used if minmax normalization
     parser.add_argument('--min_file', type=str, default='min_rr_log.npy')  # not used if meanmax normalization
     
-    parser.add_argument('--device', type=str, default='cuda:0' if torch.cuda.is_available() else 'cpu')
+    parser.add_argument('--device', type=str, default='cuda:0')
 
     ############################ INVERSION PARAMETERS #################    
 
@@ -74,19 +76,20 @@ if __name__=="__main__" :
     parser.add_argument("--lambda_vgg", type=float, default=0.0, help="weight of the vgg (perceptual) loss")
     parser.add_argument("--lambda_pixel", type=float, default=1.0, help="weight of the (mae/mse) pixel loss")
 
+    parser.add_argument("--vgg_init_layer", type=bool, default=False, help="Init layer to pass from single channel to three channel")
+    parser.add_argument("--vgg_pre_trained", type=bool, default=False, help="Whether we use a pre-trained version or a random version")
     parser.add_argument("--vgg_style_layers", type=int, nargs='+', default=[], help="style layers to include in vgg loss computation")
-    parser.add_argument("--vgg_feature_layers", type=int, nargs='+', default=[], help="feature layers to include in vgg computation")
+    parser.add_argument("--vgg_feature_layers", type=int, nargs='+', default=[0,1,2,3], help="feature layers to include in vgg computation")
     parser.add_argument("--vgg_alpha_feature", type=float, default=1.0, help="weight of the feature/content loss")
     parser.add_argument("--vgg_alpha_style", type=float, default=0.01, help="weight of the style loss")
 
-    parser.add_argument("--invstep", type=int, default=1000, help="optimize iterations")
-    parser.add_argument("--inv_checkpoints", type=utils.str2intlist, default=[200,400,600,800,1000])
+    parser.add_argument("--invstep", type=int, default=2000, help="optimize iterations")
+    parser.add_argument("--inv_checkpoints", type=utils.str2intlist, default=[250,500,1000,1500,2000])
 
     ########################## CONTROL of Data to invert ######################
-
     parser.add_argument("--dates_file", type=str, default = 'Large_lt_test_labels.csv')
     parser.add_argument("--date_start", type=str, default = "2021-06-01")
-    parser.add_argument("--date_stop", type=str, default = "2021-11-15")
+    parser.add_argument("--date_stop", type=str, default = "2021-08-31")
     parser.add_argument("--leadtimes", type=utils.str2intlist, default=[3,6,9,12,15,18,21,24,27,30,33,36,39,42,45])
     
     parser.add_argument("--seed", type=int, default=42)
@@ -157,11 +160,11 @@ if __name__=="__main__" :
         latent_mean = torch.tensor(lm, dtype = torch.float32)
 
     ########### write inversion parameters to file ############
-    config_file = params.output_dir + "inversion_params.txt"
+    config_file = params.output_dir + "inversion_params.yaml"
     print("writing params config file:", config_file)
     try:
-        with open(config_file, 'w') as f_config:
-             f_config.write(json.dumps(params.__dict__))
+        file=open(config_file,"w")
+        yaml.dump(params.__dict__,file)
     except Exception as e:
          print("unable to write params config file")
          print(e)

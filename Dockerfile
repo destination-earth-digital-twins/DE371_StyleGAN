@@ -21,7 +21,7 @@ ENV MY_APT='apt -o "Acquire::https::Verify-Peer=false" -o "Acquire::AllowInsecur
 
 RUN update-ca-certificates
 
-RUN $MY_APT update && $MY_APT install -y curl ninja-build build-essential sudo vim nano nvtop openssh-server
+RUN $MY_APT update && $MY_APT install -y curl ninja-build build-essential sudo vim nano nvtop openssh-server nvtop
 
 COPY requirements.txt /root/requirements.txt
 RUN set -eux && pip install --upgrade pip && pip install -r /root/requirements.txt

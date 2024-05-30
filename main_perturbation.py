@@ -23,7 +23,7 @@ from gan.model.stylegan2 import Generator
 import perturbation.utils as utils
 import perturbation.smpca as smpca
 from shutil import copyfile
-device = 'cpu'
+
 
 def str2list(li):
     if type(li)==list:
@@ -57,15 +57,15 @@ def compute_generate_save(G, params, metrics_list, Means, Maxs):
     Whitening = torch.load(params.eigendir + 'Whitening.pt') if params.sample_rule=='stochastic' else None
     Coloring = torch.load(params.eigendir + 'Coloring.pt') if params.sample_rule=='stochastic' else None
     w0 = torch.load(params.eigendir + 'latent_mean.pt') if params.sample_rule=='stochastic' else None
-    scale = torch.tensor(np.load(os.path.join(params.scale_dir,"ema_scale.npy")).astype(np.float32)[params.scale_interp_step], device=device)
-    interp = torch.tensor(np.load(os.path.join(params.scale_dir,"ema_interp.npy")).astype(np.float32)[params.scale_interp_step], device=device)
+    scale = torch.tensor(np.load(os.path.join(params.scale_dir,"ema_scale.npy")).astype(np.float32)[params.scale_interp_step], device=params.device)
+    interp = torch.tensor(np.load(os.path.join(params.scale_dir,"ema_interp.npy")).astype(np.float32)[params.scale_interp_step], device=params.device)
 
     gen, w_new = smpca.sm_pca(
         Ens_w=w_ens, 
         G=G, 
         N_samples=N_samples, 
         sm_ind=params.style_indices,
-        device=device, 
+        device=params.device, 
         sample_rule=params.sample_rule, 
         random_unbias=False,
         scale=scale,
@@ -99,32 +99,42 @@ if __name__=="__main__" :
     parser = argparse.ArgumentParser()
     
     ########################### Directories ###########################
-
+    # Checkpoint directory - PATH to generator's weight
     parser.add_argument('--ckpt_dir', type = str, 
                         default ='/scratch/mrmn/brochetc/GAN_2D/Exp_StyleGAN_final/Set_1/stylegan2_stylegan_dom_256_lat-dim_512_bs_4_0.002_0.002_ch-mul_2_vars_u_v_t2m_noise_True/Instance_14/models/000024.pt')
+    # Real Data Directory - PATH to samples of the dataset
     parser.add_argument('--real_data_dir', type = str, 
                         default='/scratch/mrmn/brochetc/GAN_2D/datasets_full_indexing/IS_1_1.0_0_0_0_0_0_256_large_lt_done/')
-                        #default ='/scratch/work/brochetc/datasets/IS_1_1.0_0_0_0_0_0_256_large_lt_done/')
-    parser.add_argument('--data_dir', type=str, default='/scratch/mrmn/sanchezv/project/results/Ens_Perceptual_Loss_Random_VGG/Inversion_Perceptual_Loss_Random_VGG/') #'/scratch/mrmn/brochetc/GAN_2D/Exp_StyleGAN_final/Inversion_Val/')
+    # Data Directory - PATH to samples from inversion process                    
+    parser.add_argument('--data_dir', type=str, 
+                        default='/scratch/mrmn/sanchezv/project/results/Ens_Perceptual_Loss/Inversion_Perceptual_Loss/') #'/scratch/mrmn/brochetc/GAN_2D/Exp_StyleGAN_final/Inversion_Val/')
+    # Pack Directory - PATH where the packed ensembles will be saved
+    parser.add_argument("--pack_dir", type=str, 
+                        default = '/scratch/mrmn/sanchezv/project/results/Ens_Perceptual_Loss/Pack_Perceptual_Loss/') # storing "packed" (normalized) real data
+    # Output Directory - PATH where the output of the inversion will be saved
     parser.add_argument('--output_dir',type = str, 
-                        default ='/scratch/mrmn/sanchezv/project/results/Ens_Perceptual_Loss_Random_VGG/Gen_Ens_Perceptual_Loss_Random_VGG/')
-    parser.add_argument('--add_name',type = str, default='')
-    parser.add_argument('--eigendir',type = str, 
-                        default ='/scratch/mrmn/brochetc/GAN_2D/Exp_StyleGAN_final/Eigenvalues/')
-    parser.add_argument("--pack_dir", type=str, default = '/scratch/mrmn/sanchezv/project/results/Ens_Perceptual_Loss_Random_VGG/Pack_Perceptual_Loss_Random_VGG/') # storing "packed" (normalized) real data
+                        default ='/scratch/mrmn/sanchezv/project/results/Ens_Perceptual_Loss/Gen_Ens_Perceptual_Loss/')
     
-    parser.add_argument('--mean_file', type=str, default='Mean_4_var.npy')
-    parser.add_argument('--max_file', type=str, default='MaxNew_4_var.npy')
+
+    # Generator network information
+    parser.add_argument('--add_name',type = str, default='')
+    parser.add_argument('--eigendir',type = str, default ='/scratch/mrmn/brochetc/GAN_2D/Exp_StyleGAN_final/Eigenvalues/')
+    
+    
+    # Dataset information
+    parser.add_argument("--normalization", type=str, default="meanmax", choices=["minmax", "meanmax"])
+    parser.add_argument('--max_file', type=str, default='MaxNew_4_var.npy') # use 'MaxNew_4_var.npy' if AROME data # max_rr_log.npy
+    parser.add_argument('--mean_file', type=str, default='Mean_4_var.npy') # not used if minmax normalization
+    parser.add_argument('--min_file', type=str, default='min_rr_log.npy')  # not used if meanmax normalization
 
     parser.add_argument("--var_indices", type=utils.str2intlist, default=[1,2,3])
     parser.add_argument("--Shape", type=tuple, default=(3,256,256), help='size of the samples')
-    parser.add_argument("--N_samples", type=int, default=50, help='number of new samples')
+    parser.add_argument("--N_samples", type=int, default=100, help='number of new samples') 
     parser.add_argument("--N_conditioners",type=int, default=16, help="number of 'seed' samples used for conditioning")
-    parser.add_argument("--inv_step", type=int, default=800, help='step of inversion to load w')
+    parser.add_argument("--inv_step", type=int, default=2000, help='step of inversion to load w')
     
     
     ######################## PERTURBATION PARAMETERS #######################
-    
     parser.add_argument('--sample_rule', type=str, default='stochastic', 
                         choices = ['stochastic', 'extrapolation'])
     #TODO : Why 0 and 1 ? What does it mean ?
@@ -134,22 +144,25 @@ if __name__=="__main__" :
     parser.add_argument('--scale_dir', type=str, default="/scratch/mrmn/brochetc/GAN_2D/Exp_StyleGAN_final/ScaleTune/interp_scale_pca_10_False_1.2_bias_ones_1.0_spec_0.0/Instance_4/")
     parser.add_argument('--scale_interp_step',type=int, default=-1)
     
+
     ########################## CONTROL of Data to perturb ######################
-
     parser.add_argument("--dates_file", type=str, default = 'Large_lt_test_labels.csv')
-
     parser.add_argument("--date_start", type=str, default = "2021-06-01")
-    parser.add_argument("--date_stop", type=str, default = "2021-11-15")
+    parser.add_argument("--date_stop", type=str, default = "2021-08-31")
     parser.add_argument("--leadtimes", type=utils.str2intlist, default=[3,6,9,12,15,18,21,24,27,30,33,36,39,42,45])
 
     ###########################################################################
     parser.add_argument("--runtime_metrics", action="store_true")
     parser.add_argument("--verbose", action="store_true")
-    ###########################################################################
-    
+    parser.add_argument('--device', type=str, default='cpu') # if torch.cuda.is_available() else 'cpu')
+
     params = parser.parse_args()
     root_dir = params.output_dir 
     params.output_dir = params.output_dir + f"{params.sample_rule}_{params.style_indices}_{params.unbias}_{params.scale_interp_step}_{params.N_conditioners}_{params.add_name}/" 
+
+    # create output directories
+    if not os.path.exists(params.output_dir):
+        os.makedirs(params.output_dir)
 
     ################## selecting dates
     print('reading dates')
@@ -168,8 +181,8 @@ if __name__=="__main__" :
     
     if not os.path.exists(params.output_dir) :
         os.mkdir(params.output_dir)
-        os.mkdir(params.output_dir + '/samples/')
-        os.mkdir(params.output_dir + '/log/')
+        os.mkdir(params.output_dir + 'samples/')
+        os.mkdir(params.output_dir + 'log/')
         source_readme = root_dir + 'ReadMe_0.txt'
         target_readme = params.output_dir + 'ReadMe_0.txt'
         copyfile(source_readme, target_readme)
@@ -177,7 +190,7 @@ if __name__=="__main__" :
     
     ################ loading network #################
 
-    device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
+    
     print('loading G')
     G = Generator(params.Shape[1], 512,n_mlp=8,nb_var=params.Shape[0])
     ckpt = torch.load(params.ckpt_dir, map_location='cpu')['g_ema']
@@ -190,7 +203,7 @@ if __name__=="__main__" :
     else:
         G.load_state_dict(ckpt)
     G.eval()
-    G = G.to(device)
+    G = G.to(params.device)
 
     #############################  Main loop ###############################
     
@@ -208,4 +221,5 @@ if __name__=="__main__" :
             except FileNotFoundError as e:
                 print(f"File not found {e}")
                 pass
-    pickle.dump(metrics,open(params.output_dir + 'log/metrics.p','wb'))
+    path = params.output_dir + 'log/'
+    pickle.dump(metrics,open(path+'metrics.p','wb'))

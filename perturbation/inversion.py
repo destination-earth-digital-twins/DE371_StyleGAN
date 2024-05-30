@@ -102,7 +102,6 @@ def optimize(Ens_r, g_ema, latent_mean, device, params):
 
 
     """
-
     Ens_r = Ens_r.to(device) # torch.Size([B, CH, 256, 256])
     latent_mean = latent_mean.to(device) # torch.Size([512])
     latent_in = latent_mean.detach().clone().unsqueeze(0).repeat(Ens_r.shape[0], 1) # torch.Size([B, 512])
@@ -137,7 +136,7 @@ def optimize(Ens_r, g_ema, latent_mean, device, params):
 
     latent_path = []
     if params.lambda_vgg>0 :
-        VGG_loss = VGGPerceptualLoss()
+        VGG_loss = VGGPerceptualLoss(pre_trained=params.vgg_pre_trained, init_layer=params.vgg_init_layer)
         VGG_loss.to(device)
 
     for i in pbar:
@@ -165,7 +164,7 @@ def optimize(Ens_r, g_ema, latent_mean, device, params):
             noise_loss = 0.
 
         # compute vgg/perceptual loss
-        perceptual_loss = 0.
+        perceptual_loss = torch.tensor(0.).to(device)
         if params.lambda_vgg>0.:
             for i_mem in range(img_gen.shape[0]): # mkl: i think we can avoid double for loop by passing all members for each variable as input
                 for i_var in range(img_gen.shape[1]):
@@ -199,8 +198,7 @@ def optimize(Ens_r, g_ema, latent_mean, device, params):
 
         pbar.set_description(
             (
-                f" pixel_loss: {pixel_loss.item():.6f}; lr: {lr:.4f}",
-                f" perceptual_loss: {perceptual_loss.item():.6f}; lr: {lr:.4f}"
+                f" pixel_loss: {pixel_loss.item():.6f}; lr: {lr:.4f} || perceptual_loss: {perceptual_loss.item():.6f}; lr: {lr:.4f}"
             )
         )
         if (i + 1) % 100 == 0 or i==params.invstep-1:
