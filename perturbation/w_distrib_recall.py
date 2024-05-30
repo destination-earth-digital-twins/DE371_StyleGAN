@@ -38,7 +38,7 @@ def recallWDistrib(N_samples, batch_w, G, loss, device ='cpu'):
     """
 
     B, C, D = batch_w.shape
-
+    
     z = torch.empty(N_samples, B, C, D).normal_().view(-1,D).contiguous().to(device)
 
     assert (z.device==batch_w.device)

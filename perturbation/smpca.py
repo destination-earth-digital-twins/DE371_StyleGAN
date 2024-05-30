@@ -85,7 +85,7 @@ def sm_pca(
         assert w0 is not None
         if verbose: print(f"scale {scale}")
         if n_styles_pert>0:
-            Cov, w_avg = pca.computeCovarianceW(w_extract,cut=N-1,
+            Cov, w_avg = pca.computeReducedCovarianceW(w_extract,cut=N-1,
                                                 verbose=verbose,renorm=renorm)
         else:
             Cov, w_avg = None, None
@@ -126,13 +126,13 @@ def sm_pca(
                 
             elif sample_rule == 'extrapolation' :
                 w_interm = []
-                for kk in range(k, N_cond) :
+                for kk in range(k, N_seeds) :
                     if k != kk:
                         print(k,kk)
                         w_interm.append(( Ens_w[k] + 1.5 * (Ens_w[kk] - Ens_w[k])).to(device))
                         w_interm.append(( Ens_w[kk] + 1.5 * (Ens_w[k] - Ens_w[kk])).to(device))
 
-                if k==(N_cond-1) :
+                if k==(N_seeds-1) :
 
                     return Ens_final[:N_samples], w_final
 
