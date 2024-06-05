@@ -11,7 +11,6 @@ ARG REQUESTS_CA_BUNDLE
 ARG CURL_CA_BUNDLE
 ARG NODE_EXTRA_CA_CERTS
 
-
 ARG REQUESTS_CA_BUNDLE=/usr/local/share/ca-certificates/mf.crt
 ARG CURL_CA_BUNDLE=/usr/local/share/ca-certificates/mf.crt
 COPY mf.crt /usr/local/share/ca-certificates/mf.crt

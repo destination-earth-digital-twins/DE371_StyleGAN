@@ -40,10 +40,10 @@ if __name__=="__main__" :
                         default='/scratch/mrmn/brochetc/GAN_2D/datasets_full_indexing/IS_1_1.0_0_0_0_0_0_256_large_lt_done/')
     # Output Directory - PATH where the output of the inversion will be saved
     parser.add_argument('--output_dir',type = str, 
-                        default ='/scratch/mrmn/sanchezv/project/results/Ens_MSE_Loss/Inversion_MSE_Loss/')
+                        default ='/scratch/mrmn/sanchezv/project/results/Ens_Perceptual_Random_VGG_1_MSE_0.1/Inversion_Perceptual_Random_VGG_Loss/')
     # Pack Directory - PATH where the packed ensembles will be saved
     parser.add_argument("--pack_dir", type=str, 
-                        default = '/scratch/mrmn/sanchezv/project/results/Ens_MSE_Loss/Pack_MSE_Loss/') # storing "packed" (normalized) real data
+                        default = '/scratch/mrmn/sanchezv/project/results/Ens_Perceptual_Random_VGG_1_MSE_0.1/Pack_Perceptual_Random_VGG_Loss/') # storing "packed" (normalized) real data
     
     # Dataset information
     parser.add_argument("--normalization", type=str, default="meanmax", choices=["minmax", "meanmax"])
@@ -73,8 +73,8 @@ if __name__=="__main__" :
     parser.add_argument('--pixel_loss_type', type=str, default='mse', choices = ['mse', 'mae'])
 
     parser.add_argument("--lambda_noise", type=float, default=1.0, help="weight of the noise regularization")
-    parser.add_argument("--lambda_vgg", type=float, default=0.0, help="weight of the vgg (perceptual) loss")
-    parser.add_argument("--lambda_pixel", type=float, default=1.0, help="weight of the (mae/mse) pixel loss")
+    parser.add_argument("--lambda_vgg", type=float, default=1.0, help="weight of the vgg (perceptual) loss")
+    parser.add_argument("--lambda_pixel", type=float, default=0.1, help="weight of the (mae/mse) pixel loss")
 
     parser.add_argument("--vgg_init_layer", type=bool, default=False, help="Init layer to pass from single channel to three channel")
     parser.add_argument("--vgg_pre_trained", type=bool, default=False, help="Whether we use a pre-trained version or a random version")
@@ -88,9 +88,9 @@ if __name__=="__main__" :
 
     ########################## CONTROL of Data to invert ######################
     parser.add_argument("--dates_file", type=str, default = 'Large_lt_test_labels.csv')
-    parser.add_argument("--date_start", type=str, default = "2021-06-01")
-    parser.add_argument("--date_stop", type=str, default = "2021-08-31")
-    parser.add_argument("--leadtimes", type=utils.str2intlist, default=[3,6,9,12,15,18,21,24,27,30,33,36,39,42,45])
+    parser.add_argument("--date_start", type=str, default = "2021-07-01")
+    parser.add_argument("--date_stop", type=str, default = "2021-07-02")
+    parser.add_argument("--leadtimes", type=utils.str2intlist, default= [3,6,9,12]) #,27,30,33,36,39,42,45
     
     parser.add_argument("--seed", type=int, default=42)
     
@@ -174,38 +174,53 @@ if __name__=="__main__" :
     for key, value in params.__dict__.items():
         print(f"{key}: {value}")
 
-
     #################### main loop ##################
     for date_ in list_dates:
         print(date_)
         datename = date_.strftime('%Y-%m-%d')
         print("\n===========================")
-
         for lt in params.leadtimes:
-            print(datename,lt)
-            df0 = df_extract[(df_extract['Date']==date_) & (df_extract['LeadTime']==lt)]
-            if len(df0)==0:
-               print("# samples: 0")
-               continue
-
-            Ens_r = utils.load_batch_from_timestamp(df_extract, date_, lt, params.real_data_dir, Shape=params.Shape, var_indices=params.var_indices) #, crop_indices=params.crop_indices)
-
-            n_samples = np.min([Ens_r.shape[0], 6])
-            print(f"extracting {n_samples} samples for inversion\n")
-            Ens_r = Ens_r[:n_samples]
-
-            # normalise samples and save in pack dir. obs! make sure normalization is done correctly (according to how model was trained)
-            if params.normalization=="meanmax":
-               Ens_r = torch.tensor(0.95*(Ens_r - Means) / (Maxs), dtype = torch.float32)
-            elif params.normalization=="minmax":
-               Ens_r = torch.tensor(-1. + 2*(Ens_r - Mins) / (Maxs-Mins), dtype = torch.float32)
-            else:
-               raise ValueError(f"Unknown normalization: {params.normalization}")
-            np.save(params.pack_dir+f'Rsemble_{datename}_{lt}.npy', Ens_r.numpy().astype(np.float32))
-
             params.date_index = datename
             params.lt_index = lt
-            inv.optimize(Ens_r, G, latent_mean, params.device, params)
+            
+            # Check if the files already exists (to qave computation time)
+            already_exist = []
+            if os.path.isfile(params.pack_dir+f'Rsemble_{datename}_{lt}.npy'):
+                already_exist.append(True)
+            for i in params.inv_checkpoints :
+                if os.path.isfile(params.output_dir+'w_{}_{}_{}.npy'.format(params.date_index,params.lt_index,i)):
+                    already_exist.append(True)
+                if os.path.isfile(params.output_dir+'invertFsemble_{}_{}_{}.npy'.format(params.date_index,params.lt_index,i)):
+                    already_exist.append(True)
+                if os.path.isfile(params.output_dir+'noise_{}_{}_{}.p'.format(params.date_index,params.lt_index,i)):
+                    already_exist.append(True)
+
+            if np.all(already_exist) :
+                print('The inversion was already done for the date {} with leadtime {}. This sample is skipped.'.format(datename,lt))
+            else :
+                print('Launching inversion process for the date {} with leadtime {}.'.format(datename,lt))
+                df0 = df_extract[(df_extract['Date']==date_) & (df_extract['LeadTime']==lt-1)]
+                if len(df0)==0:
+                   print("# samples: 0")
+                   continue
+
+                Ens_r = utils.load_batch_from_timestamp(df_extract, date_, lt, params.real_data_dir, Shape=params.Shape, var_indices=params.var_indices) #, crop_indices=params.crop_indices)
+
+                # n_samples = np.min([Ens_r.shape[0], 6])
+                # print(f"extracting {n_samples} samples for inversion\n")
+                # Ens_r = Ens_r[:n_samples]
+
+                # normalise samples and save in pack dir. obs! make sure normalization is done correctly (according to how model was trained)
+                if params.normalization=="meanmax":
+                   Ens_r = torch.tensor(0.95*(Ens_r - Means) / (Maxs), dtype = torch.float32)
+                elif params.normalization=="minmax":
+                   Ens_r = torch.tensor(-1. + 2*(Ens_r - Mins) / (Maxs-Mins), dtype = torch.float32)
+                else:
+                   raise ValueError(f"Unknown normalization: {params.normalization}")
+                np.save(params.pack_dir+f'Rsemble_{datename}_{lt}.npy', Ens_r.numpy().astype(np.float32))
+
+                
+                inv.optimize(Ens_r, G, latent_mean, params.device, params)
 
 
 

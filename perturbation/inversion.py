@@ -10,6 +10,7 @@ import pickle
 from tqdm import tqdm
 from perturbation.lpips import VGGPerceptualLoss
 from perturbation.plotter import online_inv_plot_2, online_inv_plot
+import time
 
 def noise_regularize(noises):
     r'''
@@ -139,6 +140,10 @@ def optimize(Ens_r, g_ema, latent_mean, device, params):
         VGG_loss = VGGPerceptualLoss(pre_trained=params.vgg_pre_trained, init_layer=params.vgg_init_layer)
         VGG_loss.to(device)
 
+    list_perceptual_loss = []
+    list_pixel_loss = []
+    list_time_to_compute_vgg_loss=[]
+
     for i in pbar:
         t = i / params.invstep
         lr = get_lr(t, params.lr)
@@ -166,6 +171,7 @@ def optimize(Ens_r, g_ema, latent_mean, device, params):
         # compute vgg/perceptual loss
         perceptual_loss = torch.tensor(0.).to(device)
         if params.lambda_vgg>0.:
+            t0 = time.time()
             for i_mem in range(img_gen.shape[0]): # mkl: i think we can avoid double for loop by passing all members for each variable as input
                 for i_var in range(img_gen.shape[1]):
                     perceptual_loss += VGG_loss( (img_gen[i_mem, i_var, :, :]+1)/2,
@@ -175,10 +181,13 @@ def optimize(Ens_r, g_ema, latent_mean, device, params):
                                                  alpha_feature = params.vgg_alpha_feature,
                                                  alpha_style = params.vgg_alpha_style )
             perceptual_loss /= img_gen.shape[0]*img_gen.shape[1]
+            list_time_to_compute_vgg_loss.append(time.time()-t0)
+            list_perceptual_loss.append(perceptual_loss.cpu().detach().numpy())
 
         # compute mae/mse pixel loss
         if params.pixel_loss_type=='mse' :
             pixel_loss = F.mse_loss(img_gen, Ens_r)
+            list_pixel_loss.append(pixel_loss.cpu().detach().numpy())
 
         elif params.pixel_loss_type=='mae':
             pixel_loss = F.l1_loss(img_gen, Ens_r)
@@ -217,6 +226,11 @@ def optimize(Ens_r, g_ema, latent_mean, device, params):
             print(f"--plotting checkpoint {i+1}: {figname}")
             figtitle = f"{params.date_index}_{params.lt_index}_step_{i+1}"
             online_inv_plot_2(Ens_r.cpu().detach().numpy(), img_gen.cpu().detach().numpy(), figtitle=figtitle, figname=figname)
+            
+            print(f"--saving loss_function {i+1}: {figname}")
+            np.save(params.output_dir+'MSE_loss_{}_{}.npy'.format(params.date_index,params.lt_index),list_pixel_loss)
+            np.save(params.output_dir+'Perceptual_loss_{}_{}.npy'.format(params.date_index,params.lt_index),list_perceptual_loss)
+            np.save(params.output_dir+'Time_Perceptual_loss_{}_{}.npy'.format(params.date_index,params.lt_index),list_time_to_compute_vgg_loss)
 
 
 
