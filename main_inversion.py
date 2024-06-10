@@ -40,10 +40,10 @@ if __name__=="__main__" :
                         default='/scratch/mrmn/brochetc/GAN_2D/datasets_full_indexing/IS_1_1.0_0_0_0_0_0_256_large_lt_done/')
     # Output Directory - PATH where the output of the inversion will be saved
     parser.add_argument('--output_dir',type = str, 
-                        default ='/scratch/mrmn/sanchezv/project/results/Ens_Perceptual_Random_VGG_1_MSE_0.1/Inversion_Perceptual_Random_VGG_Loss/')
+                        default ='/scratch/mrmn/sanchezv/project/results/_Ens_Perceptual_Random_VGG_Loss/Inversion_Perceptual_Random_VGG_Loss/')
     # Pack Directory - PATH where the packed ensembles will be saved
     parser.add_argument("--pack_dir", type=str, 
-                        default = '/scratch/mrmn/sanchezv/project/results/Ens_Perceptual_Random_VGG_1_MSE_0.1/Pack_Perceptual_Random_VGG_Loss/') # storing "packed" (normalized) real data
+                        default = '/scratch/mrmn/sanchezv/project/results/_Ens_Perceptual_Random_VGG_Loss/Pack_Perceptual_Random_VGG_Loss/') # storing "packed" (normalized) real data
     
     # Dataset information
     parser.add_argument("--normalization", type=str, default="meanmax", choices=["minmax", "meanmax"])
@@ -71,12 +71,13 @@ if __name__=="__main__" :
     parser.add_argument("--noise_optimize", type=int, default=1, choices=[0,1], help="joint optimization of noise and latent code (1) or latent code optimization only (0)?")
 
     parser.add_argument('--pixel_loss_type', type=str, default='mse', choices = ['mse', 'mae'])
-
+    
     parser.add_argument("--lambda_noise", type=float, default=1.0, help="weight of the noise regularization")
     parser.add_argument("--lambda_vgg", type=float, default=1.0, help="weight of the vgg (perceptual) loss")
-    parser.add_argument("--lambda_pixel", type=float, default=0.1, help="weight of the (mae/mse) pixel loss")
+    parser.add_argument("--lambda_pixel", type=float, default=1.0, help="weight of the (mae/mse) pixel loss")
 
-    parser.add_argument("--vgg_init_layer", type=bool, default=False, help="Init layer to pass from single channel to three channel")
+    parser.add_argument("--vgg_computation", type=str, default='sol1', choices = ['sol1', 'sol2', 'sol3', 'sol4', 'sol5'], 
+                        help="Either we compute layer by layer and member per member but we have to triple th einput to make it rgb or all in one (naive)")
     parser.add_argument("--vgg_pre_trained", type=bool, default=False, help="Whether we use a pre-trained version or a random version")
     parser.add_argument("--vgg_style_layers", type=int, nargs='+', default=[], help="style layers to include in vgg loss computation")
     parser.add_argument("--vgg_feature_layers", type=int, nargs='+', default=[0,1,2,3], help="feature layers to include in vgg computation")
@@ -89,8 +90,8 @@ if __name__=="__main__" :
     ########################## CONTROL of Data to invert ######################
     parser.add_argument("--dates_file", type=str, default = 'Large_lt_test_labels.csv')
     parser.add_argument("--date_start", type=str, default = "2021-07-01")
-    parser.add_argument("--date_stop", type=str, default = "2021-07-02")
-    parser.add_argument("--leadtimes", type=utils.str2intlist, default= [3,6,9,12]) #,27,30,33,36,39,42,45
+    parser.add_argument("--date_stop", type=str, default = "2021-08-31")
+    parser.add_argument("--leadtimes", type=utils.str2intlist, default= [3,6,9,12,15,18,21,24,27,30,33,36,39,42,45])
     
     parser.add_argument("--seed", type=int, default=42)
     
@@ -187,13 +188,21 @@ if __name__=="__main__" :
             already_exist = []
             if os.path.isfile(params.pack_dir+f'Rsemble_{datename}_{lt}.npy'):
                 already_exist.append(True)
+            else :
+                already_exist.append(False)
             for i in params.inv_checkpoints :
                 if os.path.isfile(params.output_dir+'w_{}_{}_{}.npy'.format(params.date_index,params.lt_index,i)):
                     already_exist.append(True)
+                else :
+                    already_exist.append(False)
                 if os.path.isfile(params.output_dir+'invertFsemble_{}_{}_{}.npy'.format(params.date_index,params.lt_index,i)):
                     already_exist.append(True)
+                else :
+                    already_exist.append(False)
                 if os.path.isfile(params.output_dir+'noise_{}_{}_{}.p'.format(params.date_index,params.lt_index,i)):
                     already_exist.append(True)
+                else :
+                    already_exist.append(False)
 
             if np.all(already_exist) :
                 print('The inversion was already done for the date {} with leadtime {}. This sample is skipped.'.format(datename,lt))

@@ -73,7 +73,14 @@ class ISDataset(Dataset):
         self.VI = variable_indices
         self.transform = transform
         self.labels = pd.read_csv(f"{self.config.data_dir}{self.config.id_file}")
-        
+        # TODO : Add to config
+        self.flag_multi_timestep = True
+        self.nb_timesteps = 15 # either 3, 5, 15 # number of time steps wanted in the data
+        self.timestep_period = 3 # nb of hours between two time steps
+        # Check that self.nb_timesteps * self.timestep_period == 45
+        self.flag_multi_variate = True
+        self.stack_sample_along_time_and_variable = True
+
         
         self.cache = DatasetCache(use_cache=use_cache)
         if use_cache:
@@ -101,17 +108,37 @@ class ISDataset(Dataset):
         return len(self.labels)
 
     def __getitem__(self, idx):
-        sample_path = os.path.join(self.config.data_dir, self.labels.iloc[idx]["Name"])
-        if self.sample_method=='coords':
-            sample = np.float32(np.load(f"{sample_path}.npy"))[self.VI, self.CI[0]:self.CI[1], self.CI[2]:self.CI[3]]
-            position = self.CI
-        if self.sample_method=='random' :
-            crop_X0 = np.random.randint(0, high = self.config.full_size[0] - self.config.crop_size[0])
-            crop_X1 = crop_X0 + self.config.crop_size[0]
-            crop_Y0 = np.random.randint(0, high = self.config.full_size[1] - self.config.crop_size[1])
-            crop_Y1 = crop_Y0 + self.config.crop_size[1]
-            sample = np.float32(np.load(f"{sample_path}.npy"))[self.VI, crop_X0:crop_X1, crop_Y0:crop_Y1]
-            position = (crop_X0, crop_X1, crop_Y0, crop_Y1)
+        if self.flag_multi_timestep :
+            # Multi time steps :
+            sample = []
+            for leadtime_id in np.arange(0, self.nb_timesteps * self.timestep_period, step=self.timestep_period):
+                # The csv has each members for each leadtime [ex :leadtime1, member0, member1... ]
+                # To store multiple leadtimes for a single member we need to jump by 15 lines in the csv
+                _idx = idx + leadtime_id * 15
+                sample_path = os.path.join(self.config.data_dir, self.labels.iloc[_idx]["Name"])
+                if self.sample_method=='coords':
+                    single_sample = np.float32(np.load(f"{sample_path}.npy"))[self.VI, self.CI[0]:self.CI[1], self.CI[2]:self.CI[3]] # (Nvar, H, W)
+                if len(self.VI)>1:
+                    single_sample = single_sample[np.newaxis:] # (1,Nvar,H,W) in case Nvar>1
+                sample.append(single_sample)
+            sample = np.array(sample)
+            if self.stack_sample_along_time_and_variable :
+                    sample = sample.reshape((self.nb_timesteps*len(self.VI), single_sample.shape[-2], single_sample.shape[-1]))
+            # sample should now be : (Nb leatime, Nvar, H, W)
+            if self.sample_method=='coords':
+                position = self.CI
+        else :
+            sample_path = os.path.join(self.config.data_dir, self.labels.iloc[idx]["Name"])
+            if self.sample_method=='coords':
+                sample = np.float32(np.load(f"{sample_path}.npy"))[self.VI, self.CI[0]:self.CI[1], self.CI[2]:self.CI[3]]
+                position = self.CI
+            if self.sample_method=='random' :
+                crop_X0 = np.random.randint(0, high = self.config.full_size[0] - self.config.crop_size[0])
+                crop_X1 = crop_X0 + self.config.crop_size[0]
+                crop_Y0 = np.random.randint(0, high = self.config.full_size[1] - self.config.crop_size[1])
+                crop_Y1 = crop_Y0 + self.config.crop_size[1]
+                sample = np.float32(np.load(f"{sample_path}.npy"))[self.VI, crop_X0:crop_X1, crop_Y0:crop_Y1]
+                position = (crop_X0, crop_X1, crop_Y0, crop_Y1)
            
         # importance = self.labels.iloc[idx]["Importance"]
         #### IMPORTANCE_ERROR
