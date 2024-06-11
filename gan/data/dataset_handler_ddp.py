@@ -74,11 +74,10 @@ class ISDataset(Dataset):
         self.transform = transform
         self.labels = pd.read_csv(f"{self.config.data_dir}{self.config.id_file}")
         # TODO : Add to config
-        self.flag_multi_timestep = True
+        self.flag_multi_timestep = False
         self.nb_timesteps = 15 # either 3, 5, 15 # number of time steps wanted in the data
         self.timestep_period = 3 # nb of hours between two time steps
         # Check that self.nb_timesteps * self.timestep_period == 45
-        self.flag_multi_variate = True
         self.stack_sample_along_time_and_variable = True
 
         
@@ -118,15 +117,23 @@ class ISDataset(Dataset):
                 sample_path = os.path.join(self.config.data_dir, self.labels.iloc[_idx]["Name"])
                 if self.sample_method=='coords':
                     single_sample = np.float32(np.load(f"{sample_path}.npy"))[self.VI, self.CI[0]:self.CI[1], self.CI[2]:self.CI[3]] # (Nvar, H, W)
+                    position = self.CI
+                if self.sample_method=='random' :
+                    crop_X0 = np.random.randint(0, high = self.config.full_size[0] - self.config.crop_size[0])
+                    crop_X1 = crop_X0 + self.config.crop_size[0]
+                    crop_Y0 = np.random.randint(0, high = self.config.full_size[1] - self.config.crop_size[1])
+                    crop_Y1 = crop_Y0 + self.config.crop_size[1]
+                    single_sample = np.float32(np.load(f"{sample_path}.npy"))[self.VI, crop_X0:crop_X1, crop_Y0:crop_Y1]
+                    position = (crop_X0, crop_X1, crop_Y0, crop_Y1)
                 if len(self.VI)>1:
                     single_sample = single_sample[np.newaxis:] # (1,Nvar,H,W) in case Nvar>1
                 sample.append(single_sample)
             sample = np.array(sample)
             if self.stack_sample_along_time_and_variable :
                     sample = sample.reshape((self.nb_timesteps*len(self.VI), single_sample.shape[-2], single_sample.shape[-1]))
-            # sample should now be : (Nb leatime, Nvar, H, W)
-            if self.sample_method=='coords':
-                position = self.CI
+            # sample should now be : (Nb_leatime*N_var, H, W)
+
+                
         else :
             sample_path = os.path.join(self.config.data_dir, self.labels.iloc[idx]["Name"])
             if self.sample_method=='coords':

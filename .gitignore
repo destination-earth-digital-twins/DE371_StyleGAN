@@ -12,3 +12,4 @@ gan/configs/*
 *.pth
 *.code-workspace
 /restyle-encoder/*
+*plotter/
