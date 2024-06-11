@@ -11,7 +11,6 @@ ARG REQUESTS_CA_BUNDLE
 ARG CURL_CA_BUNDLE
 ARG NODE_EXTRA_CA_CERTS
 
-
 ARG REQUESTS_CA_BUNDLE=/usr/local/share/ca-certificates/mf.crt
 ARG CURL_CA_BUNDLE=/usr/local/share/ca-certificates/mf.crt
 COPY mf.crt /usr/local/share/ca-certificates/mf.crt
@@ -21,7 +20,7 @@ ENV MY_APT='apt -o "Acquire::https::Verify-Peer=false" -o "Acquire::AllowInsecur
 
 RUN update-ca-certificates
 
-RUN $MY_APT update && $MY_APT install -y curl ninja-build build-essential sudo vim nano nvtop openssh-server
+RUN $MY_APT update && $MY_APT install -y curl ninja-build build-essential sudo vim nano nvtop openssh-server nvtop
 
 COPY requirements.txt /root/requirements.txt
 RUN set -eux && pip install --upgrade pip && pip install -r /root/requirements.txt

@@ -129,12 +129,12 @@ def get_expe_parameters():
     parser = argparse.ArgumentParser()
 
     # Paths
-    parser.add_argument('--data_dir', type=str, default="/scratch/mrmn/gandonb/data_for_training/crop_processed/")
+    parser.add_argument('--data_dir', type=str, default="/scratch/mrmn/brochetc/GAN_2D/datasets_full_indexing/IS_1_1.0_0_0_0_0_0_256_large_lt_done/")
     parser.add_argument('--mean_file', type=str, default=None )
     parser.add_argument('--std_file', type=str, default=None )
     parser.add_argument('--max_file', type=str, default=None )
     parser.add_argument('--min_file', type=str, default=None )
-    parser.add_argument('--id_file', type=str, default="labels/27-07-16h30/0-0_2-05_1-0_0-0_3-0_0-0/INST1.csv")
+    parser.add_argument('--id_file', type=str, default="Large_lt_test_labels.csv")
     parser.add_argument('--pretrained_model', type=int, default=-1)
 
     # if not dirs["interactive"] : 
@@ -267,7 +267,7 @@ def get_expe_parameters():
     parser.add_argument('--save_step', type=int, default=2000)# if very_small_exp else (1000 if small_exp else 3000)) # set to 0 if not needed
     parser.add_argument('--test_step', type=int, default=2000)# if very_small_exp else (1000 if small_exp else 3000)) #set to 0 if not needed
 
-    parser.add_argument('--config_dir', type=str, default="", help="The config files absolute path")
+    parser.add_argument('--config_dir', type=str, default="/home/mrmn/sanchezv/project/code/styleganpnria/gan/configs/Set_Exemple/", help="The config files absolute path")
     parser.add_argument('--dataset_handler_config', type=str, default="dataset_handler_config.yaml", help="The dataset_handler config file")
     parser.add_argument('--scheduler_config', type=str, default="", help="The scheduler config file")
     return parser

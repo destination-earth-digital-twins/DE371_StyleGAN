@@ -29,11 +29,12 @@ try:
     local_rank = int(os.environ["LOCAL_RANK"])
 except KeyError:
     local_rank = 0
-torch.cuda.set_device(local_rank)
-init_process_group(
-    'nccl' if dist.is_nccl_available() else 'gloo',
-    rank=local_rank,
-    world_size=torch.cuda.device_count())
+if torch.cuda.is_available():
+    torch.cuda.set_device(local_rank)
+    init_process_group(
+        'nccl' if dist.is_nccl_available() else 'gloo',
+        rank=local_rank,
+        world_size=torch.cuda.device_count())
 
 
 ###############################################################################

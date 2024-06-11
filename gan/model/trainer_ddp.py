@@ -191,7 +191,7 @@ class Trainer():
         self.scheduler_G = None
         self.config = config
         self.instance_flag = False
-
+        self.device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
         # self.test_metrics = []
         # for name in test_metrics:
         #    print("name ", name)
@@ -318,14 +318,14 @@ class Trainer():
         torch.manual_seed(self.config.seed)
         mem_cuda = torch.cuda.memory_allocated()
         torch.manual_seed(self.config.seed)
-        modelD.cuda()
+        modelD.to(self.device)
         mem_d = torch.cuda.memory_allocated()-mem_cuda
-        modelG.cuda()
+        modelG.to(self.device)
         mem_g = torch.cuda.memory_allocated()-mem_d-mem_cuda
         
     
         if modelG_ema is not None:
-            modelG_ema.cuda()
+            modelG_ema.to(self.device)
             modelG_ema = DDP(modelG_ema, device_ids=[get_rank()],
             output_device=get_rank(),
             broadcast_buffers=False)
