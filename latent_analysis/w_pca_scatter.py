@@ -12,6 +12,7 @@ import argparse
 import matplotlib.pyplot as plt
 from sklearn.decomposition import PCA
 import matplotlib.pyplot as plt
+import torch 
 
 # Do not hesitate to adapt the code depending on what you want to do 
 #Argument parser 
@@ -98,55 +99,76 @@ pca_w_875_arome = pca.fit(np.array(w_875_arome))
 eigenvalues_w_875_arome = pca_w_875_arome.explained_variance_
 prop_var_w_875_arome = eigenvalues_w_875_arome / np.sum(eigenvalues_w_875_arome)
 
+eigenvectors_w_875_arome = torch.from_numpy(pca_w_875_arome.components_)
+w_875_arome_norm = torch.from_numpy(np.array(w_875_arome)-np.mean(np.array(w_875_arome), axis=0))
+projection = (torch.einsum('ab, db-> da', eigenvectors_w_875_arome, w_875_arome_norm)/torch.sqrt(torch.from_numpy(eigenvalues_w_875_arome).view(1,512))).numpy()
+
+mean_projection = projection.mean(axis=0)
+std_projection = np.std(projection, axis=0, ddof=1)
+
 plt.figure(figsize=(14,10))
-plt.plot(np.arange(1, len(prop_var_w_samples)+1), prop_var_w_samples, marker='o', c='blue')
-plt.plot(np.arange(1, len(prop_var_w_875_arome)+1), prop_var_w_875_arome, marker='o', c='magenta')
+plt.plot(np.arange(1, len(mean_projection)+1), mean_projection, marker='o', c='blue')
+plt.fill_between(np.arange(1, len(mean_projection)+1), mean_projection-std_projection, mean_projection+std_projection, alpha=0.3, color='magenta')
 # plt.plot(np.arange(1, len(prop_var_w_inv1)+1), prop_var_w_inv1, marker='o', c='red')
 # # plt.plot(np.arange(1, len(prop_var_w_inv2)+1), prop_var_w_inv2, marker='o', c='green')
 plt.xlabel('Principal Component',size = 20)
-plt.yscale('log')
-plt.ylabel('Proportion of Variance Explained',size = 20)
-plt.title('Figure 1: Scree Plot for Proportion of Variance Explained',size = 25)
+# plt.yscale('log')
+plt.ylabel('Projection ',size = 20)
+plt.title('Figure 0: Projection',size = 25)
 plt.grid(True)
 
-figname = f"{args.output_dir}/875_scree_plot_w_scatter_{args.case}_step_{args.inversion_step}.png"
+figname = f"{args.output_dir}/project_875_scree_plot_w_scatter_{args.case}_step_{args.inversion_step}.png"
 plt.savefig(figname, dpi=100)
 
-# kaiser rule
-plt.figure(figsize=(14,10))
-plt.plot(np.arange(1, len(eigenvalues_w_samples)+1), eigenvalues_w_samples, marker='o', c='blue')
-# plt.plot(np.arange(1, len(eigenvalues_w_inv1)+1), eigenvalues_w_inv1, marker='o',  c='red')
-plt.plot(np.arange(1, len(eigenvalues_w_875_arome)+1), eigenvalues_w_875_arome, marker='o',  c='magenta')
-# # plt.plot(np.arange(1, len(eigenvalues_w_inv2)+1), eigenvalues_w_inv2, marker='o', c='green')
-plt.xlabel('Principal Component',size = 20)
-plt.ylabel('Eigenvalue',size = 20)
-plt.yscale('log')
-plt.title('Figure 2: Scree Plot for Eigenvalues',size = 25)
-plt.axhline(y=1, color='r',linestyle='--')
-plt.grid(True)
-figname = f"{args.output_dir}/875_scree_plot_kaiser_w_scatter_{args.case}_step_{args.inversion_step}.png"
-plt.savefig(figname, dpi=100)
+# plt.figure(figsize=(14,10))
+# plt.plot(np.arange(1, len(prop_var_w_samples)+1), prop_var_w_samples, marker='o', c='blue')
+# plt.plot(np.arange(1, len(prop_var_w_875_arome)+1), prop_var_w_875_arome, marker='o', c='magenta')
+# # plt.plot(np.arange(1, len(prop_var_w_inv1)+1), prop_var_w_inv1, marker='o', c='red')
+# # # plt.plot(np.arange(1, len(prop_var_w_inv2)+1), prop_var_w_inv2, marker='o', c='green')
+# plt.xlabel('Principal Component',size = 20)
+# plt.yscale('log')
+# plt.ylabel('Proportion of Variance Explained',size = 20)
+# plt.title('Figure 1: Scree Plot for Proportion of Variance Explained',size = 25)
+# plt.grid(True)
 
-plt.figure(figsize=(7,7))
-plt.scatter(pca_w_samples.components_[0],pca_w_samples.components_[1],cmap='prism', s=5, c='blue')
-plt.scatter(pca_w_875_arome.components_[0],pca_w_875_arome.components_[1],cmap='prism', s=5, c='magenta')
-# plt.scatter(pca_w_inv1.components_[0],pca_w_inv1.components_[1],cmap='prism', s=5, c='red')
-# # plt.scatter(pca_w_inv2.components_[0],pca_w_inv2.components_[1],cmap='prism', s=5, c='green')
-plt.xlabel('pc1')
-plt.ylabel('pc2')
-plt.title('Figure 3: PCA on first two components',size = 25)
-figname = f"{args.output_dir}/875_pca_w_scatter_{args.case}_step_{args.inversion_step}.png"
-plt.savefig(figname, dpi=100)
+# figname = f"{args.output_dir}/875_scree_plot_w_scatter_{args.case}_step_{args.inversion_step}.png"
+# plt.savefig(figname, dpi=100)
 
-fig = plt.figure(figsize=(7,7))
-ax = fig.add_subplot(projection='3d')
-ax.scatter(pca_w_samples.components_[0],pca_w_samples.components_[1],pca_w_samples.components_[2],cmap='prism', c='blue')
-ax.scatter(pca_w_875_arome.components_[0],pca_w_875_arome.components_[1],pca_w_875_arome.components_[2],cmap='prism', c='magenta')
-# ax.scatter(pca_w_inv1.components_[0],pca_w_inv1.components_[1],pca_w_inv1.components_[2],cmap='prism', c='red')
-# # plt.scatter(pca_w_inv2.components_[0],pca_w_inv2.components_[1],cmap='prism', s=5, c='green')
-ax.set_xlabel('pc1')
-ax.set_ylabel('pc2')
-ax.set_zlabel('pc3')
-ax.set_title('Figure 4: PCA on first three components',size = 25)
-figname = f"{args.output_dir}/875_pca_3d_w_scatter_{args.case}_step_{args.inversion_step}.png"
-fig.savefig(figname, dpi=100)
+# # kaiser rule
+# plt.figure(figsize=(14,10))
+# plt.plot(np.arange(1, len(eigenvalues_w_samples)+1), eigenvalues_w_samples, marker='o', c='blue')
+# # plt.plot(np.arange(1, len(eigenvalues_w_inv1)+1), eigenvalues_w_inv1, marker='o',  c='red')
+# plt.plot(np.arange(1, len(eigenvalues_w_875_arome)+1), eigenvalues_w_875_arome, marker='o',  c='magenta')
+# # # plt.plot(np.arange(1, len(eigenvalues_w_inv2)+1), eigenvalues_w_inv2, marker='o', c='green')
+# plt.xlabel('Principal Component',size = 20)
+# plt.ylabel('Eigenvalue',size = 20)
+# plt.yscale('log')
+# plt.title('Figure 2: Scree Plot for Eigenvalues',size = 25)
+# plt.axhline(y=1, color='r',linestyle='--')
+# plt.grid(True)
+# figname = f"{args.output_dir}/875_scree_plot_kaiser_w_scatter_{args.case}_step_{args.inversion_step}.png"
+# plt.savefig(figname, dpi=100)
+
+# plt.figure(figsize=(7,7))
+# plt.scatter(pca_w_samples.components_[0],pca_w_samples.components_[1],cmap='prism', s=5, c='blue')
+# plt.scatter(pca_w_875_arome.components_[0],pca_w_875_arome.components_[1],cmap='prism', s=5, c='magenta')
+# # plt.scatter(pca_w_inv1.components_[0],pca_w_inv1.components_[1],cmap='prism', s=5, c='red')
+# # # plt.scatter(pca_w_inv2.components_[0],pca_w_inv2.components_[1],cmap='prism', s=5, c='green')
+# plt.xlabel('pc1')
+# plt.ylabel('pc2')
+# plt.title('Figure 3: PCA on first two components',size = 25)
+# figname = f"{args.output_dir}/875_pca_w_scatter_{args.case}_step_{args.inversion_step}.png"
+# plt.savefig(figname, dpi=100)
+
+# fig = plt.figure(figsize=(7,7))
+# ax = fig.add_subplot(projection='3d')
+# ax.scatter(pca_w_samples.components_[0],pca_w_samples.components_[1],pca_w_samples.components_[2],cmap='prism', c='blue')
+# ax.scatter(pca_w_875_arome.components_[0],pca_w_875_arome.components_[1],pca_w_875_arome.components_[2],cmap='prism', c='magenta')
+# # ax.scatter(pca_w_inv1.components_[0],pca_w_inv1.components_[1],pca_w_inv1.components_[2],cmap='prism', c='red')
+# # # plt.scatter(pca_w_inv2.components_[0],pca_w_inv2.components_[1],cmap='prism', s=5, c='green')
+# ax.set_xlabel('pc1')
+# ax.set_ylabel('pc2')
+# ax.set_zlabel('pc3')
+# ax.set_title('Figure 4: PCA on first three components',size = 25)
+# figname = f"{args.output_dir}/875_pca_3d_w_scatter_{args.case}_step_{args.inversion_step}.png"
+# fig.savefig(figname, dpi=100)

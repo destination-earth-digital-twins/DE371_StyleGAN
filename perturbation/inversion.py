@@ -138,7 +138,7 @@ def optimize(Ens_r, g_ema, latent_mean, device, params):
     latent_path = []
     if params.lambda_vgg>0 :
         VGG_loss = VGGPerceptualLoss(
-                        pre_trained=params.vgg_pre_trained,
+                        state_dict_path=params.vgg_state_dict_path,
                         init_layer=True if params.vgg_computation=='sol4' else False,
                         vgg_single_channel_input=True if params.vgg_computation=='sol5' else False
         )
@@ -173,42 +173,47 @@ def optimize(Ens_r, g_ema, latent_mean, device, params):
         else:
             noise_loss = 0.
 
+        
         # compute vgg/perceptual loss
-        if params.lambda_vgg>0.:
-            t0 = time.time()
-            if params.vgg_computation=='sol1':
-                perceptual_loss = torch.tensor(0.).to(device)
-                for i_mem in range(img_gen.shape[0]): # mkl: i think we can avoid double for loop by passing all members for each variable as input
+        perceptual_loss = torch.tensor(0.).to(device)
+        if i >= params.vgg_loss_after_step and params.lambda_vgg>0.:
+                t0 = time.time()
+                if params.vgg_computation=='sol1':
+                    perceptual_loss = torch.tensor(0.).to(device)
+                    for i_mem in range(img_gen.shape[0]): # mkl: i think we can avoid double for loop by passing all members for each variable as input
+                        for i_var in range(img_gen.shape[1]):
+                            perceptual_loss += VGG_loss( (img_gen[i_mem, i_var, :, :]+1)/2,
+                                                        (Ens_r[i_mem, i_var, :, :]+1)/2,
+                                                        feature_layers = params.vgg_feature_layers,
+                                                        style_layers = params.vgg_style_layers,
+                                                        alpha_feature = params.vgg_alpha_feature,
+                                                        alpha_style = params.vgg_alpha_style
+                            )
+                    perceptual_loss /= img_gen.shape[0]*img_gen.shape[1]
+                elif params.vgg_computation in ['sol2', 'sol4', 'sol5']:
+                    perceptual_loss = torch.tensor(0.).to(device)
                     for i_var in range(img_gen.shape[1]):
-                        perceptual_loss += VGG_loss( (img_gen[i_mem, i_var, :, :]+1)/2,
-                                                    (Ens_r[i_mem, i_var, :, :]+1)/2,
-                                                    feature_layers = params.vgg_feature_layers,
-                                                    style_layers = params.vgg_style_layers,
-                                                    alpha_feature = params.vgg_alpha_feature,
-                                                    alpha_style = params.vgg_alpha_style
-                        )
-                perceptual_loss /= img_gen.shape[0]*img_gen.shape[1]
-            elif params.vgg_computation in ['sol2', 'sol4', 'sol5']:
-                perceptual_loss = torch.tensor(0.).to(device)
-                for i_var in range(img_gen.shape[1]):
-                    perceptual_loss += VGG_loss( (img_gen[:, i_var, :, :]+1)/2,
-                                                    (Ens_r[:, i_var, :, :]+1)/2,
-                                                    feature_layers = params.vgg_feature_layers,
-                                                    style_layers = params.vgg_style_layers,
-                                                    alpha_feature = params.vgg_alpha_feature,
-                                                    alpha_style = params.vgg_alpha_style
-                        )
-                perceptual_loss /= img_gen.shape[1]
-            elif params.vgg_computation == 'sol3':
-                perceptual_loss = VGG_loss((img_gen+1)/2,
-                                            (Ens_r+1)/2,
-                                            feature_layers = params.vgg_feature_layers,
-                                            style_layers = params.vgg_style_layers,
-                                            alpha_feature = params.vgg_alpha_feature,
-                                            alpha_style = params.vgg_alpha_style
-                )
-            list_time_to_compute_vgg_loss.append(time.time()-t0)
-            list_perceptual_loss.append(perceptual_loss.cpu().detach().numpy())
+                        perceptual_loss += VGG_loss( (img_gen[:, i_var, :, :]+1)/2,
+                                                        (Ens_r[:, i_var, :, :]+1)/2,
+                                                        feature_layers = params.vgg_feature_layers,
+                                                        style_layers = params.vgg_style_layers,
+                                                        alpha_feature = params.vgg_alpha_feature,
+                                                        alpha_style = params.vgg_alpha_style
+                            )
+                    perceptual_loss /= img_gen.shape[1]
+                elif params.vgg_computation == 'sol3':
+                    perceptual_loss = VGG_loss((img_gen+1)/2,
+                                                (Ens_r+1)/2,
+                                                feature_layers = params.vgg_feature_layers,
+                                                style_layers = params.vgg_style_layers,
+                                                alpha_feature = params.vgg_alpha_feature,
+                                                alpha_style = params.vgg_alpha_style
+                    )
+                list_time_to_compute_vgg_loss.append(time.time()-t0)
+                list_perceptual_loss.append(perceptual_loss.cpu().detach().numpy())
+        else :
+            list_time_to_compute_vgg_loss.append(np.NaN)
+            list_perceptual_loss.append(np.NaN)
 
         # compute mae/mse pixel loss
         if params.pixel_loss_type=='mse' :
