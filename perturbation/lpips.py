@@ -5,7 +5,7 @@ import torch.nn as nn
 
 ## adapted from https://gist.github.com/alper111/8233cdb0414b4cb5853f2f730ab95a49#gistcomment-3347450
 class VGGPerceptualLoss(torch.nn.Module):
-    def __init__(self, resize=False, pre_trained=False, init_layer=False, vgg_single_channel_input=True):
+    def __init__(self, resize=False, state_dict_path='', init_layer=False, vgg_single_channel_input=True):
         super(VGGPerceptualLoss, self).__init__()
         blocks = []
         self.flag_init_layer=init_layer
@@ -15,20 +15,23 @@ class VGGPerceptualLoss(torch.nn.Module):
                                     nn.Conv2d(in_channels=1, out_channels=3, kernel_size=1),
                                     nn.ReLU()
                                     )
+        vgg_network = torchvision.models.vgg16(weights=None)
+        vgg_network.load_state_dict(torch.load(state_dict_path))
+
         if not vgg_single_channel_input :
-            blocks.append(torchvision.models.vgg16(weights='VGG16_Weights.DEFAULT' if pre_trained else None).features[:4].eval())
+            blocks.append(vgg_network.features[:4].eval())
         else :
             blocks.append(
                 nn.Sequential(
                     nn.Conv2d(in_channels=1, out_channels=64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1)).eval(),
-                    torchvision.models.vgg16(weights='VGG16_Weights.DEFAULT' if pre_trained else None).features[1].eval(),
-                    torchvision.models.vgg16(weights='VGG16_Weights.DEFAULT' if pre_trained else None).features[2].eval(),
-                    torchvision.models.vgg16(weights='VGG16_Weights.DEFAULT' if pre_trained else None).features[3].eval()
+                    vgg_network.features[1].eval(),
+                    vgg_network.features[2].eval(),
+                    vgg_network.features[3].eval()
                 )
             )
-        blocks.append(torchvision.models.vgg16(weights='VGG16_Weights.DEFAULT'if pre_trained else None).features[4:9].eval())
-        blocks.append(torchvision.models.vgg16(weights='VGG16_Weights.DEFAULT'if pre_trained else None).features[9:16].eval())
-        blocks.append(torchvision.models.vgg16(weights='VGG16_Weights.DEFAULT'if pre_trained else None).features[16:23].eval())
+        blocks.append(vgg_network.features[4:9].eval())
+        blocks.append(vgg_network.features[9:16].eval())
+        blocks.append(vgg_network.features[16:23].eval())
         for bl in blocks:
             for p in bl.parameters():
                 p.requires_grad = False
