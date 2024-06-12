@@ -118,7 +118,7 @@ def get_dirs(config_dir):
     
     parser=argparse.ArgumentParser()
     parser.add_argument('--config_file', type=str, \
-                        default='very_small_exp_gandonb.yaml')
+                        default='main.yaml')
     args =   parser.parse_args()
     config_file_abs_path = f"{config_dir}{args.config_file}"
 
@@ -267,7 +267,7 @@ def get_expe_parameters():
     parser.add_argument('--save_step', type=int, default=2000)# if very_small_exp else (1000 if small_exp else 3000)) # set to 0 if not needed
     parser.add_argument('--test_step', type=int, default=2000)# if very_small_exp else (1000 if small_exp else 3000)) #set to 0 if not needed
 
-    parser.add_argument('--config_dir', type=str, default="/home/mrmn/sanchezv/project/code/styleganpnria/gan/configs/Set_Exemple/", help="The config files absolute path")
+    parser.add_argument('--config_dir', type=str, default="/home/mrmn/sanchezv/project/code/styleganpnria/config/Set_UseNoiseFalse/", help="The config files absolute path")
     parser.add_argument('--dataset_handler_config', type=str, default="dataset_handler_config.yaml", help="The dataset_handler config file")
     parser.add_argument('--scheduler_config', type=str, default="", help="The scheduler config file")
     return parser
