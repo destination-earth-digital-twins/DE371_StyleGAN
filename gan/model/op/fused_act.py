@@ -8,16 +8,15 @@ from torch.utils.cpp_extension import load
 
 
 module_path = os.path.dirname(__file__)
-try:
-    fused = load(
-        "fused",
-        sources=[
-            os.path.join(module_path, "fused_bias_act.cpp"),
-            os.path.join(module_path, "fused_bias_act_kernel.cu"),
-        ],
-    )
-except :
-    pass
+
+fused = load(
+    "fused",
+    sources=[
+        os.path.join(module_path, "fused_bias_act.cpp"),
+        os.path.join(module_path, "fused_bias_act_kernel.cu"),
+    ],
+)
+
 
 
 class FusedLeakyReLUFunctionBackward(Function):
