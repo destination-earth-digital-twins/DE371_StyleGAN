@@ -11,4 +11,5 @@ gan/configs/*
 *run*
 *.pth
 *.code-workspace
-/perturbation/_lpips
+/restyle-encoder/*
+*plotter/

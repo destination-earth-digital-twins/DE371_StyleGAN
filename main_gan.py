@@ -29,11 +29,12 @@ try:
     local_rank = int(os.environ["LOCAL_RANK"])
 except KeyError:
     local_rank = 0
-torch.cuda.set_device(local_rank)
-init_process_group(
-    'nccl' if dist.is_nccl_available() else 'gloo',
-    rank=local_rank,
-    world_size=torch.cuda.device_count())
+if torch.cuda.is_available():
+    torch.cuda.set_device(local_rank)
+    init_process_group(
+        'nccl' if dist.is_nccl_available() else 'gloo',
+        rank=local_rank,
+        world_size=torch.cuda.device_count())
 
 
 ###############################################################################
@@ -224,7 +225,7 @@ TRAINER = trainer.Trainer(config,criterion="W1_center",\
 print('instantiating', flush=True)
 modelG, modelD, modelG_ema, mem_g, mem_d, mem_opt, mem_cuda = TRAINER.instantiate(modelG, modelD, load_optim=ckpt, modelG_ema=modelG_ema)
 
-memco.log_mem_consumption(modelG, modelD, config, mem_g, mem_d, mem_opt, mem_cuda)
+# memco.log_mem_consumption(modelG, modelD, config, mem_g, mem_d, mem_opt, mem_cuda)
 
 
 

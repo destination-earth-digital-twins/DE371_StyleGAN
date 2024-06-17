@@ -10,6 +10,7 @@ import pickle
 from tqdm import tqdm
 from perturbation.lpips import VGGPerceptualLoss
 from perturbation.plotter import online_inv_plot_2, online_inv_plot
+import time
 
 def noise_regularize(noises):
     r'''
@@ -102,8 +103,8 @@ def optimize(Ens_r, g_ema, latent_mean, device, params):
 
 
     """
-
     Ens_r = Ens_r.to(device) # torch.Size([B, CH, 256, 256])
+    print(ENS_r,'CA CEST ens_r b,ch,256,256', Ens_r.torch.size)
     latent_mean = latent_mean.to(device) # torch.Size([512])
     latent_in = latent_mean.detach().clone().unsqueeze(0).repeat(Ens_r.shape[0], 1) # torch.Size([B, 512])
 
@@ -113,7 +114,7 @@ def optimize(Ens_r, g_ema, latent_mean, device, params):
         latent_mean = latent_out.mean(0) # mkl: this is weird. latent mean is passed as an input, but we are not using it ?
         latent_std = ((latent_out - latent_mean).pow(2).sum() / Ens_r.shape[0]) ** 0.5
 
-    print(f'########## Latent vector optimisation {params.date_index} {params.lt_index} #############')
+    print(f'########## Latent vector optimisation {params.date_index} {params.lt_index}{Ens_r} #############')
 
     noises_single = g_ema.make_noise() # list of noise maps, with shapes from (1,1,4,4) to (1,1,256,256)
     noises = [] # per pixel noise to inject in each layer. with shapes from (B,1,4,4) to (B,1,256,256)
@@ -137,8 +138,17 @@ def optimize(Ens_r, g_ema, latent_mean, device, params):
 
     latent_path = []
     if params.lambda_vgg>0 :
-        VGG_loss = VGGPerceptualLoss()
+        VGG_loss = VGGPerceptualLoss(
+                        state_dict_path=params.vgg_state_dict_path,
+                        init_layer=True if params.vgg_computation=='sol4' else False,
+                        vgg_single_channel_input=True if params.vgg_computation=='sol5' else False
+        )
         VGG_loss.to(device)
+
+    list_perceptual_loss = []
+    list_pixel_loss = []
+    list_time_to_compute_vgg_loss=[]
+    list_time_to_compute_mse_loss=[]
 
     for i in pbar:
         t = i / params.invstep
@@ -164,22 +174,54 @@ def optimize(Ens_r, g_ema, latent_mean, device, params):
         else:
             noise_loss = 0.
 
+        
         # compute vgg/perceptual loss
-        perceptual_loss = 0.
-        if params.lambda_vgg>0.:
-            for i_mem in range(img_gen.shape[0]): # mkl: i think we can avoid double for loop by passing all members for each variable as input
-                for i_var in range(img_gen.shape[1]):
-                    perceptual_loss += VGG_loss( (img_gen[i_mem, i_var, :, :]+1)/2,
-                                                 (Ens_r[i_mem, i_var, :, :]+1)/2,
-                                                 feature_layers = params.vgg_feature_layers,
-                                                 style_layers = params.vgg_style_layers,
-                                                 alpha_feature = params.vgg_alpha_feature,
-                                                 alpha_style = params.vgg_alpha_style )
-            perceptual_loss /= img_gen.shape[0]*img_gen.shape[1]
+        perceptual_loss = torch.tensor(0.).to(device)
+        if i >= params.vgg_loss_after_step and params.lambda_vgg>0.:
+                t0 = time.time()
+                if params.vgg_computation=='sol1':
+                    perceptual_loss = torch.tensor(0.).to(device)
+                    for i_mem in range(img_gen.shape[0]): # mkl: i think we can avoid double for loop by passing all members for each variable as input
+                        for i_var in range(img_gen.shape[1]):
+                            perceptual_loss += VGG_loss( (img_gen[i_mem, i_var, :, :]+1)/2,
+                                                        (Ens_r[i_mem, i_var, :, :]+1)/2,
+                                                        feature_layers = params.vgg_feature_layers,
+                                                        style_layers = params.vgg_style_layers,
+                                                        alpha_feature = params.vgg_alpha_feature,
+                                                        alpha_style = params.vgg_alpha_style
+                            )
+                    perceptual_loss /= img_gen.shape[0]*img_gen.shape[1]
+                elif params.vgg_computation in ['sol2', 'sol4', 'sol5']:
+                    perceptual_loss = torch.tensor(0.).to(device)
+                    for i_var in range(img_gen.shape[1]):
+                        perceptual_loss += VGG_loss( (img_gen[:, i_var, :, :]+1)/2,
+                                                        (Ens_r[:, i_var, :, :]+1)/2,
+                                                        feature_layers = params.vgg_feature_layers,
+                                                        style_layers = params.vgg_style_layers,
+                                                        alpha_feature = params.vgg_alpha_feature,
+                                                        alpha_style = params.vgg_alpha_style
+                            )
+                    perceptual_loss /= img_gen.shape[1]
+                elif params.vgg_computation == 'sol3':
+                    perceptual_loss = VGG_loss((img_gen+1)/2,
+                                                (Ens_r+1)/2,
+                                                feature_layers = params.vgg_feature_layers,
+                                                style_layers = params.vgg_style_layers,
+                                                alpha_feature = params.vgg_alpha_feature,
+                                                alpha_style = params.vgg_alpha_style
+                    )
+                list_time_to_compute_vgg_loss.append(time.time()-t0)
+                list_perceptual_loss.append(perceptual_loss.cpu().detach().numpy())
+        else :
+            list_time_to_compute_vgg_loss.append(np.NaN)
+            list_perceptual_loss.append(np.NaN)
 
         # compute mae/mse pixel loss
         if params.pixel_loss_type=='mse' :
+            t0 = time.time()
             pixel_loss = F.mse_loss(img_gen, Ens_r)
+            list_time_to_compute_mse_loss.append(time.time()-t0)
+            list_pixel_loss.append(pixel_loss.cpu().detach().numpy())
 
         elif params.pixel_loss_type=='mae':
             pixel_loss = F.l1_loss(img_gen, Ens_r)
@@ -199,8 +241,7 @@ def optimize(Ens_r, g_ema, latent_mean, device, params):
 
         pbar.set_description(
             (
-                f" pixel_loss: {pixel_loss.item():.6f}; lr: {lr:.4f}",
-                f" perceptual_loss: {perceptual_loss.item():.6f}; lr: {lr:.4f}"
+                f" pixel_loss: {pixel_loss.item():.6f}; lr: {lr:.4f} || perceptual_loss: {perceptual_loss.item():.6f}; lr: {lr:.4f}"
             )
         )
         if (i + 1) % 100 == 0 or i==params.invstep-1:
@@ -219,7 +260,12 @@ def optimize(Ens_r, g_ema, latent_mean, device, params):
             print(f"--plotting checkpoint {i+1}: {figname}")
             figtitle = f"{params.date_index}_{params.lt_index}_step_{i+1}"
             online_inv_plot_2(Ens_r.cpu().detach().numpy(), img_gen.cpu().detach().numpy(), figtitle=figtitle, figname=figname)
-
+            
+            print(f"--saving loss_function {i+1}: {figname}")
+            np.save(params.output_dir+'MSE_loss_{}_{}.npy'.format(params.date_index,params.lt_index),list_pixel_loss)
+            np.save(params.output_dir+'Perceptual_loss_{}_{}.npy'.format(params.date_index,params.lt_index),list_perceptual_loss)
+            np.save(params.output_dir+'Time_Perceptual_loss_{}_{}.npy'.format(params.date_index,params.lt_index),list_time_to_compute_vgg_loss)
+            np.save(params.output_dir+'Time_MSE_loss_{}_{}.npy'.format(params.date_index,params.lt_index),list_time_to_compute_mse_loss)
 
 
 def optimize_noise(Ens_r, g_ema, device, params, w):

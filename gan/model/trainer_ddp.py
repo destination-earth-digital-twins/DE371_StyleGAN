@@ -191,7 +191,7 @@ class Trainer():
         self.scheduler_G = None
         self.config = config
         self.instance_flag = False
-
+        self.device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
         # self.test_metrics = []
         # for name in test_metrics:
         #    print("name ", name)
@@ -314,32 +314,43 @@ class Trainer():
             file.close()
 
     def instantiate(self, modelG, modelD, load_optim=False, modelG_ema=None):
-
+        print('Instantiating Start')
         torch.manual_seed(self.config.seed)
         mem_cuda = torch.cuda.memory_allocated()
+        print('memory_allocated'.format(mem_cuda))
         torch.manual_seed(self.config.seed)
-        modelD.cuda()
+        modelD.to(self.device)
         mem_d = torch.cuda.memory_allocated()-mem_cuda
-        modelG.cuda()
+        print('memory_allocated for Discriminator'.format(mem_d))
+        modelG.to(self.device)
         mem_g = torch.cuda.memory_allocated()-mem_d-mem_cuda
-        
+        print('memory_allocated for Generator'.format(mem_g))
     
         if modelG_ema is not None:
-            modelG_ema.cuda()
-            modelG_ema = DDP(modelG_ema, device_ids=[get_rank()],
-            output_device=get_rank(),
-            broadcast_buffers=False)
+            modelG_ema.to(self.device)
+            modelG_ema = DDP(
+                modelG_ema, 
+                device_ids=[get_rank()],
+                output_device=get_rank(),
+                broadcast_buffers=False
+            )
             # modelG_ema = torch.compile(modelG_ema)
         
        
 
-        modelG = DDP(modelG, device_ids=[get_rank()],
+        modelG = DDP(
+            modelG,
+            device_ids=[get_rank()],
             output_device=get_rank(),
-            broadcast_buffers=False)
+            broadcast_buffers=False
+        )
         # modelG = torch.compile(modelG)
-        modelD = DDP(modelD, device_ids=[get_rank()],
+        modelD = DDP(
+            modelD, 
+            device_ids=[get_rank()],
             output_device=get_rank(),
-            broadcast_buffers=False)
+            broadcast_buffers=False
+        )
         # modelD = torch.compile(modelD)
         ###
 
@@ -353,7 +364,7 @@ class Trainer():
 
         if is_main_gpu(): print("Data loaded, Trainer instantiated")
         self.instance_flag = True
-        
+        print('Instantiating Done')
         return tuple(v for v in [modelG, modelD, modelG_ema, mem_g, mem_d, mem_opt, mem_cuda] if v is not None)
 
     ################################ LOGGING FUNCTIONS #######################

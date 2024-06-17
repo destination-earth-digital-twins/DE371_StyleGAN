@@ -55,6 +55,8 @@ parser.add_argument("--lambda_spectrum",type=float, default=0.0)
 parser.add_argument("--lambda_spread",type=float, default=1.0)
 parser.add_argument("--convert_ff_t",action="store_true")
 parser.add_argument("--invert_step",type=int, default=1000)
+
+########################### Directories ###########################
 parser.add_argument("--fake_data_dir", type=str, 
                     default='/scratch/mrmn/brochetc/GAN_2D/Exp_StyleGAN_final/Inversion_Val/')
 parser.add_argument("--real_data_dir", type=str, 
