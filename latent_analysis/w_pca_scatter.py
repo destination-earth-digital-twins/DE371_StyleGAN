@@ -24,7 +24,8 @@ def PCA(X , num_components=None):
     X_meaned = X - np.mean(X , axis = 0)
      
     # Covariance Matrix
-    cov_mat = np.cov(X_meaned , rowvar = False)
+    cov_mat = np.cov(X_meaned , rowvar = False) 
+    # intercor_mat = np.correlate(X_meaned.flatten(),X_meaned.flatten())
      
     # Eigen Values and Eigen Vectors
     eigen_values , eigen_vectors = np.linalg.eigh(cov_mat)
@@ -45,11 +46,11 @@ def PCA(X , num_components=None):
 parser = argparse.ArgumentParser()
 parser.add_argument('--ckpt_dir',        type=str, default='/scratch/mrmn/brochetc/GAN_2D/Exp_StyleGAN_final/Set_1/stylegan2_stylegan_dom_256_lat-dim_512_bs_4_0.002_0.002_ch-mul_2_vars_u_v_t2m_noise_True/Instance_14/models/000024.pt')
 parser.add_argument('--output_dir',      type=str, default='/scratch/mrmn/sanchezv/project/results/Ens_Perceptual_Random_VGG_Loss')
-parser.add_argument('--w_inversion_dir1', type=str, default='/scratch/mrmn/sanchezv/project/results/Ens_Perceptual_Random_VGG_Loss/Inversion_Perceptual_Random_VGG_Loss')
-parser.add_argument('--w_inversion_dir2', type=str, default='/scratch/mrmn/sanchezv/project/results/Ens_MSE_Loss/Inversion_MSE_Loss')
+parser.add_argument('--w_inversion_dir1', type=str, default='/scratch/mrmn/sanchezv/project/results/Ens_MSE_100_Percep_100/Inversion_MSE_100_Percep_100')
+parser.add_argument('--w_inversion_dir2', type=str, default='/scratch/mrmn/sanchezv/project/results/Ens_MSE_1_Percep_100/Inversion_MSE_1_Percep_100')
 parser.add_argument('--w_samples_dir',   type=str, default='/scratch/mrmn/sanchezv/project/results/Ens_Perceptual_Random_VGG_Loss/w_samples') # samples generated with mkl_w_sample.py
-parser.add_argument('--inversion_step',  type=str, default="1000")
-parser.add_argument('--case',           type=str, default="2021-07-05_6", help="specific inversion case to consider") # %Y-%m-%d_lt
+parser.add_argument('--inversion_step',  type=str, default="500")
+parser.add_argument('--case',           type=str, default="2021-08-14_3", help="specific inversion case to consider") # %Y-%m-%d_lt
 parser.add_argument('--arome_875_w_samples_file',  type=str, default='/scratch/mrmn/sanchezv/project/results/Latent_Sapce_Analysis/data/Inversion_GE/w_ge_3_875.npy') # samples generated with mkl_w_sample.py
 args = parser.parse_args()
 
@@ -62,7 +63,7 @@ files_x = glob.glob(f"{args.w_samples_dir}/x/_x*.npy")
 w_inv1 = np.load(f"{args.w_inversion_dir1}/w_{args.case}_{args.inversion_step}.npy")
 
 ## 16 members inverted with MSE
-w_inv2 = np.load(f"{args.w_inversion_dir2}/w_{args.case}_1000.npy")
+w_inv2 = np.load(f"{args.w_inversion_dir2}/w_{args.case}_{args.inversion_step}.npy")
 
 
 

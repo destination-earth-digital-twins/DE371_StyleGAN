@@ -225,7 +225,7 @@ TRAINER = trainer.Trainer(config,criterion="W1_center",\
 print('instantiating', flush=True)
 modelG, modelD, modelG_ema, mem_g, mem_d, mem_opt, mem_cuda = TRAINER.instantiate(modelG, modelD, load_optim=ckpt, modelG_ema=modelG_ema)
 
-memco.log_mem_consumption(modelG, modelD, config, mem_g, mem_d, mem_opt, mem_cuda)
+# memco.log_mem_consumption(modelG, modelD, config, mem_g, mem_d, mem_opt, mem_cuda)
 
 
 

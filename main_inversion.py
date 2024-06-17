@@ -78,7 +78,7 @@ if __name__=="__main__" :
 
     parser.add_argument("--vgg_computation", type=str, default='sol1', choices = ['sol1', 'sol2', 'sol3', 'sol4', 'sol5'], 
                         help="Either we compute layer by layer and member per member but we have to triple th einput to make it rgb or all in one (naive)")
-    parser.add_argument("--vgg_state_dict_path", type=str, default='/home/mrmn/sanchezv/project/code/styleganpnria/perturbation/vgg_weights/vgg16-random.pth', help="Insert a path")
+    parser.add_argument("--vgg_state_dict_path", type=str, default='/home/mrmn/sanchezv/project/code/styleganpnria/perturbation/vgg_weights/vgg16-397923af.pth', help="Insert a path")
     parser.add_argument("--vgg_style_layers", type=int, nargs='+', default=[], help="style layers to include in vgg loss computation")
     parser.add_argument("--vgg_feature_layers", type=int, nargs='+', default=[0,1,2,3], help="feature layers to include in vgg computation")
     parser.add_argument("--vgg_alpha_feature", type=float, default=1.0, help="weight of the feature/content loss")
