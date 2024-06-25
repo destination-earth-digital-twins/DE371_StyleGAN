@@ -3,6 +3,7 @@
 """
 This script performs ensemble forecast inversion using a pre-trained StyleGAN2 model.
 The inversion process involves optimizing an initial random latent code so that it best represents a real ensemble forecast input.
+This code use the optimization based approach and do not use the encoder based approach.
 
 The code uses command-line arguments for setting directories, inversion parameters, and data control parameters.
 The inversion is performed for a specified set of dates and lead times, generating latent code representations for real-ensemble data and saving the results.
@@ -16,7 +17,7 @@ from gan.model.stylegan2 import Generator
 import os
 import json
 import numpy as np
-import perturbation.inversion as inv
+import inversion.optimization_based.inversion as inv
 from time import perf_counter
 from collections import OrderedDict
 import yaml
@@ -76,9 +77,9 @@ if __name__=="__main__" :
     parser.add_argument("--lambda_vgg", type=float, default=1.0, help="weight of the vgg (perceptual) loss")
     parser.add_argument("--lambda_pixel", type=float, default=1.0, help="weight of the (mae/mse) pixel loss")
 
-    parser.add_argument("--vgg_computation", type=str, default='sol1', choices = ['sol1', 'sol2', 'sol3', 'sol4', 'sol5'], 
+    parser.add_argument("--vgg_computation", type=str, default='sol2', choices = ['sol1', 'sol2', 'sol3', 'sol4', 'sol5'], 
                         help="Either we compute layer by layer and member per member but we have to triple th einput to make it rgb or all in one (naive)")
-    parser.add_argument("--vgg_state_dict_path", type=str, default='/home/mrmn/sanchezv/project/code/styleganpnria/perturbation/vgg_weights/vgg16-397923af.pth', help="Insert a path")
+    parser.add_argument("--vgg_state_dict_path", type=str, default='/home/mrmn/sanchezv/project/code/styleganpnria/perturbation/vgg_weights/vgg16-random.pth', help="Insert a path")
     parser.add_argument("--vgg_style_layers", type=int, nargs='+', default=[], help="style layers to include in vgg loss computation")
     parser.add_argument("--vgg_feature_layers", type=int, nargs='+', default=[0,1,2,3], help="feature layers to include in vgg computation")
     parser.add_argument("--vgg_alpha_feature", type=float, default=1.0, help="weight of the feature/content loss")

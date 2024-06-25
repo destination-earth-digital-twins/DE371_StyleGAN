@@ -8,8 +8,8 @@ import torch.nn.functional as F
 import numpy as np
 import pickle
 from tqdm import tqdm
-from perturbation.lpips import VGGPerceptualLoss
-from perturbation.plotter import online_inv_plot_2, online_inv_plot
+from inversion.lpips import VGGPerceptualLoss
+from inversion.plotter import online_inv_plot_2, online_inv_plot
 import time
 
 def noise_regularize(noises):
@@ -104,7 +104,6 @@ def optimize(Ens_r, g_ema, latent_mean, device, params):
 
     """
     Ens_r = Ens_r.to(device) # torch.Size([B, CH, 256, 256])
-    print(ENS_r,'CA CEST ens_r b,ch,256,256', Ens_r.torch.size)
     latent_mean = latent_mean.to(device) # torch.Size([512])
     latent_in = latent_mean.detach().clone().unsqueeze(0).repeat(Ens_r.shape[0], 1) # torch.Size([B, 512])
 
@@ -114,7 +113,7 @@ def optimize(Ens_r, g_ema, latent_mean, device, params):
         latent_mean = latent_out.mean(0) # mkl: this is weird. latent mean is passed as an input, but we are not using it ?
         latent_std = ((latent_out - latent_mean).pow(2).sum() / Ens_r.shape[0]) ** 0.5
 
-    print(f'########## Latent vector optimisation {params.date_index} {params.lt_index}{Ens_r} #############')
+    # print(f'########## Latent vector optimisation {params.date_index} {params.lt_index}{Ens_r} #############')
 
     noises_single = g_ema.make_noise() # list of noise maps, with shapes from (1,1,4,4) to (1,1,256,256)
     noises = [] # per pixel noise to inject in each layer. with shapes from (B,1,4,4) to (B,1,256,256)
