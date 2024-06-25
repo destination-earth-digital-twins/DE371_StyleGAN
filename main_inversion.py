@@ -68,18 +68,20 @@ if __name__=="__main__" :
     parser.add_argument("--Shape", type=tuple, default=(3,256,256), help='size of the samples')
     parser.add_argument("--crop_indices", type=int, nargs='+', default=[0,256,0,256])
     
-    parser.add_argument("--noise_normalize", type=int, default=1, choices=[0,1], help="normalize noise during optimization?")
-    parser.add_argument("--noise_optimize", type=int, default=1, choices=[0,1], help="joint optimization of noise and latent code (1) or latent code optimization only (0)?")
-
-    parser.add_argument('--pixel_loss_type', type=str, default='mse', choices = ['mse', 'mae'])
+    # Noise optimization and loss noise parameter
+    parser.add_argument("--noise_optimize", type=int, default=0, choices=[0,1], help="joint optimization of noise and latent code (1) or latent code optimization only (0)?")
+    parser.add_argument("--lambda_noise", type=float, default=10e6, help="weight of the noise regularization")
+    # In case noise_optimize=0, the lambda_noise is not taken into account in the loss computation
     
-    parser.add_argument("--lambda_noise", type=float, default=1.0, help="weight of the noise regularization")
+    # Parameter related to pixel loss 
+    parser.add_argument('--pixel_loss_type', type=str, default='mse', choices = ['mse', 'mae'])
+    parser.add_argument("--lambda_pixel", type=float, default=10.0, help="weight of the (mae/mse) pixel loss")
+    
+    # Parameter related to perceptual loss 
     parser.add_argument("--lambda_vgg", type=float, default=1.0, help="weight of the vgg (perceptual) loss")
-    parser.add_argument("--lambda_pixel", type=float, default=1.0, help="weight of the (mae/mse) pixel loss")
-
     parser.add_argument("--vgg_computation", type=str, default='sol2', choices = ['sol1', 'sol2', 'sol3', 'sol4', 'sol5'], 
                         help="Either we compute layer by layer and member per member but we have to triple th einput to make it rgb or all in one (naive)")
-    parser.add_argument("--vgg_state_dict_path", type=str, default='/home/mrmn/sanchezv/project/code/styleganpnria/perturbation/vgg_weights/vgg16-random.pth', help="Insert a path")
+    parser.add_argument("--vgg_state_dict_path", type=str, default='/home/mrmn/sanchezv/project/code/styleganpnria/inversion/vgg_weights/vgg16-random.pth', help="Insert a path")
     parser.add_argument("--vgg_style_layers", type=int, nargs='+', default=[], help="style layers to include in vgg loss computation")
     parser.add_argument("--vgg_feature_layers", type=int, nargs='+', default=[0,1,2,3], help="feature layers to include in vgg computation")
     parser.add_argument("--vgg_alpha_feature", type=float, default=1.0, help="weight of the feature/content loss")
@@ -92,8 +94,8 @@ if __name__=="__main__" :
     ########################## CONTROL of Data to invert ######################
     parser.add_argument("--dates_file", type=str, default = 'Large_lt_test_labels.csv')
     parser.add_argument("--date_start", type=str, default = "2021-07-01")
-    parser.add_argument("--date_stop", type=str, default = "2021-08-31")
-    parser.add_argument("--leadtimes", type=utils.str2intlist, default= [3,6,9,12,15,18,21,24,27,30,33,36,39,42])
+    parser.add_argument("--date_stop", type=str, default = "2021-07-02")
+    parser.add_argument("--leadtimes", type=utils.str2intlist, default= [3,6,9,12,15,18,21,24,27,30,33,36,39,42,45])
     
     parser.add_argument("--seed", type=int, default=42)
     
@@ -104,7 +106,6 @@ if __name__=="__main__" :
     params.Shape = tuple(params.Shape)
     params.crop_indices = tuple(params.crop_indices)
     params.noise_optimize=True if params.noise_optimize==1 else False
-    params.noise_normalize=True if params.noise_normalize==1 else False
 
     # create output and pack directories
     if not os.path.exists(params.output_dir):
