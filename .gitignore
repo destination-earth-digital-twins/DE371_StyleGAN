@@ -13,3 +13,4 @@ gan/configs/*
 *.code-workspace
 /restyle-encoder/*
 *plotter/
+*.sif

@@ -8,8 +8,8 @@ import torch.nn.functional as F
 import numpy as np
 import pickle
 from tqdm import tqdm
-from perturbation.lpips import VGGPerceptualLoss
-from perturbation.plotter import online_inv_plot_2, online_inv_plot
+from inversion.lpips import VGGPerceptualLoss
+from inversion.plotter import online_inv_plot_2, online_inv_plot
 import time
 
 def noise_regularize(noises):
@@ -104,7 +104,6 @@ def optimize(Ens_r, g_ema, latent_mean, device, params):
 
     """
     Ens_r = Ens_r.to(device) # torch.Size([B, CH, 256, 256])
-    print(ENS_r,'CA CEST ens_r b,ch,256,256', Ens_r.torch.size)
     latent_mean = latent_mean.to(device) # torch.Size([512])
     latent_in = latent_mean.detach().clone().unsqueeze(0).repeat(Ens_r.shape[0], 1) # torch.Size([B, 512])
 
@@ -114,7 +113,7 @@ def optimize(Ens_r, g_ema, latent_mean, device, params):
         latent_mean = latent_out.mean(0) # mkl: this is weird. latent mean is passed as an input, but we are not using it ?
         latent_std = ((latent_out - latent_mean).pow(2).sum() / Ens_r.shape[0]) ** 0.5
 
-    print(f'########## Latent vector optimisation {params.date_index} {params.lt_index}{Ens_r} #############')
+    print(f'########## Latent vector optimisation {params.date_index} {params.lt_index} #############')
 
     noises_single = g_ema.make_noise() # list of noise maps, with shapes from (1,1,4,4) to (1,1,256,256)
     noises = [] # per pixel noise to inject in each layer. with shapes from (B,1,4,4) to (B,1,256,256)
@@ -123,13 +122,12 @@ def optimize(Ens_r, g_ema, latent_mean, device, params):
 
     latent_in = latent_mean.detach().clone().unsqueeze(0).repeat(Ens_r.shape[0], 1) # (B, 512)
     latent_in = latent_in.unsqueeze(1).repeat(1, g_ema.n_latent, 1) # (B, 14, 512)
-
     latent_in.requires_grad = True
+
     if params.noise_optimize:
         for noise in noises:
             noise.requires_grad = True
 
-    if params.noise_optimize:
         optimizer = optim.Adam([latent_in] + noises, lr=params.lr)
     else:
         optimizer = optim.Adam([latent_in], lr=params.lr)
@@ -158,11 +156,6 @@ def optimize(Ens_r, g_ema, latent_mean, device, params):
         noise_strength = latent_std * params.noise_strength * max(0, 1 - t / params.noise_ramp) ** 2
         latent_n = latent_noise(latent_in, noise_strength.item()) # mkl: why add noise to latent_in, seems totally unecessary??
 
-#        if not params.noise_optimize:
-#            Gen = g_ema([latent_n], input_is_latent=True, noise=None)
-#        else:
-#            Gen = g_ema([latent_n], input_is_latent=True, noise=noises)
-
         Gen = g_ema([latent_n], input_is_latent=True, noise=noises)
 
         img_gen = Gen[0] # generated samples
@@ -171,9 +164,8 @@ def optimize(Ens_r, g_ema, latent_mean, device, params):
 
         if params.noise_optimize:
             noise_loss = noise_regularize(noises)
-        else:
-            noise_loss = 0.
-
+        else :
+            noise_loss = 0
         
         # compute vgg/perceptual loss
         perceptual_loss = torch.tensor(0.).to(device)
@@ -230,14 +222,13 @@ def optimize(Ens_r, g_ema, latent_mean, device, params):
             raise ValueError(f"unknown pixel_loss_type: {params.pixel_loss_type}")
 
         # compute total loss
-        loss = params.lambda_noise*noise_loss + params.lambda_pixel*pixel_loss + params.lambda_vgg*perceptual_loss
+        loss = params.noise_optimize*params.lambda_noise*noise_loss + params.lambda_pixel*pixel_loss + params.lambda_vgg*perceptual_loss
 
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
 
-        if params.noise_normalize:
-            noise_normalize_(noises) # mkl: why do we normalize the noise?
+        noise_normalize_(noises)
 
         pbar.set_description(
             (

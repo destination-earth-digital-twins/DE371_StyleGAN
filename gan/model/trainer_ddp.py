@@ -317,15 +317,15 @@ class Trainer():
         print('Instantiating Start')
         torch.manual_seed(self.config.seed)
         mem_cuda = torch.cuda.memory_allocated()
-        print('memory_allocated'.format(mem_cuda))
+        print('memory_allocated {}'.format(mem_cuda))
         torch.manual_seed(self.config.seed)
         modelD.to(self.device)
         mem_d = torch.cuda.memory_allocated()-mem_cuda
-        print('memory_allocated for Discriminator'.format(mem_d))
+        print('memory_allocated for Discriminator {}'.format(mem_d))
         modelG.to(self.device)
         mem_g = torch.cuda.memory_allocated()-mem_d-mem_cuda
-        print('memory_allocated for Generator'.format(mem_g))
-    
+        print('memory_allocated for Generator {}'.format(mem_g))
+
         if modelG_ema is not None:
             modelG_ema.to(self.device)
             modelG_ema = DDP(
