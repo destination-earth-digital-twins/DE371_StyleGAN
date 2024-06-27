@@ -35,10 +35,10 @@ if __name__=="__main__" :
     ########################### Directories ###########################
     # Checkpoint directory - PATH to generator's weight
     parser.add_argument('--ckpt_dir', type = str, 
-                        default ='/home/users/u101833/project/results/models/trained_generator/000024.pt')
+                        default ='/project/scratch/p200177/DE_371/victorsanchez/models/trained_generator/000024.pt')
     # Real Data Directory - PATH to samples of the dataset
     parser.add_argument('--real_data_dir', type = str, 
-                        default='/project/home/p200177/DE_371/dataset_Meteo_France/IS_1_1.0_0_0_0_0_0_256_large_lt_done/')
+                        default='/project/home/p200177/DE_371/datasets/dataset_Meteo_France/IS_1_1.0_0_0_0_0_0_256_large_lt_done/')
     # Output Directory - PATH where the output of the inversion will be saved
     parser.add_argument('--output_dir',type = str, 
                         default ='/home/users/u101833/project/results/inversion/Ens_Perceptual_Random_VGG_Loss/Inversion_Perceptual_Random_VGG_Loss/')
@@ -52,7 +52,7 @@ if __name__=="__main__" :
     parser.add_argument('--mean_file', type=str, default='Mean_4_var.npy') # not used if minmax normalization
     parser.add_argument('--min_file', type=str, default='min_rr_log.npy')  # not used if meanmax normalization
     
-    parser.add_argument('--device', type=str, default='cuda:0')
+    parser.add_argument('--device', type=str, default='cuda')
 
     ############################ INVERSION PARAMETERS #################    
 
@@ -72,7 +72,7 @@ if __name__=="__main__" :
     parser.add_argument("--progressive_loss_mode", type=bool, default=0, choices=[0,1], help="Progressive Loss between pixel loss and perceptual loss | Start : Only MSE | End : Only Perceptual")
 
     # Noise optimization and loss noise parameter
-    parser.add_argument("--noise_optimize", type=int, default=0, choices=[0,1], help="joint optimization of noise and latent code (1) or latent code optimization only (0)?")
+    parser.add_argument("--noise_optimize", type=bool, default=0, choices=[0,1], help="joint optimization of noise and latent code (1) or latent code optimization only (0)?")
     parser.add_argument("--lambda_noise", type=float, default=10e6, help="weight of the noise regularization")
     # In case noise_optimize=0, the lambda_noise is not taken into account in the loss computation
     
@@ -98,7 +98,7 @@ if __name__=="__main__" :
     parser.add_argument("--dates_file", type=str, default = 'Large_lt_test_labels.csv')
     parser.add_argument("--date_start", type=str, default = "2021-07-01")
     parser.add_argument("--date_stop", type=str, default = "2021-07-02")
-    parser.add_argument("--leadtimes", type=utils.str2intlist, default= [3,6,9,12,15,18,21,24,27,30,33,36,39,42,45])
+    parser.add_argument("--leadtimes", type=utils.str2intlist, default=[3,6,9,12,15,18,21,24,27,30,33,36,39,42,45])
     
     parser.add_argument("--seed", type=int, default=42)
     
@@ -108,7 +108,7 @@ if __name__=="__main__" :
     # fix some of the inputs
     params.Shape = tuple(params.Shape)
     params.crop_indices = tuple(params.crop_indices)
-    params.noise_optimize=True if params.noise_optimize==1 else False
+    params.noise_optimize=bool(params.noise_optimize==1)
 
     # create output and pack directories
     if not os.path.exists(params.output_dir):

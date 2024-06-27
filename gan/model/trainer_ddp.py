@@ -319,15 +319,16 @@ class Trainer():
         mem_cuda = torch.cuda.memory_allocated()
         print('memory_allocated {}'.format(mem_cuda))
         torch.manual_seed(self.config.seed)
-        modelD.to(self.device)
+        modelD.cuda()
         mem_d = torch.cuda.memory_allocated()-mem_cuda
         print('memory_allocated for Discriminator {}'.format(mem_d))
-        modelG.to(self.device)
+        modelG.cuda()
         mem_g = torch.cuda.memory_allocated()-mem_d-mem_cuda
         print('memory_allocated for Generator {}'.format(mem_g))
         
         if modelG_ema is not None:
-            modelG_ema.to(self.device)
+            print(f'\n DDP for modelG_ema {get_rank()}')
+            modelG_ema.cuda()
             modelG_ema = DDP(
                 modelG_ema, 
                 device_ids=[get_rank()],
@@ -337,7 +338,7 @@ class Trainer():
             # modelG_ema = torch.compile(modelG_ema)
         
        
-
+        print(f'\n DDP for modelG for {get_rank()}')
         modelG = DDP(
             modelG,
             device_ids=[get_rank()],
@@ -345,6 +346,8 @@ class Trainer():
             broadcast_buffers=False
         )
         # modelG = torch.compile(modelG)
+
+        print(f'\n DDP for modelD {get_rank()}')
         modelD = DDP(
             modelD, 
             device_ids=[get_rank()],
@@ -353,11 +356,13 @@ class Trainer():
         )
         # modelD = torch.compile(modelD)
         ###
-
+        print(f'\n instantiate_optimizers {get_rank()}')
         mem_opt = self.instantiate_optimizers(modelG, modelD, load_optim)
 
+        print(f'\n choose_algorithm {{get_rank()}}')
         self.choose_algorithm()
 
+        print(f'\n prepare_data_pipeline {{get_rank()}}')
         self.prepare_data_pipeline()
 
         #######################################################################

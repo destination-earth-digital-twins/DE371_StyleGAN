@@ -178,9 +178,9 @@ else:
     modelG_ema.eval()
 
     trainer.accumulate(modelG_ema, modelG, 0)
-print('synchronizing')
+print('\n synchronizing')
 synchronize()
-print('synchronizing done')
+print('\n synchronizing done')
 ###############################################################################
 ######################### Defining metrics #############################
 ###############################################################################
@@ -225,11 +225,10 @@ test_metr = test_metr + ["spectral_dist_torch_"+"_".join(str(var_name) for var_n
 ######################### LOADING models and Data #############################
 ###############################################################################
 
-print('creating trainer', flush=True)
+print('\n creating trainer', flush=True)
 TRAINER = trainer.Trainer(config,criterion="W1_center",\
                         test_metrics=test_metr)
 
-print('instantiating', flush=True)
 modelG, modelD, modelG_ema, mem_g, mem_d, mem_opt, mem_cuda = TRAINER.instantiate(modelG, modelD, load_optim=ckpt, modelG_ema=modelG_ema)
 
 # memco.log_mem_consumption(modelG, modelD, config, mem_g, mem_d, mem_opt, mem_cuda)

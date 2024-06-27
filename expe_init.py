@@ -134,7 +134,7 @@ def get_expe_parameters():
     parser.add_argument('--min_file', type=str, default=None )
     parser.add_argument('--id_file', type=str, default="Large_lt_test_labels.csv")
     parser.add_argument('--pretrained_model', type=int, default=-1)
-    parser.add_argument('--output_dir', type=str, default='/home/users/u101833/project/results/victorsanchez/gan_training/')
+    parser.add_argument('--output_dir', type=str, default='/home/users/u101833/project/results/victorsanchez/gan_training/exp1/')
 
     # Model architecture hyper-parameters
     
@@ -193,12 +193,12 @@ def get_expe_parameters():
     )
 
     # Training settings
-    parser.add_argument('--epochs_num', type=int, default=100,\
+    parser.add_argument('--epochs_num', type=int, default=30,\
                         help='how many times to go through dataset')
-    parser.add_argument('--total_steps', type=int, default=200000,\
+    parser.add_argument('--total_steps', type=int, default=500001,\
                         help='how many times to update the generator')
     
-    parser.add_argument('--batch_size', type=int, default=16)
+    parser.add_argument('--batch_size', type=int, default=8)
 
     
     parser.add_argument('--lr_G', type=float, default=0.002)
@@ -211,13 +211,13 @@ def get_expe_parameters():
     parser.add_argument('--beta2_G', type=float, default=0.9)
     
     parser.add_argument('--warmup', type=str2bool, default=False)
-    parser.add_argument('--use_noise', type=str2bool, default=True, help="if False, doesn't use noise_inj")
+    parser.add_argument('--use_noise', type=str2bool, default=False, help="if False, doesn't use noise_inj")
     
     # Data description
     parser.add_argument('--var_names', type=str2list, default=['u','v','t2m'])#, 'orog'])
-    parser.add_argument('--crop_indexes', type=str2intlist, default=[78,206,55,183])
+    parser.add_argument('--crop_indexes', type=str2intlist, default=[0,256,0,256])
 
-    parser.add_argument('--crop_size', type=str2inttuple, default=(128,128) ) #   if not all_domain else (256,256))
+    parser.add_argument('--crop_size', type=str2inttuple, default=(256,256) ) #   if not all_domain else (256,256))
     parser.add_argument('--full_size', type=str2inttuple, default=(256,256))
     
     # Training settings -schedulers
@@ -260,7 +260,7 @@ def get_expe_parameters():
 
     parser.add_argument('--config_dir', type=str, default="/home/users/u101833/project/DE371_StyleGAN/gan/configs/Set_UseNoiseFalse/", help="The config files absolute path")
     parser.add_argument('--dataset_handler_config', type=str, default="dataset_handler_config.yaml", help="The dataset_handler config file")
-    parser.add_argument('--scheduler_config', type=str, default="", help="The scheduler config file")
+    parser.add_argument('--scheduler_config', type=str, default="scheduler_config.yaml", help="The scheduler config file")
     return parser
 
 def make_dicts(ensemble,  option='cartesian'):
@@ -567,23 +567,7 @@ if __name__=="__main__":
             sbatch_output = subprocess.run(['sbatch',slurm_dir + dirs.slurm_file, args], env=env_slurm, capture_output=True)
         
         else:
-            print(f'launching job in {os.uname().nodename}')
-
-            env_slurm = {**os.environ,
-                "HOME_DIR": home_dir,
-                "OUTPUT_DIR": dirs.output_dir, 
-                "DATA_DIR": dirs.data_dir,
-                "PYTHON_SCRIPT": f"{home_dir}/{dirs.main_file}", 
-                "CONFIG_FILE": config_file_abs_path,
-            } 
-            print(f"env_slurm HOME_DIR: {env_slurm['HOME_DIR']}")
-            print(f"env_slurm OUTPUT_DIR: {env_slurm['OUTPUT_DIR']}")
-            print(f"env_slurm DATA_DIR: {env_slurm['DATA_DIR']}")
-            print(f"env_slurm CONFIG_FILE: {env_slurm['CONFIG_FILE']}")
-            print(f"env_slurm PYTHON_SCRIPT: {env_slurm['PYTHON_SCRIPT']}")
-            
-            sbatch_output = subprocess.run(['sbatch',slurm_dir + dirs.slurm_file, args], env=env_slurm)
-        
+            raise NotImplementedError
         
         slurm_file, slurm_file_num = get_slurm_file(sbatch_output)
         

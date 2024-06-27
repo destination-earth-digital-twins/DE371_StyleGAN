@@ -69,7 +69,8 @@ def online_inv_plot_2(packsample, invsample, crop=[0,-1,0,-1], mem_idx=0, figtit
 
         ax = fig.add_subplot(337)
         diff = packsample[mem_idx,0,crop[0]:crop[1],crop[2]:crop[3]] - invsample[mem_idx,0,crop[0]:crop[1],crop[2]:crop[3]]
-        im = ax.imshow(diff, origin="lower", cmap="gnuplot2")
+        im = ax.imshow(diff, origin="lower", cmap="RdYlGn")
+        im.set_clim(-0.1,0.1)
         ax.set_title("diff")
         fig.colorbar(im, shrink=0.5)
 
@@ -90,7 +91,8 @@ def online_inv_plot_2(packsample, invsample, crop=[0,-1,0,-1], mem_idx=0, figtit
 
         ax = fig.add_subplot(338)
         diff = packsample[mem_idx,1,crop[0]:crop[1],crop[2]:crop[3]] - invsample[mem_idx,1,crop[0]:crop[1],crop[2]:crop[3]]
-        im = ax.imshow(diff, origin="lower", cmap="gnuplot2")
+        im = ax.imshow(diff, origin="lower", cmap="RdYlGn")
+        im.set_clim(-0.1,0.1)
         ax.set_title("diff")
         fig.colorbar(im, shrink=0.5)
 
@@ -111,7 +113,8 @@ def online_inv_plot_2(packsample, invsample, crop=[0,-1,0,-1], mem_idx=0, figtit
 
         ax = fig.add_subplot(339)
         diff = packsample[mem_idx,2,crop[0]:crop[1],crop[2]:crop[3]] - invsample[mem_idx,2,crop[0]:crop[1],crop[2]:crop[3]]
-        im = ax.imshow(diff, origin="lower", cmap="gnuplot2")
+        im = ax.imshow(diff, origin="lower", cmap="RdYlGn")
+        im.set_clim(-0.1,0.1)
         ax.set_title("diff")
         fig.colorbar(im, shrink=0.5)
 
@@ -145,7 +148,8 @@ def online_pert_plot(packsample, invsample, crop=[0,-1,0,-1], mem_idx=0, figtitl
 
         ax = fig.add_subplot(337)
         diff = packsample[mem_idx,0,crop[0]:crop[1],crop[2]:crop[3]] - invsample[mem_idx,0,crop[0]:crop[1],crop[2]:crop[3]]
-        im = ax.imshow(diff, origin="lower", cmap="coolwarm")
+        im = ax.imshow(diff, origin="lower", cmap="RdYlGn")
+        im.set_clim(-0.1,0.1)
         ax.set_title("diff")
         fig.colorbar(im, shrink=0.5)
 
@@ -166,7 +170,8 @@ def online_pert_plot(packsample, invsample, crop=[0,-1,0,-1], mem_idx=0, figtitl
 
         ax = fig.add_subplot(338)
         diff = packsample[mem_idx,1,crop[0]:crop[1],crop[2]:crop[3]] - invsample[mem_idx,1,crop[0]:crop[1],crop[2]:crop[3]]
-        im = ax.imshow(diff, origin="lower", cmap="coolwarm")
+        im = ax.imshow(diff, origin="lower", cmap="RdYlGn")
+        im.set_clim(-0.1,0.1)
         ax.set_title("diff")
         fig.colorbar(im, shrink=0.5)
 
@@ -187,7 +192,8 @@ def online_pert_plot(packsample, invsample, crop=[0,-1,0,-1], mem_idx=0, figtitl
 
         ax = fig.add_subplot(339)
         diff = packsample[mem_idx,2,crop[0]:crop[1],crop[2]:crop[3]] - invsample[mem_idx,2,crop[0]:crop[1],crop[2]:crop[3]]
-        im = ax.imshow(diff, origin="lower", cmap="coolwarm")
+        im = ax.imshow(diff, origin="lower", cmap="RdYlGn")
+        im.set_clim(-0.1,0.1)
         ax.set_title("diff")
         fig.colorbar(im, shrink=0.5)
 

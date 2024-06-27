@@ -23,6 +23,7 @@ from gan.model.stylegan2 import Generator
 import perturbation.utils as utils
 import perturbation.smpca as smpca
 from shutil import copyfile
+from inversion.plotter import online_pert_plot
 
 
 def str2list(li):
@@ -81,6 +82,14 @@ def compute_generate_save(G, params, metrics_list, Means, Maxs):
         print(Ens_r.mean(axis=(0,-2,-1)))
     np.save(params.output_dir + f'/samples/genFsemble_{params.date_index}_{params.lt_index}_{params.inv_step}_{params.N_conditioners}.npy', gen)
 
+    # online_pert_plot(
+    #     gen, 
+    #     invsample, 
+    #     crop=[0,-1,0,-1],
+    #     mem_idx=0, 
+    #     figtitle=f"Generated samples for {params.date_index}_{params.lt_index}_{params.inv_step}_{params.N_conditioners}", 
+    #     figname=params.output_dir + f"/samples/genFsemble_{params.date_index}_{params.lt_index}_{params.inv_step}_{params.N_conditioners}.png"
+    # )
 
     if params.runtime_metrics:
         gen0 = utils.rescale(gen, Means, Maxs, 1/0.95)
@@ -101,25 +110,25 @@ if __name__=="__main__" :
     ########################### Directories ###########################
     # Checkpoint directory - PATH to generator's weight
     parser.add_argument('--ckpt_dir', type = str, 
-                        default ='/scratch/mrmn/brochetc/GAN_2D/Exp_StyleGAN_final/Set_1/stylegan2_stylegan_dom_256_lat-dim_512_bs_4_0.002_0.002_ch-mul_2_vars_u_v_t2m_noise_True/Instance_14/models/000024.pt')
+                        default ='/home/users/u101833/project/results/models/trained_generator/000024.pt')
     # Real Data Directory - PATH to samples of the dataset
     parser.add_argument('--real_data_dir', type = str, 
                         default='/scratch/mrmn/brochetc/GAN_2D/datasets_full_indexing/IS_1_1.0_0_0_0_0_0_256_large_lt_done/')
     # Data Directory - PATH to samples from inversion process                    
     parser.add_argument('--data_dir', type=str, 
-                        default='/scratch/mrmn/sanchezv/project/results/Ens_Perceptual_Random_VGG_Loss/Inversion_Perceptual_Random_VGG_Loss/') #'/scratch/mrmn/brochetc/GAN_2D/Exp_StyleGAN_final/Inversion_Val/')
+                        default='/home/users/u101833/project/results/inversion/victorsanchez/Ens_Perceptual_Random_VGG_Loss/Inversion_Perceptual_Random_VGG_Loss/') #'/scratch/mrmn/brochetc/GAN_2D/Exp_StyleGAN_final/Inversion_Val/')
     # Pack Directory - PATH where the packed ensembles will be saved
     parser.add_argument("--pack_dir", type=str, 
-                        default = '/scratch/mrmn/sanchezv/project/results/Ens_Perceptual_Random_VGG_Loss/Pack_Perceptual_Random_VGG_Loss/') # storing "packed" (normalized) real data
+                        default = '/home/users/u101833/project/results/inversion/victorsanchez/Ens_Perceptual_Random_VGG_Loss/Pack_Perceptual_Random_VGG_Loss/') # storing "packed" (normalized) real data
     # Output Directory - PATH where the output of the inversion will be saved
     parser.add_argument('--output_dir',type = str, 
-                        default ='/scratch/mrmn/sanchezv/project/results/Ens_Perceptual_Random_VGG_Loss/Gen_Ens_Perceptual_Random_VGG_Loss/')
+                        default ='/home/users/u101833/project/results/victorsanchez/perturbation/')
     parser.add_argument('--path_root_readme',type = str, 
-                        default ='/scratch/mrmn/sanchezv/project/results/ReadMe_0.txt')
+                        default ='/project/scratch/p200177/DE_371/victorsanchez/other/ReadMe_0.txt')
 
     # Generator network information
     parser.add_argument('--add_name',type = str, default='')
-    parser.add_argument('--eigendir',type = str, default ='/scratch/mrmn/brochetc/GAN_2D/Exp_StyleGAN_final/Eigenvalues/')
+    parser.add_argument('--eigendir',type = str, default ='/project/home/p200177/DE_371/datasets/dataset_Meteo_France/eigenvalues_gan_training/')
     
     
     # Dataset information
@@ -142,20 +151,20 @@ if __name__=="__main__" :
     parser.add_argument('--style_indices', type = str2list, default='[1,1,1,1,1,1,1,1,1,1,0,0,0,0]')
     parser.add_argument('--unbias', action="store_true")
 
-    parser.add_argument('--scale_dir', type=str, default="/scratch/mrmn/brochetc/GAN_2D/Exp_StyleGAN_final/ScaleTune/interp_scale_pca_10_False_1.2_bias_ones_1.0_spec_0.0/Instance_4/")
+    parser.add_argument('--scale_dir', type=str, default="/project/home/p200177/DE_371/datasets/dataset_Meteo_France/scale_dir_gan_training/")
     parser.add_argument('--scale_interp_step',type=int, default=-1)
     
 
     ########################## CONTROL of Data to perturb ######################
     parser.add_argument("--dates_file", type=str, default = 'Large_lt_test_labels.csv')
     parser.add_argument("--date_start", type=str, default = "2021-07-01")
-    parser.add_argument("--date_stop", type=str, default = "2021-08-01")
-    parser.add_argument("--leadtimes", type=utils.str2intlist, default= [3,6,9,12,15,18,21,24]) #,27,30,33,36,39,42,45
+    parser.add_argument("--date_stop", type=str, default = "2021-07-02")
+    parser.add_argument("--leadtimes", type=utils.str2intlist, default= [3,6,9,12,15,18,21,24,27,30,33,36,39,42,45])
 
     ###########################################################################
     parser.add_argument("--runtime_metrics", action="store_true")
     parser.add_argument("--verbose", action="store_true")
-    parser.add_argument('--device', type=str, default='cuda:0') # if torch.cuda.is_available() else 'cpu')
+    parser.add_argument('--device', type=str, default='cuda') # if torch.cuda.is_available() else 'cpu')
 
     params = parser.parse_args()
     params.output_dir = params.output_dir + f"{params.sample_rule}_{params.style_indices}_{params.unbias}_{params.scale_interp_step}_{params.N_conditioners}_{params.add_name}/" 
@@ -227,5 +236,6 @@ if __name__=="__main__" :
                 except FileNotFoundError as e:
                     print(f"File not found {e}")
                     pass
+            
     path = params.output_dir + 'log/'
     pickle.dump(metrics,open(path+'metrics.p','wb'))
