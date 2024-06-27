@@ -222,7 +222,15 @@ def optimize(Ens_r, g_ema, latent_mean, device, params):
             raise ValueError(f"unknown pixel_loss_type: {params.pixel_loss_type}")
 
         # compute total loss
-        loss = params.noise_optimize*params.lambda_noise*noise_loss + params.lambda_pixel*pixel_loss + params.lambda_vgg*perceptual_loss
+        if not params.progressive_loss_mode :
+            loss = params.noise_optimize*params.lambda_noise*noise_loss
+                    + params.lambda_pixel*pixel_loss
+                    + params.lambda_vgg*perceptual_loss
+        else :
+            # Todo : See if it is relevant to include the noise loss in the (1-t) part
+            loss = params.noise_optimize*params.lambda_noise*noise_loss
+                    + params.lambda_pixel*pixel_loss*(1-t)
+                    + params.lambda_vgg*perceptual_loss*t
 
         optimizer.zero_grad()
         loss.backward()

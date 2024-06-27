@@ -27,20 +27,27 @@ print(f'\n{torch.__version__}\n')
 sys.stdout.reconfigure(line_buffering=True, write_through=True)
 try:
     local_rank = int(os.environ["LOCAL_RANK"])
+    
 except KeyError:
     local_rank = 0
+
+print(f'local_rank {local_rank}')
+
+
 if torch.cuda.is_available():
+    print('torch.cuda.is_available')
     torch.cuda.set_device(local_rank)
     init_process_group(
         'nccl' if dist.is_nccl_available() else 'gloo',
         rank=local_rank,
-        world_size=torch.cuda.device_count())
+        world_size=torch.cuda.device_count()
+    )
 
 
 ###############################################################################
 ############################# INITIALIZING EXPERIMENT #########################
 ###############################################################################
-
+print('INITIALIZING EXPERIMENT')
 config = get_expe_parameters().parse_args()
 if not os.path.exists(config.output_dir):
     os.mkdir(config.output_dir)
@@ -171,9 +178,9 @@ else:
     modelG_ema.eval()
 
     trainer.accumulate(modelG_ema, modelG, 0)
-
+print('synchronizing')
 synchronize()
-
+print('synchronizing done')
 ###############################################################################
 ######################### Defining metrics #############################
 ###############################################################################

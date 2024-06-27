@@ -325,7 +325,7 @@ class Trainer():
         modelG.to(self.device)
         mem_g = torch.cuda.memory_allocated()-mem_d-mem_cuda
         print('memory_allocated for Generator {}'.format(mem_g))
-
+        
         if modelG_ema is not None:
             modelG_ema.to(self.device)
             modelG_ema = DDP(

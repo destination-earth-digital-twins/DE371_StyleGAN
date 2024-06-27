@@ -117,11 +117,9 @@ def get_dirs(config_dir):
     """
     
     parser=argparse.ArgumentParser()
-    parser.add_argument('--config_file', type=str, \
-                        default='main.yaml')
+    parser.add_argument('--config_file', type=str, default='main.yaml')
     args =   parser.parse_args()
     config_file_abs_path = f"{config_dir}{args.config_file}"
-
     return read_yamlconfig(config_file_abs_path)
 
 def get_expe_parameters():
@@ -129,21 +127,14 @@ def get_expe_parameters():
     parser = argparse.ArgumentParser()
 
     # Paths
-    parser.add_argument('--data_dir', type=str, default="/scratch/mrmn/brochetc/GAN_2D/datasets_full_indexing/IS_1_1.0_0_0_0_0_0_256_large_lt_done/")
+    parser.add_argument('--data_dir', type=str, default="/project/home/p200177/DE_371/datasets/dataset_Meteo_France/IS_1_1.0_0_0_0_0_0_256_large_lt_done/")
     parser.add_argument('--mean_file', type=str, default=None )
     parser.add_argument('--std_file', type=str, default=None )
     parser.add_argument('--max_file', type=str, default=None )
     parser.add_argument('--min_file', type=str, default=None )
     parser.add_argument('--id_file', type=str, default="Large_lt_test_labels.csv")
     parser.add_argument('--pretrained_model', type=int, default=-1)
-
-    # if not dirs["interactive"] : 
-        # change output_dir default path for experiments set
-    parser.add_argument('--output_dir', type=str, default=os.getcwd()+'/')
-    # else : 
-    #     parser.add_argument('--output_dir', type=str, \
-    #                         default=dirs["output_dir"] + "gpu_play")
-
+    parser.add_argument('--output_dir', type=str, default='/home/users/u101833/project/results/victorsanchez/gan_training/')
 
     # Model architecture hyper-parameters
     
@@ -267,7 +258,7 @@ def get_expe_parameters():
     parser.add_argument('--save_step', type=int, default=2000)# if very_small_exp else (1000 if small_exp else 3000)) # set to 0 if not needed
     parser.add_argument('--test_step', type=int, default=2000)# if very_small_exp else (1000 if small_exp else 3000)) #set to 0 if not needed
 
-    parser.add_argument('--config_dir', type=str, default="/home/mrmn/sanchezv/project/code/styleganpnria/config/Set_UseNoiseFalse/", help="The config files absolute path")
+    parser.add_argument('--config_dir', type=str, default="/home/users/u101833/project/DE371_StyleGAN/gan/configs/Set_UseNoiseFalse/", help="The config files absolute path")
     parser.add_argument('--dataset_handler_config', type=str, default="dataset_handler_config.yaml", help="The dataset_handler config file")
     parser.add_argument('--scheduler_config', type=str, default="", help="The scheduler config file")
     return parser
@@ -499,7 +490,7 @@ if __name__=="__main__":
     dirs = AttrDict(dirs)
 
     where = f"{dirs.output_dir}Set_{dirs.SET_NUM}"
-    
+
     if not os.path.exists(where):
         os.mkdir(where)
     os.chdir(where)
@@ -553,7 +544,7 @@ if __name__=="__main__":
             sbatch_output = subprocess.run(['runai' ,'sbatch','torchrun',f'--nproc_per_node={dirs.nb_gpus}',env_slurm["PYTHON_SCRIPT"], args.replace("|"," ")], env=env_slurm, capture_output=True)
         
         elif dirs.platform=='belenos':
-
+        
             try:
                 assert ("belenoshpc.meteo.fr" in os.uname().nodename)
 
@@ -576,7 +567,22 @@ if __name__=="__main__":
             sbatch_output = subprocess.run(['sbatch',slurm_dir + dirs.slurm_file, args], env=env_slurm, capture_output=True)
         
         else:
-            raise ValueError(f"Platform {dirs.platform} unknown, should be either belenos or priam.")
+            print(f'launching job in {os.uname().nodename}')
+
+            env_slurm = {**os.environ,
+                "HOME_DIR": home_dir,
+                "OUTPUT_DIR": dirs.output_dir, 
+                "DATA_DIR": dirs.data_dir,
+                "PYTHON_SCRIPT": f"{home_dir}/{dirs.main_file}", 
+                "CONFIG_FILE": config_file_abs_path,
+            } 
+            print(f"env_slurm HOME_DIR: {env_slurm['HOME_DIR']}")
+            print(f"env_slurm OUTPUT_DIR: {env_slurm['OUTPUT_DIR']}")
+            print(f"env_slurm DATA_DIR: {env_slurm['DATA_DIR']}")
+            print(f"env_slurm CONFIG_FILE: {env_slurm['CONFIG_FILE']}")
+            print(f"env_slurm PYTHON_SCRIPT: {env_slurm['PYTHON_SCRIPT']}")
+            
+            sbatch_output = subprocess.run(['sbatch',slurm_dir + dirs.slurm_file, args], env=env_slurm)
         
         
         slurm_file, slurm_file_num = get_slurm_file(sbatch_output)
