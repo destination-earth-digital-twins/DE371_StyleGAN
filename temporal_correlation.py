@@ -6,14 +6,19 @@ import matplotlib.pyplot as plt
 from tqdm import trange
 from PIL import Image
 import torch 
-
+import scipy
 
 config = get_expe_parameters().parse_args()
+config.stat_folder = ''
 config.crop_indexes = [0,256,0,256]
 config.crop_size = (256,256)
-
+config.multi_timestep_mode = True
+config.nb_timesteps = 44
+config.timestep_period = 1
+config.stack_sample_along_time_and_variable = False
+config.var_names=['rr', 'u', 'v', 't2m']
 Dl_train = DSH.ISData_Loader("Train", config)
-dataset = DSH.ISDataset(config, Dl_train.dataset_handler_yaml, 'coords', variable_indices=[3], transform=Dl_train.transform())
+dataset = DSH.ISDataset(config, Dl_train.dataset_handler_yaml, 'coords', variable_indices=[0,1,2,3], transform=Dl_train.transform())
 train_dataloader = DataLoader(dataset = dataset,
                     batch_size = 16,
                     shuffle = False,
@@ -22,33 +27,33 @@ train_dataloader = DataLoader(dataset = dataset,
 
 loop = enumerate(train_dataloader)
 
-fig, ax = plt.subplots(ncols=1, nrows=1, figsize=(6,6))
+# fig, ax = plt.subplots(ncols=1, nrows=1, figsize=(6,6))
 
 
 for i, batch in loop:
     img, _, _ = batch
     print(img.size())
-    if i > 0 : raise NotImplementedError
-    
-    else :    
-        frames = list()
-        step = 0
-        for t in trange(len(img[0])): # iterate over first member only
-            ax.imshow(img[0][t], origin="lower", clim=(torch.min(img[0][t]), torch.max(img[0][t])), cmap="coolwarm")
-            ax.set_title("[t2m in K] time : +{}h".format(3*t))
-            # fig.tight_layout()
-            frames.append(create_frame(fig))
-            step+=1
-        frame_one = frames[0]
-        frame_one.save(
-            '/scratch/mrmn/sanchezv/project/results/' + "plot.gif",
-            format="GIF",
-            append_images=frames,
-            save_all=True,
-            duration=30*step,
-            loop=0,
-        )
 
-plt.close()
+    step = 0
+    img = img.numpy()
+    for var_id in range(4):
+        fig, ax = plt.subplots(nrows=4, ncols=4, figsize=(24,24))
+
+        for member_id in range(len(img)):
+            pearsons_first_to_each_leadtime = list()
+            pearsons_sliding = list()
+            for t in range(len(img[0])): 
+                pearsons_first_to_each_leadtime.append(scipy.stats.pearsonr(img[member_id][0][var_id].flatten(), img[member_id][t][var_id].flatten()).statistic)
+                if t==0 :
+                    pearsons_sliding.append(np.nan)
+                elif t <= len(img[0])-2:
+                    pearsons_sliding.append(scipy.stats.pearsonr(img[member_id][t][var_id].flatten(), img[member_id][t+1][var_id].flatten()).statistic)
+            ax[member_id//4][member_id%4].plot(range(len(img[0])), pearsons_first_to_each_leadtime, linewidth=6)
+            ax[member_id//4][member_id%4].plot(range(len(img[0])-1), pearsons_sliding, linewidth=6)
+            ax[member_id//4][member_id%4].grid(True)
+        fig.suptitle(f'Pearson Temporal Correlation on {config.var_names[var_id]} for each member', fontsize=60)
+        fig.savefig(f'Pearson_temporal_cor_{config.var_names[var_id]}.png')
+        print(f'Pearson_temporal_cor_{config.var_names[var_id]}')
+
 
 

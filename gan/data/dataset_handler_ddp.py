@@ -75,7 +75,6 @@ class ISDataset(Dataset):
         self.labels = pd.read_csv(f"{self.config.data_dir}{self.config.id_file}")
         
         # Check that self.nb_timesteps * self.timestep_period == 45
-        self.stack_sample_along_time_and_variable = self.config.stack_sample_along_time_and_variable
 
         
         self.cache = DatasetCache(use_cache=use_cache)
@@ -126,10 +125,7 @@ class ISDataset(Dataset):
                     single_sample = single_sample[np.newaxis:] # (1,Nvar,H,W) in case Nvar>1
                 sample.append(single_sample)
             sample = np.array(sample)
-            if self.config.stack_sample_along_time_and_variable :
-                    sample = sample.reshape((self.config.nb_timesteps*len(self.VI), single_sample.shape[-2], single_sample.shape[-1]))
-                    # sample should now be : (Nb_leatime*N_var, H, W)
-
+            
                 
         else :
             sample_path = os.path.join(self.config.data_dir, self.labels.iloc[idx]["Name"])
@@ -150,13 +146,30 @@ class ISDataset(Dataset):
 
         if 'rr' in self.config.var_names: #applying transformations on rr only if selected
             for _ in range(self.dataset_handler_yaml["rr_transform"]["log_transform_iteration"]):
-                sample[0] = np.log(1 + sample[0])
+                if not self.config.multi_timestep_mode :
+                    sample[0] = np.log(1 + sample[0])
+                else :
+                    sample[:,0,:,:] = np.log(1 + sample[:,0,:,:])
             if self.dataset_handler_yaml["rr_transform"]["symetrization"] and np.random.random() <= 0.5:
-                sample[0] = -sample[0]
-            
+                if not self.config.multi_timestep_mode :
+                    sample[0] = -sample[0]
+                else :
+                    sample[:,0,:,:] = -sample[:,0,:,:]
         ## transpose to get off with transform.Normalize builtin transposition
-        sample = sample.transpose((1,2,0))
-        sample = self.transform(sample)
+        
+        if not self.config.multi_timestep_mode :
+            sample = sample.transpose((1,2,0))  
+            sample = self.transform(sample)
+        else :
+            sample = sample.transpose(2,3,1,0)
+            sample = np.array([self.transform(sample[:,:,:,t]) for t in range(self.config.nb_timesteps)])
+            if self.config.stack_sample_along_time_and_variable :
+                sample = sample.reshape((self.config.nb_timesteps*len(self.VI), single_sample.shape[-2], single_sample.shape[-1]))
+                # sample = np.vstack(sample)
+                # sample should now be : (Nb_leatime*N_var, H, W)
+
+                
+        
 
         self.cache.cache(idx, sample, importance, position)
 
