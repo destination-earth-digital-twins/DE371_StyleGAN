@@ -5,8 +5,8 @@
 #SBATCH -G 4
 #SBATCH -p gpu
 #SBATCH --ntasks-per-node=4
-#SBATCH --time=48:00:00
-#SBATCH --qos=default
+#SBATCH --time=00:10:00
+#SBATCH --qos=short
 
 export TORCH_DISTRIBUTED_DEBUG=INFO 
 export OMP_NUM_THREADS=4
@@ -20,4 +20,5 @@ module load Apptainer/1.2.4-GCCcore-12.3.0
 module load NVHPC
 module load GCC
 
-apptainer exec --nv container.sif torchrun --nproc_per_node=4 main_gan.py 
+apptainer exec --nv container.sif torchrun --nproc_per_node=4 main_gan.py \
+            --epochs_num=1

@@ -73,12 +73,9 @@ class ISDataset(Dataset):
         self.VI = variable_indices
         self.transform = transform
         self.labels = pd.read_csv(f"{self.config.data_dir}{self.config.id_file}")
-        # TODO : Add to config
-        self.flag_multi_timestep = False
-        self.nb_timesteps = 15 # either 3, 5, 15 # number of time steps wanted in the data
-        self.timestep_period = 3 # nb of hours between two time steps
+        
         # Check that self.nb_timesteps * self.timestep_period == 45
-        self.stack_sample_along_time_and_variable = True
+        self.stack_sample_along_time_and_variable = self.config.stack_sample_along_time_and_variable
 
         
         self.cache = DatasetCache(use_cache=use_cache)
@@ -107,10 +104,10 @@ class ISDataset(Dataset):
         return len(self.labels)
 
     def __getitem__(self, idx):
-        if self.flag_multi_timestep :
+        if self.config.multi_timestep_mode :
             # Multi time steps :
             sample = []
-            for leadtime_id in np.arange(0, self.nb_timesteps * self.timestep_period, step=self.timestep_period):
+            for leadtime_id in np.arange(0, self.config.nb_timesteps * self.config.timestep_period, step=self.config.timestep_period):
                 # The csv has each members for each leadtime [ex :leadtime1, member0, member1... ]
                 # To store multiple leadtimes for a single member we need to jump by 15 lines in the csv
                 _idx = idx + leadtime_id * 15
@@ -129,9 +126,9 @@ class ISDataset(Dataset):
                     single_sample = single_sample[np.newaxis:] # (1,Nvar,H,W) in case Nvar>1
                 sample.append(single_sample)
             sample = np.array(sample)
-            if self.stack_sample_along_time_and_variable :
-                    sample = sample.reshape((self.nb_timesteps*len(self.VI), single_sample.shape[-2], single_sample.shape[-1]))
-            # sample should now be : (Nb_leatime*N_var, H, W)
+            if self.config.stack_sample_along_time_and_variable :
+                    sample = sample.reshape((self.config.nb_timesteps*len(self.VI), single_sample.shape[-2], single_sample.shape[-1]))
+                    # sample should now be : (Nb_leatime*N_var, H, W)
 
                 
         else :

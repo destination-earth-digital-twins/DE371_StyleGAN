@@ -19,12 +19,15 @@ module load Apptainer/1.2.4-GCCcore-12.3.0
 apptainer exec --nv container.sif python3 main_perturbation.py \
         --ckpt_dir='/project/scratch/p200177/DE_371/victorsanchez/models/trained_generator/000024.pt' \
         --real_data_dir='/project/home/p200177/DE_371/datasets/dataset_Meteo_France/IS_1_1.0_0_0_0_0_0_256_large_lt_done/' \
-        --data_dir='/project/scratch/p200177/DE_371/victorsanchez/results/inversion/Ens_Perceptual_Random_VGG_Loss/Inversion_Perceptual_Random_VGG_Loss/' \
-        --pack_dir='/project/scratch/p200177/DE_371/victorsanchez/results/inversion/Ens_Perceptual_Random_VGG_Loss/Pack_Perceptual_Random_VGG_Loss/' \
-        --output_dir='/project/scratch/p200177/DE_371/victorsanchez/results/perturbation/' \
+        --data_dir='/project/scratch/p200177/DE_371/victorsanchez/results/inversion/Ens_Perceptual_Random_VGG_Loss_sol3/Inversion_Perceptual_Random_VGG_Loss_sol3/' \
+        --pack_dir='/project/scratch/p200177/DE_371/victorsanchez/results/inversion/Ens_Perceptual_Random_VGG_Loss_sol3/Pack_Perceptual_Random_VGG_Loss_sol3/' \
+        --output_dir='/project/scratch/p200177/DE_371/victorsanchez/results/perturbation/Ens_Perceptual_Random_VGG_Loss_sol3/' \
         --scale_dir='/project/home/p200177/DE_371/datasets/dataset_Meteo_France/scale_dir_gan_training/' \
         --eigendir='/project/home/p200177/DE_371/datasets/dataset_Meteo_France/eigenvalues_gan_training/' \
         --device='cuda' \
-        --date_start=2021-07-01 \
-        --date_stop=2021-07-02 \
-        --leadtimes='[3,6]' \
+        --N_samples=10 \
+        --N_conditioners=16 \
+        --style_indices='[1,1,1,1,1,1,1,1,1,1,1,1,1,1]' \
+        --date_start=2021-07-07 \
+        --date_stop=2021-07-08 \
+        --leadtimes='[3,6,9,12,15,18,21,24,27,30,33,36,39,42]' \

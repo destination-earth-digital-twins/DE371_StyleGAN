@@ -6,7 +6,7 @@
 #SBATCH -G 1
 #SBATCH -p gpu
 #SBATCH --ntasks-per-node=1
-#SBATCH --time=48:00
+#SBATCH --time=48:00:00
 
 export OMP_NUM_THREADS=1
 export CUDA_HOME=/usr/local/cuda-12.1
@@ -31,5 +31,5 @@ apptainer exec --nv container.sif python3 main_inversion.py \
         --inv_checkpoints='[250,500,1000,1500,2000]' \
         --date_start=2021-07-01 \
         --date_stop=2021-07-31 \
-        --leadtimes='[3,6,9,12,15,18,21,24,27,30,33,36,39,42,45]' \
+        --leadtimes='[3,6,9,12,15,18,21,24,27,30,33,36,39,42]' \
         --progressive_loss_mode=1 \

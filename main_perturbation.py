@@ -47,10 +47,10 @@ def compute_generate_save(G, params, metrics_list, Means, Maxs):
         print(params.date_index, params.lt_index)
     Ens_r = torch.tensor(np.load(params.pack_dir+f'Rsemble_{datename}_{lt}.npy'), dtype = torch.float32)
     w_ens = torch.tensor(np.load(params.data_dir + f'w_{params.date_index}_{params.lt_index}_{params.inv_step}.npy').astype(np.float32))
-    
+    inv_ens=np.load(params.data_dir + f'invertFsemble_{params.date_index}_{params.lt_index}_{params.inv_step}.npy').astype(np.float32)
     # subsampling if N_conditioners is lower than initial ensemble size
     if (params.N_conditioners<w_ens.shape[0]):
-        cond_indices = random.sample(range(w_ens.shape[0]), params.N_conditioners)
+        cond_indices = np.random.choice(range(w_ens.shape[0]), params.N_conditioners)
         w_ens = w_ens[cond_indices]
         Ens_r = Ens_r[cond_indices]
     print('############### Perturbating ###############')
@@ -82,14 +82,15 @@ def compute_generate_save(G, params, metrics_list, Means, Maxs):
         print(Ens_r.mean(axis=(0,-2,-1)))
     np.save(params.output_dir + f'/samples/genFsemble_{params.date_index}_{params.lt_index}_{params.inv_step}_{params.N_conditioners}.npy', gen)
 
-    # online_pert_plot(
-    #     gen, 
-    #     invsample, 
-    #     crop=[0,-1,0,-1],
-    #     mem_idx=0, 
-    #     figtitle=f"Generated samples for {params.date_index}_{params.lt_index}_{params.inv_step}_{params.N_conditioners}", 
-    #     figname=params.output_dir + f"/samples/genFsemble_{params.date_index}_{params.lt_index}_{params.inv_step}_{params.N_conditioners}.png"
-    # )
+    online_pert_plot(
+        packsample=Ens_r.numpy(), 
+        invsample=inv_ens, 
+        pert_sample=gen,
+        crop=[0,-1,0,-1],
+        mem_idx=0 if params.N_conditioners>1 else cond_indices, 
+        figtitle=f"Generated samples for {params.date_index}_{params.lt_index}_{params.inv_step}_{params.N_conditioners}", 
+        figname=params.output_dir + f"/samples/genFsemble_{params.date_index}_{params.lt_index}_{params.inv_step}_{params.N_conditioners}.png"
+    )
 
     if params.runtime_metrics:
         gen0 = utils.rescale(gen, Means, Maxs, 1/0.95)
@@ -139,7 +140,7 @@ if __name__=="__main__" :
 
     parser.add_argument("--var_indices", type=utils.str2intlist, default=[1,2,3])
     parser.add_argument("--Shape", type=tuple, default=(3,256,256), help='size of the samples')
-    parser.add_argument("--N_samples", type=int, default=100, help='number of new samples') 
+    parser.add_argument("--N_samples", type=int, default=10, help='number of new samples') 
     parser.add_argument("--N_conditioners",type=int, default=16, help="number of 'seed' samples used for conditioning")
     parser.add_argument("--inv_step", type=int, default=2000, help='step of inversion to load w')
     

@@ -48,7 +48,12 @@ if torch.cuda.is_available():
 ############################# INITIALIZING EXPERIMENT #########################
 ###############################################################################
 print('INITIALIZING EXPERIMENT')
+params = argparse.ArgumentParser().parse_args()
 config = get_expe_parameters().parse_args()
+# Merging both configs
+for param in params : 
+    config[param] = params[param]
+
 if not os.path.exists(config.output_dir):
     os.mkdir(config.output_dir)
 if not os.path.exists(config.output_dir + "/log"):
