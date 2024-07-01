@@ -116,7 +116,7 @@ def optimize(Ens_r, g_ema, latent_mean, device, params):
     print(f'########## Latent vector optimisation {params.date_index} {params.lt_index} #############')
 
     noises_single = g_ema.make_noise() # list of noise maps, with shapes from (1,1,4,4) to (1,1,256,256)
-    if not params.fixed_noise or not params.noise_optimize :
+    if params.fixed_noise or params.noise_optimize :
         noises = [] # per pixel noise to inject in each layer. with shapes from (B,1,4,4) to (B,1,256,256)
         for i, noise in enumerate(noises_single):
             noises.append(noise.repeat(Ens_r.shape[0], 1, 1, 1).normal_())

@@ -14,11 +14,10 @@ export CUDA_HOME=/usr/local/cuda-12.1
 export NVHPC_CUDA_HOME=/usr/local/cuda-12.1
 export CXX=g++ #the compiler for cpp extensions
 export CC=gcc  #the compiler to access the good cpp standard
-export APPTAINER_BINDPATH="/project/home/p200177/DE_371/datasets:/project/home/p200177/DE_371/datasets/"
+export APPTAINER_BINDPATH="/project/home/p200177/DE_371/datasets:/project/home/p200177/DE_371/datasets/,/project/scratch/p200177/DE_371/victorsanchez:/project/scratch/p200177/DE_371/victorsanchez/"
 export NCCL_ASYNC_ERROR_HANDLING=1
 module load Apptainer/1.2.4-GCCcore-12.3.0
 module load NVHPC
 module load GCC
 
-apptainer exec --nv container.sif torchrun --nproc_per_node=4 main_gan.py \
-            --epochs_num=1
+apptainer exec --nv /project/scratch/p200177/DE_371/resources/apptainer_container/container.sif torchrun --nproc_per_node=4 main_gan.py
