@@ -117,11 +117,9 @@ def get_dirs(config_dir):
     """
     
     parser=argparse.ArgumentParser()
-    parser.add_argument('--config_file', type=str, \
-                        default='main.yaml')
+    parser.add_argument('--config_file', type=str, default='main.yaml')
     args =   parser.parse_args()
     config_file_abs_path = f"{config_dir}{args.config_file}"
-
     return read_yamlconfig(config_file_abs_path)
 
 def get_expe_parameters():
@@ -129,6 +127,7 @@ def get_expe_parameters():
     parser = argparse.ArgumentParser()
 
     # Paths
+    # parser.add_argument('--data_dir', type=str, default="/project/home/p200177/DE_371/datasets/dataset_Meteo_France/IS_1_1.0_0_0_0_0_0_256_large_lt_done/")
     parser.add_argument('--data_dir', type=str, default="/scratch/mrmn/brochetc/GAN_2D/datasets_full_indexing/IS_1_1.0_0_0_0_0_0_256_large_lt_done/")
     parser.add_argument('--mean_file', type=str, default=None )
     parser.add_argument('--std_file', type=str, default=None )
@@ -136,14 +135,8 @@ def get_expe_parameters():
     parser.add_argument('--min_file', type=str, default=None )
     parser.add_argument('--id_file', type=str, default="Large_lt_test_labels.csv")
     parser.add_argument('--pretrained_model', type=int, default=-1)
-
-    # if not dirs["interactive"] : 
-        # change output_dir default path for experiments set
-    parser.add_argument('--output_dir', type=str, default=os.getcwd()+'/')
-    # else : 
-    #     parser.add_argument('--output_dir', type=str, \
-    #                         default=dirs["output_dir"] + "gpu_play")
-
+    # parser.add_argument('--output_dir', type=str, default='/home/users/u101833/project/results/victorsanchez/gan_training/exp1/')
+    parser.add_argument('--output_dir', type=str, default='/scratch/mrmn/sanchezv/project/results/gan_trained/')
 
     # Model architecture hyper-parameters
     
@@ -202,12 +195,12 @@ def get_expe_parameters():
     )
 
     # Training settings
-    parser.add_argument('--epochs_num', type=int, default=100,\
+    parser.add_argument('--epochs_num', type=int, default=30,\
                         help='how many times to go through dataset')
-    parser.add_argument('--total_steps', type=int, default=200000,\
+    parser.add_argument('--total_steps', type=int, default=500001,\
                         help='how many times to update the generator')
     
-    parser.add_argument('--batch_size', type=int, default=16)
+    parser.add_argument('--batch_size', type=int, default=8)
 
     
     parser.add_argument('--lr_G', type=float, default=0.002)
@@ -220,14 +213,20 @@ def get_expe_parameters():
     parser.add_argument('--beta2_G', type=float, default=0.9)
     
     parser.add_argument('--warmup', type=str2bool, default=False)
-    parser.add_argument('--use_noise', type=str2bool, default=True, help="if False, doesn't use noise_inj")
+    parser.add_argument('--use_noise', type=str2bool, default=False, help="if False, doesn't use noise_inj")
     
     # Data description
     parser.add_argument('--var_names', type=str2list, default=['u','v','t2m'])#, 'orog'])
-    parser.add_argument('--crop_indexes', type=str2intlist, default=[78,206,55,183])
+    parser.add_argument('--crop_indexes', type=str2intlist, default=[0,256,0,256])
 
-    parser.add_argument('--crop_size', type=str2inttuple, default=(128,128) ) #   if not all_domain else (256,256))
+    parser.add_argument('--crop_size', type=str2inttuple, default=(256,256) ) #   if not all_domain else (256,256))
     parser.add_argument('--full_size', type=str2inttuple, default=(256,256))
+    
+    # Data Description - Temporal Aspect
+    parser.add_argument('--multi_timestep_mode', type=bool, default=False)
+    parser.add_argument('--nb_timesteps', type=int, default=13)
+    parser.add_argument('--timestep_period', type=int, default=3)
+    parser.add_argument('--stack_sample_along_time_and_variable', type=bool, default=True)
     
     # Training settings -schedulers
     parser.add_argument('--lrD_sched', type=str, default='None', \
@@ -267,9 +266,10 @@ def get_expe_parameters():
     parser.add_argument('--save_step', type=int, default=2000)# if very_small_exp else (1000 if small_exp else 3000)) # set to 0 if not needed
     parser.add_argument('--test_step', type=int, default=2000)# if very_small_exp else (1000 if small_exp else 3000)) #set to 0 if not needed
 
-    parser.add_argument('--config_dir', type=str, default="/home/mrmn/sanchezv/project/code/styleganpnria/config/Set_UseNoiseFalse/", help="The config files absolute path")
+    # parser.add_argument('--confi/home/mrmn/sanchezv/project/code/styleganpnria/gan/configs/Set_UseNoiseFalseg_dir', type=str, default="/home/users/u101833/project/DE371_StyleGAN/gan/configs/Set_UseNoiseFalse/", help="The config files absolute path")
+    parser.add_argument('--config_dir', type=str, default="/home/mrmn/sanchezv/project/code/styleganpnria/gan/configs/Set_UseNoiseFalse/", help="The config files absolute path")
     parser.add_argument('--dataset_handler_config', type=str, default="dataset_handler_config.yaml", help="The dataset_handler config file")
-    parser.add_argument('--scheduler_config', type=str, default="", help="The scheduler config file")
+    parser.add_argument('--scheduler_config', type=str, default="scheduler_config.yaml", help="The scheduler config file")
     return parser
 
 def make_dicts(ensemble,  option='cartesian'):
@@ -499,7 +499,7 @@ if __name__=="__main__":
     dirs = AttrDict(dirs)
 
     where = f"{dirs.output_dir}Set_{dirs.SET_NUM}"
-    
+
     if not os.path.exists(where):
         os.mkdir(where)
     os.chdir(where)
@@ -553,7 +553,7 @@ if __name__=="__main__":
             sbatch_output = subprocess.run(['runai' ,'sbatch','torchrun',f'--nproc_per_node={dirs.nb_gpus}',env_slurm["PYTHON_SCRIPT"], args.replace("|"," ")], env=env_slurm, capture_output=True)
         
         elif dirs.platform=='belenos':
-
+        
             try:
                 assert ("belenoshpc.meteo.fr" in os.uname().nodename)
 
@@ -576,8 +576,7 @@ if __name__=="__main__":
             sbatch_output = subprocess.run(['sbatch',slurm_dir + dirs.slurm_file, args], env=env_slurm, capture_output=True)
         
         else:
-            raise ValueError(f"Platform {dirs.platform} unknown, should be either belenos or priam.")
-        
+            raise NotImplementedError
         
         slurm_file, slurm_file_num = get_slurm_file(sbatch_output)
         

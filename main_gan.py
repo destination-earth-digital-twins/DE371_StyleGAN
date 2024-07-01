@@ -27,21 +27,33 @@ print(f'\n{torch.__version__}\n')
 sys.stdout.reconfigure(line_buffering=True, write_through=True)
 try:
     local_rank = int(os.environ["LOCAL_RANK"])
+    
 except KeyError:
     local_rank = 0
+
+print(f'local_rank {local_rank}')
+
+
 if torch.cuda.is_available():
+    print('torch.cuda.is_available')
     torch.cuda.set_device(local_rank)
     init_process_group(
         'nccl' if dist.is_nccl_available() else 'gloo',
         rank=local_rank,
-        world_size=torch.cuda.device_count())
+        world_size=torch.cuda.device_count()
+    )
 
 
 ###############################################################################
 ############################# INITIALIZING EXPERIMENT #########################
 ###############################################################################
-
+print('INITIALIZING EXPERIMENT')
+# params = argparse.ArgumentParser().parse_args()
 config = get_expe_parameters().parse_args()
+# # Merging both configs
+# for param in params : 
+#     config[param] = params[param]
+
 if not os.path.exists(config.output_dir):
     os.mkdir(config.output_dir)
 if not os.path.exists(config.output_dir + "/log"):
@@ -171,9 +183,9 @@ else:
     modelG_ema.eval()
 
     trainer.accumulate(modelG_ema, modelG, 0)
-
+print('\n synchronizing')
 synchronize()
-
+print('\n synchronizing done')
 ###############################################################################
 ######################### Defining metrics #############################
 ###############################################################################
@@ -218,11 +230,10 @@ test_metr = test_metr + ["spectral_dist_torch_"+"_".join(str(var_name) for var_n
 ######################### LOADING models and Data #############################
 ###############################################################################
 
-print('creating trainer', flush=True)
+print('\n creating trainer', flush=True)
 TRAINER = trainer.Trainer(config,criterion="W1_center",\
                         test_metrics=test_metr)
 
-print('instantiating', flush=True)
 modelG, modelD, modelG_ema, mem_g, mem_d, mem_opt, mem_cuda = TRAINER.instantiate(modelG, modelD, load_optim=ckpt, modelG_ema=modelG_ema)
 
 # memco.log_mem_consumption(modelG, modelD, config, mem_g, mem_d, mem_opt, mem_cuda)
