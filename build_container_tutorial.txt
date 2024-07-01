@@ -5,7 +5,7 @@ You have to have access to the software Apptainer. On MeluXina, it is only acces
 Very first step is to connect to a node with the following commands:
     - To launch an interactive job:
 $ salloc -A COMPUTE_ACCOUNT --t 01:00:00 -p gpu -q short -N 1 -G 4
-# Note : Replace COMPUTE_ACCOUNT by our account identification number (p*****) 
+# Note : Replace COMPUTE_ACCOUNT by our account identification number (p200177) 
     - To load the Apptainer module:
 $ module load Apptainer/1.2.4-GCCcore-12.3.0
 
@@ -17,6 +17,8 @@ $ apptainer build container.sif container.def
 
 Note : This operation might take a while (5 to 10min)
 
+
+### Next steps are only if you want to run your container in interactive mode ###
 
 3 - Mount the dataset into the built container
 Now that your container is build you can mount your dataset on it. To do so, you have to add to your .bashrc the following command line :
