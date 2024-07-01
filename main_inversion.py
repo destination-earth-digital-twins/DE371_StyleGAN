@@ -75,7 +75,8 @@ if __name__=="__main__" :
     parser.add_argument("--noise_optimize", type=bool, default=0, choices=[0,1], help="joint optimization of noise and latent code (1) or latent code optimization only (0)?")
     parser.add_argument("--lambda_noise", type=float, default=10e6, help="weight of the noise regularization")
     # In case noise_optimize=0, the lambda_noise is not taken into account in the loss computation
-    
+    parser.add_argument("--fixed_noise", type=bool, default=True, help="Fixing the noise during optimization")
+
     # Parameter related to pixel loss 
     parser.add_argument('--pixel_loss_type', type=str, default='mse', choices = ['mse', 'mae'])
     parser.add_argument("--lambda_pixel", type=float, default=10.0, help="weight of the (mae/mse) pixel loss")
