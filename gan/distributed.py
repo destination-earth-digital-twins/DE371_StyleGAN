@@ -27,7 +27,9 @@ def synchronize():
     if not dist.is_initialized():
         print('distributed is not initialized')
         return
+    print('distributed is available and initialized, getting world size')
     world_size = dist.get_world_size()
+    print(f'world_size = {world_size}')
     if world_size == 1:
         return
     dist.barrier()

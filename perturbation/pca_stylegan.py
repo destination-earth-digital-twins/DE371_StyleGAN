@@ -51,8 +51,10 @@ def ensemble_pod(Ens, cut, verbose=False):
 
     if verbose : 
         print("(transpose) ensemble shape", Ens_t.shape, Ens.shape)
-    
-    cov_matrix = torch.bmm(Ens_t, Ens) * (1 / (size -1))
+    if size > 1:
+        cov_matrix = torch.bmm(Ens_t, Ens) * (1 / (size -1))
+    else :
+        cov_matrix = torch.bmm(Ens_t, Ens)
 
     if verbose: print("empirical cov shape", cov_matrix.shape)
 

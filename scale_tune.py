@@ -91,7 +91,7 @@ print(len(ensemble_dataset))
 print(ensemble_dataset[0])
 
 
-device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 #specLoss = spec.SpectralLossFiltered(256,device)
 
