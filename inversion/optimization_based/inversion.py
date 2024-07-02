@@ -250,9 +250,9 @@ def optimize(Ens_r, g_ema, latent_mean, device, params):
         if i+1 in params.inv_checkpoints:
             print(f"--saving checkpoint {i+1}:", params.output_dir+'w_{}_{}_{}.npy'.format(params.date_index,params.lt_index,i+1))
             np.save(params.output_dir+'w_{}_{}_{}.npy'.format(params.date_index,params.lt_index,i+1),latent_in.cpu().detach().numpy())
-
-            with open(params.output_dir+'noise_{}_{}_{}.p'.format(params.date_index,params.lt_index,i+1), 'wb') as f:
-                pickle.dump({j : n.cpu().detach().numpy() for j,n in enumerate(noises)},f)
+            if params.fixed_noise or params.noise_optimize :
+                with open(params.output_dir+'noise_{}_{}_{}.p'.format(params.date_index,params.lt_index,i+1), 'wb') as f:
+                    pickle.dump({j : n.cpu().detach().numpy() for j,n in enumerate(noises)},f)
 
             np.save(params.output_dir+'invertFsemble_{}_{}_{}.npy'.format(params.date_index,params.lt_index,i+1),img_gen.cpu().detach().numpy())
 
