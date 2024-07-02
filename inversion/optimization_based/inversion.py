@@ -116,9 +116,10 @@ def optimize(Ens_r, g_ema, latent_mean, device, params):
     print(f'########## Latent vector optimisation {params.date_index} {params.lt_index} #############')
 
     noises_single = g_ema.make_noise() # list of noise maps, with shapes from (1,1,4,4) to (1,1,256,256)
-    noises = [] # per pixel noise to inject in each layer. with shapes from (B,1,4,4) to (B,1,256,256)
-    for i, noise in enumerate(noises_single):
-        noises.append(noise.repeat(Ens_r.shape[0], 1, 1, 1).normal_())
+    if params.fixed_noise or params.noise_optimize :
+        noises = [] # per pixel noise to inject in each layer. with shapes from (B,1,4,4) to (B,1,256,256)
+        for i, noise in enumerate(noises_single):
+            noises.append(noise.repeat(Ens_r.shape[0], 1, 1, 1).normal_())
 
     latent_in = latent_mean.detach().clone().unsqueeze(0).repeat(Ens_r.shape[0], 1) # (B, 512)
     latent_in = latent_in.unsqueeze(1).repeat(1, g_ema.n_latent, 1) # (B, 14, 512)
@@ -156,7 +157,10 @@ def optimize(Ens_r, g_ema, latent_mean, device, params):
         noise_strength = latent_std * params.noise_strength * max(0, 1 - t / params.noise_ramp) ** 2
         latent_n = latent_noise(latent_in, noise_strength.item()) # mkl: why add noise to latent_in, seems totally unecessary??
 
-        Gen = g_ema([latent_n], input_is_latent=True, noise=noises)
+        if params.fixed_noise or params.noise_optimize :
+            Gen = g_ema([latent_n], input_is_latent=True, noise=noises)
+        else :
+            Gen = g_ema([latent_n], input_is_latent=True, noise=None)
 
         img_gen = Gen[0] # generated samples
 
@@ -256,11 +260,11 @@ def optimize(Ens_r, g_ema, latent_mean, device, params):
             figtitle = f"{params.date_index}_{params.lt_index}_step_{i+1}"
             online_inv_plot_2(Ens_r.cpu().detach().numpy(), img_gen.cpu().detach().numpy(), figtitle=figtitle, figname=figname)
             
-            print(f"--saving loss_function {i+1}: {figname}")
-            np.save(params.output_dir+'MSE_loss_{}_{}.npy'.format(params.date_index,params.lt_index),list_pixel_loss)
-            np.save(params.output_dir+'Perceptual_loss_{}_{}.npy'.format(params.date_index,params.lt_index),list_perceptual_loss)
-            np.save(params.output_dir+'Time_Perceptual_loss_{}_{}.npy'.format(params.date_index,params.lt_index),list_time_to_compute_vgg_loss)
-            np.save(params.output_dir+'Time_MSE_loss_{}_{}.npy'.format(params.date_index,params.lt_index),list_time_to_compute_mse_loss)
+            # print(f"--saving loss_function {i+1}: {figname}")
+            # np.save(params.output_dir+'MSE_loss_{}_{}.npy'.format(params.date_index,params.lt_index),list_pixel_loss)
+            # np.save(params.output_dir+'Perceptual_loss_{}_{}.npy'.format(params.date_index,params.lt_index),list_perceptual_loss)
+            # np.save(params.output_dir+'Time_Perceptual_loss_{}_{}.npy'.format(params.date_index,params.lt_index),list_time_to_compute_vgg_loss)
+            # np.save(params.output_dir+'Time_MSE_loss_{}_{}.npy'.format(params.date_index,params.lt_index),list_time_to_compute_mse_loss)
 
 
 def optimize_noise(Ens_r, g_ema, device, params, w):
