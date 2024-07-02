@@ -236,7 +236,8 @@ def optimize(Ens_r, g_ema, latent_mean, device, params):
         loss.backward()
         optimizer.step()
 
-        noise_normalize_(noises)
+        if params.fixed_noise or params.noise_optimize :
+            noise_normalize_(noises)
 
         pbar.set_description(
             (
