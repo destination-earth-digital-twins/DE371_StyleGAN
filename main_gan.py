@@ -9,6 +9,12 @@ Created on Thu Nov 24 10:43:33 2022
 import os
 import sys
 
+from glob import glob
+import argparse
+from itertools import product
+import subprocess
+import yaml
+from pathlib import Path
 import gan.memutils.memory_consumption as memco
 import gan.metrics4arome as METR
 import gan.metrics4arome.spectrum_analysis as Spectral
@@ -17,7 +23,7 @@ import gan.model.trainer_ddp as trainer
 import gan.plot.plotting_functions as plf
 import torch
 from gan.distributed import get_rank, get_world_size, is_main_gpu, synchronize
-from expe_init import get_expe_parameters
+#from expe_init import get_expe_parameters
 from gan.metrics4arome import sliced_wasserstein as SWD
 from torch import distributed as dist
 from torch.distributed import destroy_process_group, init_process_group
@@ -43,6 +49,230 @@ if torch.cuda.is_available():
         world_size=torch.cuda.device_count()
     )
 
+
+###############################################################################
+############################# Parameters #########################
+###############################################################################
+
+
+
+def str2bool(v):
+    return v.lower() in ('true')
+
+def str2list(li):
+    if type(li)==list:
+        li2 = li
+        return li2
+    
+    elif type(li)==str:
+        li2=li[1:-1].split(',')
+        return li2
+    
+    else:
+        raise ValueError("li argument must be a string or a list, not '{}'".format(type(li)))
+
+def str2intlist(li):
+    if type(li)==list:
+        li2 = [int(p) for p in li]
+        return li2
+    
+    elif type(li)==str:
+        li2 = li[1:-1].split(',')
+        li3 = [int(p) for p in li2]
+        return li3
+
+    else : 
+        raise ValueError("li argument must be a string or a list, not '{}'".format(type(li)))
+
+def str2inttuple(li):
+    if type(li)==list:
+        li2 =[int(p) for p in li]  
+        return tuple(li2)
+    
+    elif type(li)==str:
+        li2 = li[1:-1].split(',')
+        li3 =[int(p) for p in li2]
+
+        return tuple(li3)
+
+    else : 
+        raise ValueError("li argument must be a string or a list, not '{}'".format(type(li)))
+
+
+def read_yamlconfig(config_file_abs_path):
+    if Path(config_file_abs_path).is_file():  # exists
+        print("config file found")
+        with open(config_file_abs_path) as f: 
+            optyaml = yaml.safe_load(f)  # load hyps
+    else:
+        raise NameError(f"config file {config_file_abs_path} not found")
+    ensemble = optyaml["ensemble"]
+    return  optyaml, ensemble, config_file_abs_path
+
+def get_dirs(config_dir):
+
+
+    """
+    
+    read config file for the experimentations
+    
+    """
+    
+    parser=argparse.ArgumentParser()
+    parser.add_argument('--config_file', type=str, default='main.yaml')
+    args =   parser.parse_args()
+    config_file_abs_path = f"{config_dir}{args.config_file}"
+    return read_yamlconfig(config_file_abs_path)
+
+def get_expe_parameters():
+
+    parser = argparse.ArgumentParser()
+
+    # Paths
+    parser.add_argument('--data_dir', type=str, default="/project/home/p200177/DE_371/datasets/dataset_Meteo_France/IS_1_1.0_0_0_0_0_0_256_large_lt_done/")
+    #parser.add_argument('--data_dir', type=str, default="/scratch/mrmn/brochetc/GAN_2D/datasets_full_indexing/IS_1_1.0_0_0_0_0_0_256_large_lt_done/")
+    parser.add_argument('--mean_file', type=str, default=None )
+    parser.add_argument('--std_file', type=str, default=None )
+    parser.add_argument('--max_file', type=str, default=None )
+    parser.add_argument('--min_file', type=str, default=None )
+    parser.add_argument('--id_file', type=str, default="Large_lt_test_labels.csv")
+    parser.add_argument('--pretrained_model', type=int, default=-1)
+    parser.add_argument('--output_dir', type=str, default='./results/')
+    #parser.add_argument('--output_dir', type=str, default='/scratch/mrmn/sanchezv/project/results/gan_trained/')
+
+    # Model architecture hyper-parameters
+    
+    parser.add_argument('--model', type=str, default='stylegan2', \
+                        choices=['stylegan2', 'stylegan2_fp16'])
+    
+    # choices of loss function and initialization
+    parser.add_argument('--train_type', type=str, default='stylegan',\
+                        choices=['stylegan', 'wave_d'])
+    #architectural choices
+    
+    parser.add_argument('--latent_dim', type=int, default=512)
+    parser.add_argument('--g_channels', type=int, default=3)
+    parser.add_argument('--d_channels', type=int, default=3)
+    parser.add_argument('--n_mlp', type=int, default=8, help="depth of the z->w mlp")
+    parser.add_argument("--channel_multiplier",type=int, default=2,
+        help="channel multiplier factor for the stylegan/swagan model. config-f = 2, else = 1",
+    )
+
+    parser.add_argument("--tanh_output", type=str2bool, default=False, help="if True, add tanh non linearity before Generator output")
+
+    # regularisation settings (styleGAN)
+    
+    parser.add_argument("--r1", type=float, default=10, help="weight of the r1 regularization")
+    parser.add_argument("--path_regularize",type=float,default=2,\
+                        help="weight of the path length regularization")
+
+    parser.add_argument( "--path_batch_shrink",type=int,default=2,
+        help="batch size reducing factor for the path length regularization (reduce memory consumption)")
+    
+    parser.add_argument("--d_reg_every",type=int,default=16,
+                        help="interval of the applying r1 regularization")
+    
+    parser.add_argument("--g_reg_every",type=int, default=4,
+        help="interval of the applying path length regularization")
+    
+    parser.add_argument("--mixing", type=float, default=0.9, 
+                        help="probability of latent code mixing")
+    
+    # augmentation and ADA settings (styleGAN)
+    
+    parser.add_argument("--augment", action="store_true", 
+                        help="apply non leaking augmentation"
+    )
+    parser.add_argument("--augment_p", type=float, default=0,
+        help="probability of applying augmentation. 0 = use adaptive augmentation",
+    )
+    parser.add_argument("--ada_target",type=float,default=0.6,
+        help="target augmentation probability for adaptive augmentation",
+    )
+    parser.add_argument("--ada_length",type=int, default=500 * 1000,
+        help="target duraing to reach augmentation probability for adaptive augmentation",
+    )
+    parser.add_argument("--ada_every", type=int,default=256,
+                        help="probability update interval of the adaptive augmentation",
+    )
+
+    # Training settings
+    parser.add_argument('--epochs_num', type=int, default=30,\
+                        help='how many times to go through dataset')
+    parser.add_argument('--total_steps', type=int, default=500001,\
+                        help='how many times to update the generator')
+    
+    parser.add_argument('--batch_size', type=int, default=8)
+
+    
+    parser.add_argument('--lr_G', type=float, default=0.002)
+    parser.add_argument('--lr_D', type=float, default=0.002)
+    
+    parser.add_argument('--beta1_D', type=float, default=0.0)
+    parser.add_argument('--beta2_D', type=float, default=0.9)
+    
+    parser.add_argument('--beta1_G', type=float, default=0.0)
+    parser.add_argument('--beta2_G', type=float, default=0.9)
+    
+    parser.add_argument('--warmup', type=str2bool, default=False)
+    parser.add_argument('--use_noise', type=str2bool, default=False, help="if False, doesn't use noise_inj")
+    
+    # Data description
+    parser.add_argument('--var_names', type=str2list, default=['u','v','t2m'])#, 'orog'])
+    parser.add_argument('--crop_indexes', type=str2intlist, default=[0,256,0,256])
+
+    parser.add_argument('--crop_size', type=str2inttuple, default=(256,256) ) #   if not all_domain else (256,256))
+    parser.add_argument('--full_size', type=str2inttuple, default=(256,256))
+    
+    # Data Description - Temporal Aspect
+    parser.add_argument('--multi_timestep_mode', type=bool, default=False)
+    parser.add_argument('--nb_timesteps', type=int, default=13)
+    parser.add_argument('--timestep_period', type=int, default=3)
+    parser.add_argument('--stack_sample_along_time_and_variable', type=bool, default=True)
+    
+    # Training settings -schedulers
+    parser.add_argument('--lrD_sched', type=str, default='None', \
+                        choices=['None','exp', 'linear'])
+    parser.add_argument('--lrG_sched', type=str, default='None', \
+                        choices=['None','exp', 'linear'])
+    parser.add_argument('--lrD_gamma', type=float, default=0.95)
+    parser.add_argument('--lrG_gamma', type=float, default=0.95)
+    
+    
+    # Testing and plotting setting
+    parser.add_argument('--test_samples',type=int, default=16 ) # if all_domain else 256,help='samples to be tested')
+    parser.add_argument('--plot_samples', type=int, default=16)
+    parser.add_argument('--sample_num', type=int, default=16, help='Samples to be saved') #  if all_domain else 256,\
+                        
+
+    # Misc
+    parser.add_argument('--fp16_resolution', type=int, default=1000) # 1000 --> not used
+    parser.add_argument('--seed', type=int, default=42, metavar='S',
+                    help='random seed (default: 42)')
+
+    # Step size
+
+    parser.add_argument('--log_epoch', type=int,
+                        default=0)
+    parser.add_argument('--sample_epoch', type=int,
+                        default=0)
+    parser.add_argument('--plot_epoch', type=int,
+                        default=0)
+    parser.add_argument('--save_epoch', type=int,
+                        default=0)
+    parser.add_argument('--test_epoch', type=int,
+                        default=0)
+    parser.add_argument('--log_step', type=int, default=2000)# if very_small_exp else (1000 if small_exp else 3000)) #-> default is at the end of each epoch
+    parser.add_argument('--sample_step', type=int, default=2000)# if very_small_exp else (1000 if small_exp else 3000)) # set to 0 if not needed
+    parser.add_argument('--plot_step', type=int, default=2000)# if very_small_exp else (1000 if small_exp else 3000)) #set to 0 if not needed
+    parser.add_argument('--save_step', type=int, default=2000)# if very_small_exp else (1000 if small_exp else 3000)) # set to 0 if not needed
+    parser.add_argument('--test_step', type=int, default=2000)# if very_small_exp else (1000 if small_exp else 3000)) #set to 0 if not needed
+
+    # parser.add_argument('--confi/home/mrmn/sanchezv/project/code/styleganpnria/gan/configs/Set_UseNoiseFalseg_dir', type=str, default="/home/users/u101833/project/DE371_StyleGAN/gan/configs/Set_UseNoiseFalse/", help="The config files absolute path")
+    parser.add_argument('--config_dir', type=str, default="/home/users/u101957/DE371_StyleGAN/gan/configs/Set_Exemple/", help="The config files absolute path")
+    parser.add_argument('--dataset_handler_config', type=str, default="dataset_handler_config.yaml", help="The dataset_handler config file")
+    parser.add_argument('--scheduler_config', type=str, default="scheduler_config.yaml", help="The scheduler config file")
+    return parser
 
 ###############################################################################
 ############################# INITIALIZING EXPERIMENT #########################
