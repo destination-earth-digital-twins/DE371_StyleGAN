@@ -5,9 +5,10 @@
 #SBATCH -G 4
 #SBATCH -p gpu
 #SBATCH --ntasks-per-node=4
-#SBATCH --time=00:10:00
+#SBATCH --time=00:10
 #SBATCH --qos=short
 
+# Note : to launch a train, choose the following parameters : --time=48:00:00 --qos=default
 export TORCH_DISTRIBUTED_DEBUG=INFO 
 export OMP_NUM_THREADS=4
 export CUDA_HOME=/usr/local/cuda-12.1

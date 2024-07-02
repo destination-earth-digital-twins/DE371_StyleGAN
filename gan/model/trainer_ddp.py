@@ -191,7 +191,6 @@ class Trainer():
         self.scheduler_G = None
         self.config = config
         self.instance_flag = False
-        self.device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
         # self.test_metrics = []
         # for name in test_metrics:
         #    print("name ", name)
