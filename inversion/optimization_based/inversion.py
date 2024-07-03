@@ -256,11 +256,12 @@ def optimize(Ens_r, g_ema, latent_mean, device, params):
 
             np.save(params.output_dir+'invertFsemble_{}_{}_{}.npy'.format(params.date_index,params.lt_index,i+1),img_gen.cpu().detach().numpy())
 
-            figname = params.output_dir + f"{params.date_index}_{params.lt_index}_step_{i+1}.png"
-            print(f"--plotting checkpoint {i+1}: {figname}")
-            figtitle = f"{params.date_index}_{params.lt_index}_step_{i+1}"
-            online_inv_plot_2(Ens_r.cpu().detach().numpy(), img_gen.cpu().detach().numpy(), figtitle=figtitle, figname=figname)
-            
+            if params.plot_checkpoint :
+                figname = params.output_dir + f"{params.date_index}_{params.lt_index}_step_{i+1}.png"
+                print(f"--plotting checkpoint {i+1}: {figname}")
+                figtitle = f"{params.date_index}_{params.lt_index}_step_{i+1}"
+                online_inv_plot_2(Ens_r.cpu().detach().numpy(), img_gen.cpu().detach().numpy(), figtitle=figtitle, figname=figname)
+                
             # print(f"--saving loss_function {i+1}: {figname}")
             # np.save(params.output_dir+'MSE_loss_{}_{}.npy'.format(params.date_index,params.lt_index),list_pixel_loss)
             # np.save(params.output_dir+'Perceptual_loss_{}_{}.npy'.format(params.date_index,params.lt_index),list_perceptual_loss)

@@ -94,7 +94,8 @@ if __name__=="__main__" :
 
     parser.add_argument("--invstep", type=int, default=2000, help="optimize iterations")
     parser.add_argument("--inv_checkpoints", type=utils.str2intlist, default=[250,500,1000,1500,2000])
-
+    parser.add_argument("--plot_checkpoint", type=bool, default=False)
+    
     ########################## CONTROL of Data to invert ######################
     parser.add_argument("--dates_file", type=str, default = 'Large_lt_test_labels.csv')
     parser.add_argument("--date_start", type=str, default = "2021-07-01")

@@ -58,17 +58,17 @@ parser.add_argument("--invert_step",type=int, default=1000)
 
 ########################### Directories ###########################
 parser.add_argument("--fake_data_dir", type=str, 
-                    default='/scratch/mrmn/brochetc/GAN_2D/Exp_StyleGAN_final/Inversion_Val/')
+                    default='/project/scratch/p200177/DE_371/victorsanchez/results/inversion/Ens_Perceptual_Random_VGG_Loss_sol3/Inversion_Perceptual_Random_VGG_Loss_sol3/')
 parser.add_argument("--real_data_dir", type=str, 
-                    default='/scratch/mrmn/brochetc/GAN_2D/datasets_full_indexing/IS_1_1.0_0_0_0_0_0_256_large_lt_done2/IS_1_1.0_0_0_0_0_0_256_large_lt_done/')
+                    default='/project/home/p200177/DE_371/datasets/dataset_Meteo_France/IS_1_1.0_0_0_0_0_0_256_large_lt_done/')
 parser.add_argument("--ensemble_data_dir", type=str, 
-                    default='/scratch/mrmn/brochetc/GAN_2D/Exp_StyleGAN_final/Pack_Val/')
+                    default='/project/scratch/p200177/DE_371/victorsanchez/results/inversion/Ens_Perceptual_Random_VGG_Loss_sol3/Pack_Perceptual_Random_VGG_Loss_sol3/')
 parser.add_argument("--ckpt_dir", type=str, 
-                    default='/scratch/mrmn/brochetc/GAN_2D/Exp_StyleGAN_final/Set_1/stylegan2_stylegan_dom_256_lat-dim_512_bs_4_0.002_0.002_ch-mul_2_vars_u_v_t2m_noise_True/Instance_14/models/000024.pt')
+                    default='/project/scratch/p200177/DE_371/victorsanchez/models/trained_generator/000024.pt')
 parser.add_argument("--eigendir", type=str, 
-                    default='/scratch/mrmn/brochetc/GAN_2D/Exp_StyleGAN_final/Eigenvalues/')
+                    default='/project/home/p200177/DE_371/datasets/dataset_Meteo_France/eigenvalues_gan_training/')
 parser.add_argument("--output_dir", type=str, 
-                    default='/scratch/mrmn/brochetc/GAN_2D/Exp_StyleGAN_final/ScaleTune/')
+                    default='/project/scratch/p200177/DE_371/victorsanchez/results/scaled_perturbation/ScaleTune/')
 
 args = parser.parse_args()
 
@@ -79,12 +79,12 @@ instances = len(glob(output_dir + "Instance_*/"))
 print("instances already existing", instances)
 os.makedirs(output_dir + f"Instance_{instances+1}/",exist_ok=True)
 output_dir = output_dir + f"Instance_{instances+1}/"
-df = pd.read_csv(args.real_data_dir + 'Large_lt_val_labels.csv')
+df = pd.read_csv(args.real_data_dir + 'Large_lt_test_labels.csv') #Large_lt_val_labels
 df_date = df.copy()
 
 liste_dates = df_date['Date'].unique().tolist()
 print(liste_dates)
-leadtimes = [3,6,9,12,15,18,21,24,27,30,33,36,39,42,45]
+leadtimes = [3,6,9,12,15,18,21,24,27,30,33,36,39,42]
 
 ensemble_dataset = list(product(liste_dates,leadtimes))
 print(len(ensemble_dataset))
@@ -163,7 +163,7 @@ for epoch in range(args.n_epochs):
             print(date, lt, batch_w.shape, w_avg.shape)
             raise AssertionError("Uncorrect shape")
 
-        gen = smpca.fast_style_mixing(interp_noise, scale_noise, batch_w, Cov,w_avg,w0,args.n_samples,G,Whitening,device=device,scale_rule=args.scale_rule) 
+        gen = smpca.fast_style_mixing(interp_noise, scale_noise, batch_w, Cov, w_avg, w0, args.n_samples, G, Whitening, device=device, scale_rule=args.scale_rule) 
         if args.convert_ff_t:
             gen, batch_y = convert_uvt2fft(gen, batch_y)
         mean_loss = F.l1_loss(gen.mean(dim=0), batch_y.mean(dim=0))
