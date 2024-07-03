@@ -19,8 +19,8 @@ module load Apptainer/1.2.4-GCCcore-12.3.0
 apptainer exec --nv /project/scratch/p200177/DE_371/resources/apptainer_container/container.sif python3 main_inversion.py \
         --ckpt_dir='/project/scratch/p200177/DE_371/victorsanchez/models/trained_generator/000024.pt' \
         --real_data_dir='/project/home/p200177/DE_371/datasets/dataset_Meteo_France/IS_1_1.0_0_0_0_0_0_256_large_lt_done/' \
-        --output_dir='/project/scratch/p200177/DE_371/victorsanchez/results/inversion/Ens_Perceptual_Random_VGG_Loss_sol3_not_fixed_noise/Inversion_Perceptual_Random_VGG_Loss_sol3_not_fixed_noise/' \
-        --pack_dir='/project/scratch/p200177/DE_371/victorsanchez/results/inversion/Ens_Perceptual_Random_VGG_Loss_sol3_not_fixed_noise/Pack_Perceptual_Random_VGG_Loss_sol3_not_fixed_noise/' \
+        --output_dir='/project/scratch/p200177/DE_371/victorsanchez/results/inversion/Validation_Set_For_ScaleTune/Inversion/' \
+        --pack_dir='/project/scratch/p200177/DE_371/victorsanchez/results/inversion/Validation_Set_For_ScaleTune/Pack_Perceptual/' \
         --device='cuda' \
         --lambda_pixel=10 \
         --lambda_vgg=1 \
@@ -29,8 +29,9 @@ apptainer exec --nv /project/scratch/p200177/DE_371/resources/apptainer_containe
         --noise_optimize=0 \
         --fixed_noise=0 \
         --invstep=2000 \
-        --inv_checkpoints='[250,500,1000,1500,2000]' \
-        --date_start=2021-07-01 \
-        --date_stop=2021-07-31 \
+        --inv_checkpoints='[500,1000,2000]' \
+        --dates_file='Large_lt_val_labels.csv' \
+        --date_start=2020-06-15 \
+        --date_stop=2021-06-14 \
         --leadtimes='[3,6,9,12,15,18,21,24,27,30,33,36,39,42]' \
         --progressive_loss_mode=1 \

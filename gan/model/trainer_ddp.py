@@ -6,10 +6,8 @@ Created on Wed Jun 18 11:11:24 2023
 @authors: brochetc rabaultj
 """
 
-from os import cpu_count
 from tqdm import tqdm
 import time
-from torch.utils.data import DataLoader, DistributedSampler
 import yaml
 
 ########## NN libs ############################################################
@@ -21,7 +19,6 @@ from time import perf_counter
 from functools import wraps
 
 ########## MP libs ############################################################
-import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
 from gan.distributed import (
     get_rank,

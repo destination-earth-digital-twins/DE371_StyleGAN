@@ -5,14 +5,10 @@ Created on Thu Nov 24 10:43:33 2022
 
 @authors: gandonb, rabaultj, brochetc
 """
-
+print('Importing Basic Package')
 import os
 import sys
-
-from glob import glob
 import argparse
-from itertools import product
-import subprocess
 import yaml
 from pathlib import Path
 import gan.memutils.memory_consumption as memco
@@ -22,13 +18,12 @@ import gan.metrics4arome.wasserstein_distances as WD
 import gan.model.trainer_ddp as trainer
 import gan.plot.plotting_functions as plf
 import torch
-from gan.distributed import get_rank, get_world_size, is_main_gpu, synchronize
-#from expe_init import get_expe_parameters
+from gan.distributed import is_main_gpu, synchronize
 from gan.metrics4arome import sliced_wasserstein as SWD
 from torch import distributed as dist
 from torch.distributed import destroy_process_group, init_process_group
 
-print(f'\n{torch.__version__}\n')
+print(f'\n Torch Version : {torch.__version__}\n')
 
 sys.stdout.reconfigure(line_buffering=True, write_through=True)
 try:
@@ -127,7 +122,7 @@ def get_dirs(config_dir):
 def get_expe_parameters():
 
     parser = argparse.ArgumentParser()
-
+    print('loading parser')
     # Paths
     parser.add_argument('--data_dir', type=str, default="/project/home/p200177/DE_371/datasets/dataset_Meteo_France/IS_1_1.0_0_0_0_0_0_256_large_lt_done/")
     #parser.add_argument('--data_dir', type=str, default="/scratch/mrmn/brochetc/GAN_2D/datasets_full_indexing/IS_1_1.0_0_0_0_0_0_256_large_lt_done/")
@@ -135,10 +130,9 @@ def get_expe_parameters():
     parser.add_argument('--std_file', type=str, default=None )
     parser.add_argument('--max_file', type=str, default=None )
     parser.add_argument('--min_file', type=str, default=None )
-    parser.add_argument('--id_file', type=str, default="Large_lt_test_labels.csv")
+    parser.add_argument('--id_file', type=str, default="Large_lt_train_labels_1.csv")
     parser.add_argument('--pretrained_model', type=int, default=-1)
-    parser.add_argument('--output_dir', type=str, default='./results/')
-    #parser.add_argument('--output_dir', type=str, default='/scratch/mrmn/sanchezv/project/results/gan_trained/')
+    parser.add_argument('--output_dir', type=str, default='/project/scratch/p200177/DE_371/victorsanchez/results/gan_training/exp_train_without_Noise_Injection/')
 
     # Model architecture hyper-parameters
     
@@ -269,7 +263,7 @@ def get_expe_parameters():
     parser.add_argument('--test_step', type=int, default=2000)# if very_small_exp else (1000 if small_exp else 3000)) #set to 0 if not needed
 
     # parser.add_argument('--confi/home/mrmn/sanchezv/project/code/styleganpnria/gan/configs/Set_UseNoiseFalseg_dir', type=str, default="/home/users/u101833/project/DE371_StyleGAN/gan/configs/Set_UseNoiseFalse/", help="The config files absolute path")
-    parser.add_argument('--config_dir', type=str, default="/home/users/u101957/DE371_StyleGAN/gan/configs/Set_Exemple/", help="The config files absolute path")
+    parser.add_argument('--config_dir', type=str, default="/home/users/u101833/project/DE371_StyleGAN/gan/configs/Set_UseNoiseFalse/", help="The config files absolute path")
     parser.add_argument('--dataset_handler_config', type=str, default="dataset_handler_config.yaml", help="The dataset_handler config file")
     parser.add_argument('--scheduler_config', type=str, default="scheduler_config.yaml", help="The scheduler config file")
     return parser

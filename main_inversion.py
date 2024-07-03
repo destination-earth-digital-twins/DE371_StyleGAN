@@ -15,14 +15,11 @@ import torch
 import argparse
 from gan.model.stylegan2 import Generator
 import os
-import json
 import numpy as np
 import inversion.optimization_based.inversion as inv
-from time import perf_counter
 from collections import OrderedDict
 import yaml
 import pandas as pd
-from datetime import date, timedelta, datetime
 import perturbation.utils as utils
 
 
