@@ -128,15 +128,19 @@ def get_expe_parameters():
 
     # Paths
     parser.add_argument('--data_dir', type=str, default="/project/home/p200177/DE_371/datasets/dataset_Meteo_France/IS_1_1.0_0_0_0_0_0_256_large_lt_done/")
-    # parser.add_argument('--data_dir', type=str, default="/scratch/mrmn/brochetc/GAN_2D/datasets_full_indexing/IS_1_1.0_0_0_0_0_0_256_large_lt_done/")
+
+    #parser.add_argument('--data_dir', type=str, default="/scratch/mrmn/brochetc/GAN_2D/datasets_full_indexing/IS_1_1.0_0_0_0_0_0_256_large_lt_done/")
+
     parser.add_argument('--mean_file', type=str, default=None )
     parser.add_argument('--std_file', type=str, default=None )
     parser.add_argument('--max_file', type=str, default=None )
     parser.add_argument('--min_file', type=str, default=None )
     parser.add_argument('--id_file', type=str, default="Large_lt_test_labels.csv")
     parser.add_argument('--pretrained_model', type=int, default=-1)
+
     parser.add_argument('--output_dir', type=str, default='/project/scratch/p200177/DE_371/victorsanchez/results/gan_training/exp2/')
-    # parser.add_argument('--output_dir', type=str, default='/scratch/mrmn/sanchezv/project/results/gan_trained/')
+    #parser.add_argument('--output_dir', type=str, default='/scratch/mrmn/sanchezv/project/results/gan_trained/')
+
 
     # Model architecture hyper-parameters
     
