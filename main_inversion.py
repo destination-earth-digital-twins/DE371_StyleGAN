@@ -75,7 +75,8 @@ if __name__=="__main__" :
     parser.add_argument("--noise_optimize", type=bool, default=0, choices=[0,1], help="joint optimization of noise and latent code (1) or latent code optimization only (0)?")
     parser.add_argument("--lambda_noise", type=float, default=10e6, help="weight of the noise regularization")
     # In case noise_optimize=0, the lambda_noise is not taken into account in the loss computation
-    
+    parser.add_argument("--fixed_noise", type=bool, default=False, help="Fixing the noise during optimization")
+
     # Parameter related to pixel loss 
     parser.add_argument('--pixel_loss_type', type=str, default='mse', choices = ['mse', 'mae'])
     parser.add_argument("--lambda_pixel", type=float, default=10.0, help="weight of the (mae/mse) pixel loss")
@@ -84,7 +85,7 @@ if __name__=="__main__" :
     parser.add_argument("--lambda_vgg", type=float, default=1.0, help="weight of the vgg (perceptual) loss")
     parser.add_argument("--vgg_computation", type=str, default='sol2', choices = ['sol1', 'sol2', 'sol3', 'sol4', 'sol5'], 
                         help="Either we compute layer by layer and member per member but we have to triple th einput to make it rgb or all in one (naive)")
-    parser.add_argument("--vgg_state_dict_path", type=str, default='/home/users/u101833/project/DE371_StyleGAN/inversion/vgg_weights/vgg16-random.pth', help="Insert a path")
+    parser.add_argument("--vgg_state_dict_path", type=str, default='/project/scratch/p200177/DE_371/resources/vgg_weights/vgg16-random.pth', help="Insert a path")
     parser.add_argument("--vgg_style_layers", type=int, nargs='+', default=[], help="style layers to include in vgg loss computation")
     parser.add_argument("--vgg_feature_layers", type=int, nargs='+', default=[0,1,2,3], help="feature layers to include in vgg computation")
     parser.add_argument("--vgg_alpha_feature", type=float, default=1.0, help="weight of the feature/content loss")
