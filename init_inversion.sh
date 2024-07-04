@@ -16,12 +16,14 @@ export CC=gcc  #the compiler to access the good cpp standard
 export APPTAINER_BINDPATH="/project/home/p200177/DE_371/datasets:/project/home/p200177/DE_371/datasets/,/project/scratch/p200177/DE_371/victorsanchez:/project/scratch/p200177/DE_371/victorsanchez/"
 module load Apptainer/1.2.4-GCCcore-12.3.0
 
-apptainer exec --nv container.sif python3 main_inversion.py \
-        --ckpt_dir='/project/scratch/p200177/DE_371/victorsanchez/models/trained_generator/000024.pt' \
+apptainer exec --nv /project/scratch/p200177/DE_371/resources/apptainer_container/container.sif python3 main_inversion.py \
+        # --ckpt_dir='/home/users/u101957/DE371_StyleGAN/results/models/012000.pt' \
         --real_data_dir='/project/home/p200177/DE_371/datasets/dataset_Meteo_France/IS_1_1.0_0_0_0_0_0_256_large_lt_done/' \
-        --output_dir='/project/scratch/p200177/DE_371/victorsanchez/results/inversion/Ens_Perceptual_Random_VGG_Loss_sol3/Inversion_Perceptual_Random_VGG_Loss_sol3/' \
-        --pack_dir='/project/scratch/p200177/DE_371/victorsanchez/results/inversion/Ens_Perceptual_Random_VGG_Loss_sol3/Pack_Perceptual_Random_VGG_Loss_sol3/' \
+       # --output_dir='/home/users/u101957/DE371_StyleGAN/results/Inversion_Perceptual_Random_VGG_Loss_sol3/' \
+        --pack_dir='/home/users/u101957/DE371_StyleGAN/results/Pack_Perceptual_Random_VGG_Loss_sol3/' \
         --device='cuda' \
+        --pixel_loss_type='amse'\ 
+        --lambda_vgg=0 \
         --lambda_pixel=10 \
         --lambda_vgg=1 \
         --vgg_computation='sol3' \
@@ -33,3 +35,4 @@ apptainer exec --nv container.sif python3 main_inversion.py \
         --date_stop=2021-07-31 \
         --leadtimes='[3,6,9,12,15,18,21,24,27,30,33,36,39,42]' \
         --progressive_loss_mode=1 \
+        --normalization='meanmax'

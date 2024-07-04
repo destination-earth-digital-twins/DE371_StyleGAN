@@ -151,8 +151,8 @@ def get_expe_parameters():
     #architectural choices
     
     parser.add_argument('--latent_dim', type=int, default=512)
-    parser.add_argument('--g_channels', type=int, default=3)
-    parser.add_argument('--d_channels', type=int, default=3)
+    parser.add_argument('--g_channels', type=int, default=4)
+    parser.add_argument('--d_channels', type=int, default=4)
     parser.add_argument('--n_mlp', type=int, default=8, help="depth of the z->w mlp")
     parser.add_argument("--channel_multiplier",type=int, default=2,
         help="channel multiplier factor for the stylegan/swagan model. config-f = 2, else = 1",
@@ -218,7 +218,7 @@ def get_expe_parameters():
     parser.add_argument('--use_noise', type=str2bool, default=False, help="if False, doesn't use noise_inj")
     
     # Data description
-    parser.add_argument('--var_names', type=str2list, default=['u','v','t2m'])#, 'orog'])
+    parser.add_argument('--var_names', type=str2list, default=['rr','u','v','t2m'])#, 'orog'])
     parser.add_argument('--crop_indexes', type=str2intlist, default=[0,256,0,256])
 
     parser.add_argument('--crop_size', type=str2inttuple, default=(256,256) ) #   if not all_domain else (256,256))

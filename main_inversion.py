@@ -13,6 +13,7 @@ Please make sure to configure the directory paths, parameters, and other setting
 """
 import torch
 import argparse
+from torchvision.utils import save_image
 from gan.model.stylegan2 import Generator
 import os
 import json
@@ -41,10 +42,10 @@ if __name__=="__main__" :
                         default='/project/home/p200177/DE_371/datasets/dataset_Meteo_France/IS_1_1.0_0_0_0_0_0_256_large_lt_done/')
     # Output Directory - PATH where the output of the inversion will be saved
     parser.add_argument('--output_dir',type = str, 
-                        default ='/home/users/u101833/project/results/inversion/Ens_Perceptual_Random_VGG_Loss/Inversion_Perceptual_Random_VGG_Loss/')
+                        default ='/home/users/u101957/DE371_StyleGAN/results/WAMSE/Ens_Perceptual_Random_VGG_Loss/Inversion_Perceptual_Random_VGG_Loss/')
     # Pack Directory - PATH where the packed ensembles will be saved
     parser.add_argument("--pack_dir", type=str, 
-                        default = '/home/users/u101833/project/results/inversion/Ens_Perceptual_Random_VGG_Loss/Pack_Perceptual_Random_VGG_Loss/') # storing "packed" (normalized) real data
+                        default = '/home/users/u101957/DE371_StyleGAN/results/WAMSE/Ens_Perceptual_Random_VGG_Loss/Pack_Perceptual_Random_VGG_Loss/') # storing "packed" (normalized) real data
     
     # Dataset information
     parser.add_argument("--normalization", type=str, default="meanmax", choices=["minmax", "meanmax"])
@@ -77,14 +78,14 @@ if __name__=="__main__" :
     # In case noise_optimize=0, the lambda_noise is not taken into account in the loss computation
     
     # Parameter related to pixel loss 
-    parser.add_argument('--pixel_loss_type', type=str, default='mse', choices = ['mse', 'mae'])
-    parser.add_argument("--lambda_pixel", type=float, default=10.0, help="weight of the (mae/mse) pixel loss")
+    parser.add_argument('--pixel_loss_type', type=str, default='mse', choices = ['mse', 'mae','wmse','amse','wamse'])
+    parser.add_argument("--lambda_pixel", type=float, default=10.0, help="weight of the (mae/mse/wmse) pixel loss")
     
     # Parameter related to perceptual loss 
     parser.add_argument("--lambda_vgg", type=float, default=1.0, help="weight of the vgg (perceptual) loss")
     parser.add_argument("--vgg_computation", type=str, default='sol2', choices = ['sol1', 'sol2', 'sol3', 'sol4', 'sol5'], 
                         help="Either we compute layer by layer and member per member but we have to triple th einput to make it rgb or all in one (naive)")
-    parser.add_argument("--vgg_state_dict_path", type=str, default='/home/users/u101833/project/DE371_StyleGAN/inversion/vgg_weights/vgg16-random.pth', help="Insert a path")
+    parser.add_argument("--vgg_state_dict_path", type=str, default='/home/users/u101957/DE371_StyleGAN/vgg16-random.pth', help="Insert a path")
     parser.add_argument("--vgg_style_layers", type=int, nargs='+', default=[], help="style layers to include in vgg loss computation")
     parser.add_argument("--vgg_feature_layers", type=int, nargs='+', default=[0,1,2,3], help="feature layers to include in vgg computation")
     parser.add_argument("--vgg_alpha_feature", type=float, default=1.0, help="weight of the feature/content loss")
@@ -134,8 +135,8 @@ if __name__=="__main__" :
     #    Means = np.load(f'{params.real_data_dir}stat_files/{params.mean_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
     #    Maxs = np.load(f'{params.real_data_dir}/stat_files/{params.max_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
     elif params.normalization=="minmax":
-       Mins = np.load(f'{params.real_data_dir}/stat_files/{params.min_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
-       Maxs = np.load(f'{params.real_data_dir}/stat_files/{params.max_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
+       Mins = np.load(f'{params.real_data_dir}stat_files_Massif_Central/{params.min_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
+       Maxs = np.load(f'{params.real_data_dir}stat_files_Massif_Central/{params.max_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
     else:
        raise ValueError(f"Unknown normalization: {params.normalization}")
 
@@ -154,7 +155,7 @@ if __name__=="__main__" :
 
     G.eval()
     G = G.to(params.device)
-
+    #print('JE SUIS G',G)
     ################### producing latent mean #######
     if not os.path.exists(f'{params.output_dir}latent_mean.npy'):
         latent_z = torch.empty(10000, 512).normal_().to(params.device)
@@ -237,8 +238,70 @@ if __name__=="__main__" :
                 else:
                    raise ValueError(f"Unknown normalization: {params.normalization}")
                 np.save(params.pack_dir+f'Rsemble_{datename}_{lt}.npy', Ens_r.numpy().astype(np.float32))
+                #print('JE SUIS DANS LE MAIN ',  np.shape(Ens_r[0][1].cpu().detach().numpy()),Ens_r[0][1].cpu().detach().numpy().astype(float))
 
-                
+                import matplotlib.pyplot as plt
+                import matplotlib.image
+
+                crop=[0,-1,0,-1]
+                mem_idx=1
+                fig = plt.figure(figsize=(20,20))
+                packsample = Ens_r.cpu().detach().numpy()
+
+                # #### u
+                # vmin = np.min([np.min(packsample[:,0,crop[0]:crop[1],crop[2]:crop[3]])])
+                # vmax = np.min([np.max(packsample[:,0,crop[0]:crop[1],crop[2]:crop[3]])])
+
+                # ax = fig.add_subplot(331)
+                # ax.set_title("rr real")
+                # im = ax.imshow(packsample[mem_idx,0,crop[0]:crop[1],crop[2]:crop[3]], clim=(vmin, vmax), origin="lower")
+                # fig.colorbar(im, shrink=0.5)
+
+ 
+
+
+                # #### v
+                # vmin = np.min([np.min(packsample[:,1,crop[0]:crop[1],crop[2]:crop[3]])])
+                # vmax = np.min([np.max(packsample[:,1,crop[0]:crop[1],crop[2]:crop[3]])])
+
+                # ax = fig.add_subplot(332)
+                # ax.set_title("u real")
+                # im = ax.imshow(packsample[mem_idx,1,crop[0]:crop[1],crop[2]:crop[3]], clim=(vmin, vmax), origin="lower")
+                # fig.colorbar(im, shrink=0.5)
+
+            
+
+
+                # #### t2m
+                # vmin = np.min([np.min(packsample[:,2,crop[0]:crop[1],crop[2]:crop[3]])])
+                # vmax = np.min([np.max(packsample[:,2,crop[0]:crop[1],crop[2]:crop[3]])])
+
+                # ax = fig.add_subplot(333)
+                # ax.set_title("t2m real")
+                # im = ax.imshow(packsample[mem_idx,2,crop[0]:crop[1],crop[2]:crop[3]], clim=(vmin, vmax), origin="lower", cmap="coolwarm")
+                # fig.colorbar(im, shrink=0.5)
+
+                # vmin = np.min([np.min(packsample[:,3,crop[0]:crop[1],crop[2]:crop[3]])])
+                # vmax = np.min([np.max(packsample[:,3,crop[0]:crop[1],crop[2]:crop[3]])])
+
+                # ax = fig.add_subplot(333)
+                # ax.set_title(" real")
+                # im = ax.imshow(packsample[mem_idx,2,crop[0]:crop[1],crop[2]:crop[3]], clim=(vmin, vmax), origin="lower", cmap="coolwarm")
+                # fig.colorbar(im, shrink=0.5)
+
+
+
+
+
+                # fig.suptitle('la')
+                # fig.tight_layout()
+                # try:
+                #     fig.savefig('inv.png', dpi=100)
+                # except Exception:
+                #     print(f"unable to save figure: {figname}")
+                # plt.close()
+
+
                 inv.optimize(Ens_r, G, latent_mean, params.device, params)
 
 
