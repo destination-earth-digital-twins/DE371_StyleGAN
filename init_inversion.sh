@@ -11,6 +11,7 @@
 export OMP_NUM_THREADS=1
 export CUDA_HOME=/usr/local/cuda-12.1
 export NVHPC_CUDA_HOME=/usr/local/cuda-12.1
+export APPTAINERENV_CUDA_VISIBLE_DEVICES='0,1,2,3'
 export CXX=g++ #the compiler for cpp extensions
 export CC=gcc  #the compiler to access the good cpp standard
 export APPTAINER_BINDPATH="/project/home/p200177/DE_371/datasets:/project/home/p200177/DE_371/datasets/,/project/scratch/p200177/DE_371:/project/scratch/p200177/DE_371/"

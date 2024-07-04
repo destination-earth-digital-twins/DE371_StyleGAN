@@ -21,4 +21,13 @@ module load Apptainer/1.2.4-GCCcore-12.3.0
 module load NVHPC
 module load GCC
 
-apptainer exec --nv /project/scratch/p200177/DE_371/resources/apptainer_container/container.sif torchrun --nproc_per_node=4 main_gan.py
+apptainer exec --nv /project/scratch/p200177/DE_371/resources/apptainer_container/container.sif torchrun --nproc_per_node=4 main_gan.py \
+        --data_dir='/project/home/p200177/DE_371/datasets/dataset_Meteo_France/IS_1_1.0_0_0_0_0_0_256_large_lt_done/' \
+        --id_file="Large_lt_train_labels_1.csv" \
+        --output_dir='/project/scratch/p200177/DE_371/victorsanchez/results/gan_training/exp_train_without_Noise_Injection/' \
+        --g_channels=3 \
+        --d_channels=3 \
+        --epochs_num=30 \
+        --var_names=['u','v','t2m'] \
+        --config_dir='/project/scratch/p200177/DE_371/victorsanchez/results/gan_training/Set_UseNoiseFalse' \
+        --use_noise='False' \

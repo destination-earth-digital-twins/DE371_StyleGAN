@@ -13,13 +13,17 @@ Please make sure to configure the directory paths, parameters, and other setting
 """
 import torch
 import argparse
-from gan.model.stylegan2 import Generator
 import os
 import numpy as np
-import inversion.optimization_based.inversion as inv
 from collections import OrderedDict
 import yaml
 import pandas as pd
+
+print('Importing Generator')
+from gan.model.stylegan2 import Generator
+print('Importing inversion algo')
+import inversion.optimization_based.inversion as inv
+print('Importing perturbation utils')
 import perturbation.utils as utils
 
 

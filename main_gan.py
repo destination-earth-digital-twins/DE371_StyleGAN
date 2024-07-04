@@ -263,7 +263,7 @@ def get_expe_parameters():
     parser.add_argument('--test_step', type=int, default=2000)# if very_small_exp else (1000 if small_exp else 3000)) #set to 0 if not needed
 
     # parser.add_argument('--confi/home/mrmn/sanchezv/project/code/styleganpnria/gan/configs/Set_UseNoiseFalseg_dir', type=str, default="/home/users/u101833/project/DE371_StyleGAN/gan/configs/Set_UseNoiseFalse/", help="The config files absolute path")
-    parser.add_argument('--config_dir', type=str, default="/home/users/u101833/project/DE371_StyleGAN/gan/configs/Set_UseNoiseFalse/", help="The config files absolute path")
+    parser.add_argument('--config_dir', type=str, default="/project/scratch/p200177/DE_371/victorsanchez/results/gan_training/Set_UseNoiseFalse/", help="The config files absolute path")
     parser.add_argument('--dataset_handler_config', type=str, default="dataset_handler_config.yaml", help="The dataset_handler config file")
     parser.add_argument('--scheduler_config', type=str, default="scheduler_config.yaml", help="The scheduler config file")
     return parser
