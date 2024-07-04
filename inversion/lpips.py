@@ -66,6 +66,7 @@ class VGGPerceptualLoss(torch.nn.Module):
         # the samples have to be in range [0, 1] and normalized using
         # mean = [0.485, 0.456, 0.406] and std = [0.229, 0.224, 0.225]
         if not self.flag_vgg_single_channel_input:
+           # print('SHAPE OF MEAN AND STD ', input_img.shape,self.mean.shape,self.std.shape)
             x = (input_img-self.mean) / self.std
             y = (target_img-self.mean) / self.std
         else :
