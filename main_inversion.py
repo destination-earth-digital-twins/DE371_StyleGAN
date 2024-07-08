@@ -70,10 +70,10 @@ if __name__=="__main__" :
     parser.add_argument("--crop_indices", type=int, nargs='+', default=[0,256,0,256])
     
     # Progressive loss mode
-    parser.add_argument("--progressive_loss_mode", type=bool, default=False, help="Progressive Loss between pixel loss and perceptual loss | Start : Only MSE | End : Only Perceptual")
+    parser.add_argument("--progressive_loss_mode", type=bool, default=0, choices=[0,1], help="Progressive Loss between pixel loss and perceptual loss | Start : Only MSE | End : Only Perceptual")
 
     # Noise optimization and loss noise parameter
-    parser.add_argument("--noise_optimize", type=bool, default=False, help="joint optimization of noise and latent code (1) or latent code optimization only (0)?")
+    parser.add_argument("--noise_optimize", type=bool, default=0, choices=[0,1], help="joint optimization of noise and latent code (1) or latent code optimization only (0)?")
     parser.add_argument("--lambda_noise", type=float, default=10e6, help="weight of the noise regularization")
     # In case noise_optimize=0, the lambda_noise is not taken into account in the loss computation
     parser.add_argument("--fixed_noise", type=bool, default=False, help="Fixing the noise during optimization")
@@ -111,6 +111,7 @@ if __name__=="__main__" :
     # fix some of the inputs
     params.Shape = tuple(params.Shape)
     params.crop_indices = tuple(params.crop_indices)
+    params.noise_optimize=bool(params.noise_optimize==1)
 
     # create output and pack directories
     if not os.path.exists(params.output_dir):

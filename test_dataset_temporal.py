@@ -28,10 +28,7 @@ config.crop_indexes = [0,256,0,256]
 config.crop_size = (256,256)
 config.multi_timestep_mode = True
 config.timestep_period=1
-print('nb_timesteps',config.nb_timesteps)
-config.nb_timesteps = 45
-print('nb_timesteps',config.nb_timesteps)
-config.var_names=['t2m']
+config.nb_timesteps=45
 
 Dl_train = DSH.ISData_Loader("Train", config)
 dataset = DSH.ISDataset(config, Dl_train.dataset_handler_yaml, 'coords', variable_indices=[3], transform=Dl_train.transform())
@@ -43,7 +40,7 @@ train_dataloader = DataLoader(dataset = dataset,
 
 loop = enumerate(train_dataloader)
 
-fig, ax = plt.subplots(ncols=4, nrows=4, figsize=(24,24))
+fig, ax = plt.subplots(ncols=1, nrows=1, figsize=(6,6))
 
 
 for i, batch in loop:
@@ -53,24 +50,23 @@ for i, batch in loop:
         plt.close() 
         raise NotImplementedError
     
-    else :
-        step = 0
+    else :    
         frames = list()
-        for t in trange(len(img[0])):
-             # iterate over first member only
-            for member_id in range(16):
-                ax[member_id%4][member_id//4].imshow(img[member_id][t], origin="lower", clim=(torch.min(img[member_id][t]), torch.max(img[member_id][t])), cmap="coolwarm")
-                # ax[member_id//4][member_id%4].set_title("[t2m in K] time : +{}h".format(config.timestep_period*t))
-            fig.suptitle(f"leadtime {t*config.timestep_period}")
+        step = 0
+        for t in trange(len(img[0])): # iterate over first member only
+            ax.imshow(img[0][t], origin="lower", clim=(torch.min(img[0][t]), torch.max(img[0][t])), cmap="coolwarm")
+            ax.set_title("[t2m in K] time : +{}h".format(3*t))
+            fig.suptitle(f"leadtime {t}")
+            # fig.tight_layout()
             frames.append(create_frame(fig))
             step+=1
         frame_one = frames[0]
         frame_one.save(
-            '/project/scratch/p200177/DE_371/victorsanchez/results/temporal_gif/' + f"plot_time_step_period_{config.timestep_period}_member_{member_id}.gif",
+            '/project/scratch/p200177/DE_371/victorsanchez/results/temporal_gif/' + f"plot_time_step_period_{config.timestep_period}.gif",
             format="GIF",
             append_images=frames,
             save_all=True,
-            duration=20*step,
+            duration=30*step,
             loop=0,
         )
 
