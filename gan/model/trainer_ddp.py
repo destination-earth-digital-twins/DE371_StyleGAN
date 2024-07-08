@@ -455,7 +455,7 @@ class Trainer():
         requires_grad(modelD, True)
 
         samples = samples.cuda()
-
+        print('Discrim Update, samples has size',samples.size())
         loss_0 = self.D_backward(samples, modelD, modelG,
                                  self.config.latent_dim,
                                  mixing=self.config.mixing,

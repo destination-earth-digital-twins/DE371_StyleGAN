@@ -13,7 +13,10 @@ config.stat_folder = ''
 config.crop_indexes = [0,256,0,256]
 config.crop_size = (256,256)
 config.multi_timestep_mode = True
+print(config.nb_timesteps)
 config.nb_timesteps = 44
+print(config.nb_timesteps)
+
 config.timestep_period = 1
 config.stack_sample_along_time_and_variable = False
 config.var_names=['rr', 'u', 'v', 't2m']

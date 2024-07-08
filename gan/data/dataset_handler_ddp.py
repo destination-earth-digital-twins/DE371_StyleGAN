@@ -105,16 +105,22 @@ class ISDataset(Dataset):
                 raise ValueError(f"Provided crop indexes ({self.CI}) should match crop size ({self.config.crop_size})")
 
     def __len__(self):
-        return len(self.labels)
+        if not self.config.multi_timestep_mode :
+            return len(self.labels)
+        else :
+            return len(self.labels) // self.config.nb_timesteps
 
     def __getitem__(self, idx):
         if self.config.multi_timestep_mode :
             # Multi time steps :
             sample = []
-            for leadtime_id in np.arange(0, self.config.nb_timesteps * self.config.timestep_period, step=self.config.timestep_period):
+            for leadtime_id in np.arange(0, self.config.nb_timesteps):
                 # The csv has each members for each leadtime [ex :leadtime1, member0, member1... ]
                 # To store multiple leadtimes for a single member we need to jump by 15 lines in the csv
-                _idx = idx + leadtime_id * 15
+                # print('idx',idx ,'leadtime_id', leadtime_id*self.config.timestep_period)
+                _idx = idx + 16*self.config.timestep_period*leadtime_id
+                # print('_idx', _idx)
+                # print(f"Date : {self.labels.iloc[_idx]['Date']} Member : {self.labels.iloc[_idx]['Member']} Leadtime : {self.labels.iloc[_idx]['LeadTime']}")
                 sample_path = os.path.join(self.config.data_dir, self.labels.iloc[_idx]["Name"])
                 if self.sample_method=='coords':
                     single_sample = np.float32(np.load(f"{sample_path}.npy"))[self.VI, self.CI[0]:self.CI[1], self.CI[2]:self.CI[3]] # (Nvar, H, W)
