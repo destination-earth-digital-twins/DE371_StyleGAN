@@ -73,7 +73,7 @@ if __name__=="__main__" :
     
     # Progressive loss mode
     parser.add_argument("--progressive_loss_mode", type=bool, default=False, help="Progressive Loss between pixel loss and perceptual loss | Start : Only MSE | End : Only Perceptual")
-    # Noise optimization and loss noise parameter
+    # Noise optdimization and loss noise parameter
     parser.add_argument("--noise_optimize", type=bool, default=False, help="joint optimization of noise and latent code (1) or latent code optimization only (0)?")
     parser.add_argument("--lambda_noise", type=float, default=10e6, help="weight of the noise regularization")
     # In case noise_optimize=0, the lambda_noise is not taken into account in the loss computation
