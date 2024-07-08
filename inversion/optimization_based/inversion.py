@@ -235,7 +235,7 @@ def optimize(Ens_r, g_ema, latent_mean, device, params):
             list_time_to_compute_mse_loss.append(time.time()-t0)
             list_pixel_loss.append(pixel_loss.cpu().detach().numpy())
         
-        elif params.pixel_loss_type=='wamse':
+        elif params.pixel_loss_type=='wamfse':
             t0 = time.time()
             pixel_loss = F.mse_loss(img_gen, Ens_r) + np.max(np.min(Ens_r, 20)-img_gen,0)*np.min(Ens_r + 1, 20)
             list_time_to_compute_mse_loss.append(time.time()-t0)
