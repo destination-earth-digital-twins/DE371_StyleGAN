@@ -13,21 +13,25 @@ export TORCH_DISTRIBUTED_DEBUG=INFO
 export OMP_NUM_THREADS=4
 export CUDA_HOME=/usr/local/cuda-12.1
 export NVHPC_CUDA_HOME=/usr/local/cuda-12.1
+export APPTAINERENV_CUDA_VISIBLE_DEVICES='0,1,2,3'
+export CUDA_VISIBLE_DEVICES='0,1,2,3'
 export CXX=g++ #the compiler for cpp extensions
 export CC=gcc  #the compiler to access the good cpp standard
 export APPTAINER_BINDPATH="/project/home/p200177/DE_371/datasets:/project/home/p200177/DE_371/datasets/,/project/scratch/p200177/DE_371/victorsanchez:/project/scratch/p200177/DE_371/victorsanchez/"
 export NCCL_ASYNC_ERROR_HANDLING=1
 module load Apptainer/1.2.4-GCCcore-12.3.0
-module load NVHPC
-module load GCC
 
 apptainer exec --nv /project/scratch/p200177/DE_371/resources/apptainer_container/container.sif torchrun --nproc_per_node=4 main_gan.py \
         --data_dir='/project/home/p200177/DE_371/datasets/dataset_Meteo_France/IS_1_1.0_0_0_0_0_0_256_large_lt_done/' \
         --id_file="Large_lt_train_labels_1.csv" \
         --output_dir='/project/scratch/p200177/DE_371/victorsanchez/results/gan_training/exp_train_without_Noise_Injection/' \
-        --g_channels=3 \
-        --d_channels=3 \
+        --g_channels=14 \
+        --d_channels=14 \
         --epochs_num=30 \
-        --var_names=['u','v','t2m'] \
+        --var_names=['t2m'] \
         --config_dir='/project/scratch/p200177/DE_371/victorsanchez/results/gan_training/Set_UseNoiseFalse' \
         --use_noise='False' \
+        --multi_timestep_mode='True' \
+        --nb_timesteps=14 \
+        --timestep_period=3 \
+        --stack_sample_along_time_and_variable=True 

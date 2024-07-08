@@ -13,16 +13,17 @@ Please make sure to configure the directory paths, parameters, and other setting
 """
 import torch
 import argparse
-from gan.model.stylegan2 import Generator
 import os
-import json
 import numpy as np
-import inversion.optimization_based.inversion as inv
-from time import perf_counter
 from collections import OrderedDict
 import yaml
 import pandas as pd
-from datetime import date, timedelta, datetime
+
+print('Importing Generator')
+from gan.model.stylegan2 import Generator
+print('Importing inversion algo')
+import inversion.optimization_based.inversion as inv
+print('Importing perturbation utils')
 import perturbation.utils as utils
 
 
@@ -69,10 +70,10 @@ if __name__=="__main__" :
     parser.add_argument("--crop_indices", type=int, nargs='+', default=[0,256,0,256])
     
     # Progressive loss mode
-    parser.add_argument("--progressive_loss_mode", type=bool, default=0, choices=[0,1], help="Progressive Loss between pixel loss and perceptual loss | Start : Only MSE | End : Only Perceptual")
+    parser.add_argument("--progressive_loss_mode", type=bool, default=False, help="Progressive Loss between pixel loss and perceptual loss | Start : Only MSE | End : Only Perceptual")
 
     # Noise optimization and loss noise parameter
-    parser.add_argument("--noise_optimize", type=bool, default=0, choices=[0,1], help="joint optimization of noise and latent code (1) or latent code optimization only (0)?")
+    parser.add_argument("--noise_optimize", type=bool, default=False, help="joint optimization of noise and latent code (1) or latent code optimization only (0)?")
     parser.add_argument("--lambda_noise", type=float, default=10e6, help="weight of the noise regularization")
     # In case noise_optimize=0, the lambda_noise is not taken into account in the loss computation
     parser.add_argument("--fixed_noise", type=bool, default=False, help="Fixing the noise during optimization")
@@ -94,7 +95,8 @@ if __name__=="__main__" :
 
     parser.add_argument("--invstep", type=int, default=2000, help="optimize iterations")
     parser.add_argument("--inv_checkpoints", type=utils.str2intlist, default=[250,500,1000,1500,2000])
-
+    parser.add_argument("--plot_checkpoint", type=bool, default=False)
+    
     ########################## CONTROL of Data to invert ######################
     parser.add_argument("--dates_file", type=str, default = 'Large_lt_test_labels.csv')
     parser.add_argument("--date_start", type=str, default = "2021-07-01")
@@ -109,7 +111,6 @@ if __name__=="__main__" :
     # fix some of the inputs
     params.Shape = tuple(params.Shape)
     params.crop_indices = tuple(params.crop_indices)
-    params.noise_optimize=bool(params.noise_optimize==1)
 
     # create output and pack directories
     if not os.path.exists(params.output_dir):

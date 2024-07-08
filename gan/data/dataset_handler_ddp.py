@@ -73,8 +73,13 @@ class ISDataset(Dataset):
         self.VI = variable_indices
         self.transform = transform
         self.labels = pd.read_csv(f"{self.config.data_dir}{self.config.id_file}")
-        
-        # Check that self.nb_timesteps * self.timestep_period == 45
+        self.nb_leadtime_in_dataset=45
+        if self.config.multi_timestep_mode:
+            if self.config.timestep_period not in [i for i in range(1,self.nb_leadtime_in_dataset+1) if 45%i==0]:
+                raise NotImplementedError
+            if self.config.nb_timesteps * self.config.timestep_period != self.nb_leadtime_in_dataset:
+                print(f'Warning : {self.config.nb_timesteps} * {self.config.timestep_period} != 45')
+                raise ValueError
 
         
         self.cache = DatasetCache(use_cache=use_cache)

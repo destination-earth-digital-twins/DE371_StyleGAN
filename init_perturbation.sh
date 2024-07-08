@@ -13,15 +13,15 @@ export CUDA_HOME=/usr/local/cuda-12.1
 export NVHPC_CUDA_HOME=/usr/local/cuda-12.1
 export CXX=g++ #the compiler for cpp extensions
 export CC=gcc  #the compiler to access the good cpp standard
-export APPTAINER_BINDPATH="/project/home/p200177/DE_371/datasets:/project/home/p200177/DE_371/datasets/,/project/scratch/p200177/DE_371/victorsanchez:/project/scratch/p200177/DE_371/victorsanchez/"
+export APPTAINER_BINDPATH="/project/home/p200177/DE_371/datasets:/project/home/p200177/DE_371/datasets/,/project/scratch/p200177/DE_371:/project/scratch/p200177/DE_371/"
 module load Apptainer/1.2.4-GCCcore-12.3.0
 
 apptainer exec --nv /project/scratch/p200177/DE_371/resources/apptainer_container/container.sif python3 main_perturbation.py \
-        --ckpt_dir='/project/scratch/p200177/DE_371/victorsanchez/models/trained_generator/000024.pt' \
+        --ckpt_dir='/project/scratch/p200177/DE_371/victorsanchez/results/gan_training/exp1/models/100000.pt' \
         --real_data_dir='/project/home/p200177/DE_371/datasets/dataset_Meteo_France/IS_1_1.0_0_0_0_0_0_256_large_lt_done/' \
-        --data_dir='/project/scratch/p200177/DE_371/victorsanchez/results/inversion/Ens_Perceptual_Random_VGG_Loss_sol3_not_fixed_noise/Inversion_Perceptual_Random_VGG_Loss_sol3_not_fixed_noise/' \
-        --pack_dir='/project/scratch/p200177/DE_371/victorsanchez/results/inversion/Ens_Perceptual_Random_VGG_Loss_sol3_not_fixed_noise/Pack_Perceptual_Random_VGG_Loss_sol3_not_fixed_noise/' \
-        --output_dir='/project/scratch/p200177/DE_371/victorsanchez/results/perturbation/Ens_Perceptual_Random_VGG_Loss_sol3_not_fixed_noise/' \
+        --data_dir='/project/scratch/p200177/DE_371/victorsanchez/results/inversion/Ens_Perceptual_Random_VGG_Loss_sol3_not_fixed_noise_no_noise_inj/Inversion_Perceptual_Random_VGG_Loss_sol3_not_fixed_noise_no_noise_inj/' \
+        --pack_dir='/project/scratch/p200177/DE_371/victorsanchez/results/inversion/Ens_Perceptual_Random_VGG_Loss_sol3_not_fixed_noise_no_noise_inj/Pack_Perceptual_Random_VGG_Loss_sol3_not_fixed_noise_no_noise_inj/' \
+        --output_dir='/project/scratch/p200177/DE_371/victorsanchez/results/perturbation/Ens_Perceptual_Random_VGG_Loss_sol3_not_fixed_noise_no_noise_inj/' \
         --scale_dir='/project/home/p200177/DE_371/datasets/dataset_Meteo_France/scale_dir_gan_training/' \
         --eigendir='/project/home/p200177/DE_371/datasets/dataset_Meteo_France/eigenvalues_gan_training/' \
         --device='cuda' \
@@ -31,3 +31,4 @@ apptainer exec --nv /project/scratch/p200177/DE_371/resources/apptainer_containe
         --date_start=2021-07-01 \
         --date_stop=2021-07-31 \
         --leadtimes='[3,6,9,12,15,18,21,24,27,30,33,36,39,42]' \
+        # --ckpt_dir='/project/scratch/p200177/DE_371/victorsanchez/models/trained_generator/000024.pt' \
