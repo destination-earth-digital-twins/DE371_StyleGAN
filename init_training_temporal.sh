@@ -5,8 +5,8 @@
 #SBATCH -G 4
 #SBATCH -p gpu
 #SBATCH --ntasks-per-node=4
-#SBATCH --time=10:00
-#SBATCH --qos=short
+#SBATCH --time=48:00:00
+#SBATCH --qos=default
 
 # Note : to launch a train, choose the following parameters : --time=48:00:00 --qos=default
 export TORCH_DISTRIBUTED_DEBUG=INFO 
@@ -24,14 +24,14 @@ module load Apptainer/1.2.4-GCCcore-12.3.0
 apptainer exec --nv /project/scratch/p200177/DE_371/resources/apptainer_container/container.sif torchrun --nproc_per_node=4 main_gan.py \
         --data_dir='/project/home/p200177/DE_371/datasets/dataset_Meteo_France/IS_1_1.0_0_0_0_0_0_256_large_lt_done/' \
         --id_file="Large_lt_train_labels_1.csv" \
-        --output_dir='/project/scratch/p200177/DE_371/victorsanchez/results/gan_training/exp_train_without_Noise_Injection/' \
-        --g_channels=14 \
-        --d_channels=14 \
-        --epochs_num=30 \
+        --output_dir='/project/scratch/p200177/DE_371/victorsanchez/results/gan_training/exp_train_sequential_every_3h/' \
+        --g_channels=15 \
+        --d_channels=15 \
+        --epochs_num=4000 \
         --var_names=['t2m'] \
-        --config_dir='/project/scratch/p200177/DE_371/victorsanchez/results/gan_training/Set_UseNoiseFalse' \
-        --use_noise='False' \
-        --multi_timestep_mode='True' \
-        --nb_timesteps=14 \
+        --config_dir='/project/scratch/p200177/DE_371/victorsanchez/results/gan_training/Set_UseNoiseFalse/' \
+        --use_noise=True \
+        --multi_timestep_mode=True \
+        --nb_timesteps=15 \
         --timestep_period=3 \
         --stack_sample_along_time_and_variable=True 
