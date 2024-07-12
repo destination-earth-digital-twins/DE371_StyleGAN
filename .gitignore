@@ -14,3 +14,5 @@ gan/configs/*
 /restyle-encoder/*
 *plotter/
 *.sif
+.vscode/
+/test_*.py

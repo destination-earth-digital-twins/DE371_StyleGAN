@@ -66,14 +66,20 @@ class DatasetCache(object):
 class ISDataset(Dataset):
 
     def __init__(self, config, dataset_handler_yaml, sample_method, variable_indices,
-     transform, use_cache=False):
+     transform, detransform=None, use_cache=False):
         self.config = config
         self.dataset_handler_yaml = dataset_handler_yaml
         self.sample_method = sample_method
         self.VI = variable_indices
         self.transform = transform
+        self.detransform = detransform
         self.labels = pd.read_csv(f"{self.config.data_dir}{self.config.id_file}")
+        # Hardcoding is generally not a good idea
+        # TODO : Add these to the config instead 
         self.nb_leadtime_in_dataset=45
+        self.nb_members=16
+        ####################
+        self.cursor_incomplete_date = 0
         if self.config.multi_timestep_mode:
             if self.config.timestep_period not in [i for i in range(1,self.nb_leadtime_in_dataset+1) if 45%i==0]:
                 raise NotImplementedError
@@ -105,16 +111,43 @@ class ISDataset(Dataset):
                 raise ValueError(f"Provided crop indexes ({self.CI}) should match crop size ({self.config.crop_size})")
 
     def __len__(self):
-        return len(self.labels)
+        if self.config.multi_timestep_mode :
+            # Nb_days_in_dataset = len(self.labels)/(45*16)
+            return len(self.labels) // (self.nb_leadtime_in_dataset*self.nb_members)
+        else :
+            return len(self.labels)
 
     def __getitem__(self, idx):
         if self.config.multi_timestep_mode :
             # Multi time steps :
             sample = []
-            for leadtime_id in np.arange(0, self.config.nb_timesteps * self.config.timestep_period, step=self.config.timestep_period):
-                # The csv has each members for each leadtime [ex :leadtime1, member0, member1... ]
-                # To store multiple leadtimes for a single member we need to jump by 15 lines in the csv
-                _idx = idx + leadtime_id * 15
+
+            for leadtime_id in np.arange(0, self.config.nb_timesteps):
+                # idx is fixed for a given batch
+
+                # The csv is organized as follow [day, leadtime, member]
+                # But we want [day, member, leadtime]
+                # For now a batch corresponds to a day
+
+                # We want Multiple Leadtimes per Members : 
+                #           16*self.config.timestep_period*leadtime_id
+                # We need to Jump per days after iterating over all leadtimes of a day :
+                #           ((self.nb_leadtime_in_dataset-1)*16)*((idx)//batch_size)
+                # 16 being the number of members 
+                
+                _idx = idx + 16*self.config.timestep_period*leadtime_id + ((self.nb_leadtime_in_dataset-1)*16)*((idx)//16) + self.cursor_incomplete_date*45*16
+                
+                # print('Batch index: ', idx)
+                # print('Leadtime index', leadtime_id, 'Leadtime index on csv', 16*self.config.timestep_period*leadtime_id)
+                # print('Day index', (idx//16), 'Day index on csv', ((self.nb_leadtime_in_dataset-1)*16)*(idx//16))
+                
+                if self.labels.iloc[_idx]['Date'] in ['2021-02-13T21:00:00Z', '2021-08-15T21:00:00Z', '2021-09-29T21:00:00Z', '2021-05-30T21:00:00Z']:
+                    print(f"Warning : Incomplete Date : {self.labels.iloc[_idx]['Date']}, switching to next sample day")
+                    self.cursor_incomplete_date += 1 # switching to next day
+                    _idx = idx + 16*self.config.timestep_period*leadtime_id + ((self.nb_leadtime_in_dataset-1)*16)*((idx)//16) + self.cursor_incomplete_date*45*16
+        
+                # print(f"Date : {self.labels.iloc[_idx]['Date']} Member : {self.labels.iloc[_idx]['Member']} Leadtime : {self.labels.iloc[_idx]['LeadTime']}")
+                
                 sample_path = os.path.join(self.config.data_dir, self.labels.iloc[_idx]["Name"])
                 if self.sample_method=='coords':
                     single_sample = np.float32(np.load(f"{sample_path}.npy"))[self.VI, self.CI[0]:self.CI[1], self.CI[2]:self.CI[3]] # (Nvar, H, W)
@@ -129,6 +162,7 @@ class ISDataset(Dataset):
                 if len(self.VI)>1:
                     single_sample = single_sample[np.newaxis:] # (1,Nvar,H,W) in case Nvar>1
                 sample.append(single_sample)
+
             sample = np.array(sample)
             
                 
@@ -161,23 +195,37 @@ class ISDataset(Dataset):
                 else :
                     sample[:,0,:,:] = -sample[:,0,:,:]
         ## transpose to get off with transform.Normalize builtin transposition
-        
+
         if not self.config.multi_timestep_mode :
+
+            # print(f'\n stat before normalization : \
+            #       (var) (min) (mean) (max) \n \
+            #       t2m{sample.min()} {sample.mean()} {sample.max()} \n\  ')
+            
             sample = sample.transpose((1,2,0))  
             sample = self.transform(sample)
+            
+            # print(f'\n stat after normalization : \
+            #       (var) (min) (mean) (max)\n \
+            #       t2m{sample.min()} {sample.mean()} {sample.max()} \n\  ')
         else :
+            # print(f'\n stat before normalization : \
+            #       (var) (min) (mean) (max) \n \
+            #       t2m{sample.min()} {sample.mean()} {sample.max()} \n\  ')
             sample = sample.transpose(2,3,1,0)
             sample = np.array([self.transform(sample[:,:,:,t]) for t in range(self.config.nb_timesteps)])
+            # print(f'\n stat after normalization : \
+            #       (var) (min) (mean) (max)\n \
+            #       t2m{sample[:,:,:,0].min()} {sample[:,:,:,0].mean()} {sample[:,:,:,0].max()} \n\  ')
             if self.config.stack_sample_along_time_and_variable :
                 sample = sample.reshape((self.config.nb_timesteps*len(self.VI), single_sample.shape[-2], single_sample.shape[-1]))
                 # sample = np.vstack(sample)
                 # sample should now be : (Nb_leatime*N_var, H, W)
 
-                
+             
         
 
         self.cache.cache(idx, sample, importance, position)
-
         return sample, importance, position
 
 
@@ -251,6 +299,21 @@ class ISData_Loader():
         transform = Compose(options)
         return transform
 
+    def detransform(self):
+        options = [ToTensor()]
+        denormalization = self.dataset_handler_yaml["normalization"]["type"]
+        if denormalization != "None":
+            if 'rr' in self.config.var_names and self.dataset_handler_yaml["rr_transform"]["symetrization"]: #applying transformations on rr only if selected
+                if denormalization == "means":
+                    raise NotImplementedError
+                    self.means[0] = np.zeros_like(self.means[0]) # TODO : Do the inverse of this
+                elif denormalization == "minmax":
+                    raise NotImplementedError
+                    self.mins[0] = -self.maxs[0]
+        options.append(MultiOptionNormalize(self.means, self.stds, self.maxs, self.mins, self.config, self.dataset_handler_yaml).denorm)
+        transform = Compose(options)
+        return transform
+
     def loader(self, world_size=None, local_rank=None, kwargs=None):
 
         if kwargs is not None:
@@ -260,7 +323,7 @@ class ISData_Loader():
                     sample_method = 'coords'
                 else:
                     sample_method = 'random'
-                dataset = ISDataset(self.config, self.dataset_handler_yaml, sample_method, self.VI, self.transform()) # coordinates system
+                dataset = ISDataset(self.config, self.dataset_handler_yaml, sample_method, self.VI, self.transform(), self.detransform()) # coordinates system
 
         self.sampler = DistributedSampler(dataset, num_replicas=world_size, rank=local_rank)
         if kwargs is not None:
