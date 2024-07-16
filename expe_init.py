@@ -138,8 +138,12 @@ def get_expe_parameters():
     parser.add_argument('--id_file', type=str, default="Large_lt_test_labels.csv")
     parser.add_argument('--pretrained_model', type=int, default=-1)
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 
     parser.add_argument('--output_dir', type=str, default='/project/scratch/p200177/DE_371/victorsanchez/results/gan_training/exp2/')
+=======
+    parser.add_argument('--output_dir', type=str, default='./results/')
+>>>>>>> Stashed changes
 =======
     parser.add_argument('--output_dir', type=str, default='./results/')
 >>>>>>> Stashed changes
@@ -276,7 +280,11 @@ def get_expe_parameters():
 
     # parser.add_argument('--confi/home/mrmn/sanchezv/project/code/styleganpnria/gan/configs/Set_UseNoiseFalseg_dir', type=str, default="/home/users/u101833/project/DE371_StyleGAN/gan/configs/Set_UseNoiseFalse/", help="The config files absolute path")
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
     parser.add_argument('--config_dir', type=str, default="/home/users/u101833/project/DE371_StyleGAN/gan/configs/Set_UseNoiseFalse/", help="The config files absolute path")
+=======
+    parser.add_argument('--config_dir', type=str, default="/home/users/u101957/DE371_StyleGAN/gan/configs/Set_Exemple/", help="The config files absolute path")
+>>>>>>> Stashed changes
 =======
     parser.add_argument('--config_dir', type=str, default="/home/users/u101957/DE371_StyleGAN/gan/configs/Set_Exemple/", help="The config files absolute path")
 >>>>>>> Stashed changes
