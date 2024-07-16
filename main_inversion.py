@@ -36,16 +36,18 @@ if __name__=="__main__" :
     ########################### Directories ###########################
     # Checkpoint directory - PATH to generator's weight
     parser.add_argument('--ckpt_dir', type = str, 
-                        default ='/project/scratch/p200177/DE_371/victorsanchez/models/trained_generator/000024.pt')
+                        default ='/scratch/mrmn/brochetc/GAN_2D/tests/Set_UseNoiseFalse/stylegan2_stylegan_dom_256_lat-dim_512_bs_8_0.002_0.002_ch-mul_2_vars_rr_u_v_t2m_noise_False/Instance_2/models/216000.pt')
     # Real Data Directory - PATH to samples of the dataset
+    # parser.add_argument('--real_data_dir', type = str, 
+    #                     default='/project/home/p200177/DE_371/datasets/dataset_Meteo_France/IS_1_1.0_0_0_0_0_0_256_large_lt_done/')
     parser.add_argument('--real_data_dir', type = str, 
-                        default='/project/home/p200177/DE_371/datasets/dataset_Meteo_France/IS_1_1.0_0_0_0_0_0_256_large_lt_done/')
+                        default='/scratch/mrmn/brochetc/GAN_2D/datasets_full_indexing/cropped_120_376_540_796/')
     # Output Directory - PATH where the output of the inversion will be saved
     parser.add_argument('--output_dir',type = str, 
-                        default ='/home/users/u101957/DE371_StyleGAN/results/WAMSE/Ens_Perceptual_Random_VGG_Loss/Inversion_Perceptual_Random_VGG_Loss/')
+                        default ='/home/mrmn/bonamya/de371_stylegan/test/PACA_1/results/rr_mse/results_4var_test/inversion/')
     # Pack Directory - PATH where the packed ensembles will be saved
     parser.add_argument("--pack_dir", type=str, 
-                        default = '/home/users/u101957/DE371_StyleGAN/results/WAMSE/Ens_Perceptual_Random_VGG_Loss/Pack_Perceptual_Random_VGG_Loss/') # storing "packed" (normalized) real data
+                        default = '/home/mrmn/bonamya/de371_stylegan/test/PACA_1/results/rr_mse/results_4var_test/pack/') # storing "packed" (normalized) real data
     
     # Dataset information
     parser.add_argument("--normalization", type=str, default="meanmax", choices=["minmax", "meanmax"])
@@ -65,8 +67,8 @@ if __name__=="__main__" :
     parser.add_argument("--noise_strength", type=float, default=0.005, help="strength of the noise level")
     parser.add_argument("--noise_ramp",type=float,default=0.75,help="duration of the noise level decay")
     
-    parser.add_argument("--var_indices", type=utils.str2intlist, default=[1,2,3])
-    parser.add_argument("--Shape", type=tuple, default=(3,256,256), help='size of the samples')
+    parser.add_argument("--var_indices", type=utils.str2intlist, default=[0,1,2,3])
+    parser.add_argument("--Shape", type=tuple, default=(4,256,256), help='size of the samples')
     parser.add_argument("--crop_indices", type=int, nargs='+', default=[0,256,0,256])
     
     # Progressive loss mode
@@ -85,11 +87,8 @@ if __name__=="__main__" :
     parser.add_argument("--lambda_vgg", type=float, default=1.0, help="weight of the vgg (perceptual) loss")
     parser.add_argument("--vgg_computation", type=str, default='sol2', choices = ['sol1', 'sol2', 'sol3', 'sol4', 'sol5'], 
                         help="Either we compute layer by layer and member per member but we have to triple th einput to make it rgb or all in one (naive)")
-<<<<<<< HEAD
-    parser.add_argument("--vgg_state_dict_path", type=str, default='/home/users/u101957/DE371_StyleGAN/vgg16-random.pth', help="Insert a path")
-=======
-    parser.add_argument("--vgg_state_dict_path", type=str, default='/project/scratch/p200177/DE_371/resources/vgg_weights/vgg16-random.pth', help="Insert a path")
->>>>>>> 700dae939d63c5cc5650794c292abd0ffef187cd
+    parser.add_argument("--vgg_state_dict_path", type=str, default='./vgg_weights/vgg16-random.pth', help="Insert a path")
+    #parser.add_argument("--vgg_state_dict_path", type=str, default='/project/scratch/p200177/DE_371/resources/vgg_weights/vgg16-random.pth', help="Insert a path")
     parser.add_argument("--vgg_style_layers", type=int, nargs='+', default=[], help="style layers to include in vgg loss computation")
     parser.add_argument("--vgg_feature_layers", type=int, nargs='+', default=[0,1,2,3], help="feature layers to include in vgg computation")
     parser.add_argument("--vgg_alpha_feature", type=float, default=1.0, help="weight of the feature/content loss")
@@ -100,7 +99,7 @@ if __name__=="__main__" :
     parser.add_argument("--inv_checkpoints", type=utils.str2intlist, default=[250,500,1000,1500,2000])
 
     ########################## CONTROL of Data to invert ######################
-    parser.add_argument("--dates_file", type=str, default = 'Large_lt_test_labels.csv')
+    parser.add_argument("--dates_file", type=str, default = 'labels.csv')
     parser.add_argument("--date_start", type=str, default = "2021-07-01")
     parser.add_argument("--date_stop", type=str, default = "2021-07-02")
     parser.add_argument("--leadtimes", type=utils.str2intlist, default=[3,6,9,12,15,18,21,24,27,30,33,36,39,42,45])
@@ -132,15 +131,15 @@ if __name__=="__main__" :
     df_extract = df_date[(df_date['Date']>=params.date_start) & (df_date['Date']<=params.date_stop)]
 
     list_dates = df_extract['Date'].unique()
-    
+    print('DF_EXTRACT', df_extract, 'LIST_DATES', list_dates)
     if params.normalization=="meanmax":
         Means = np.load(f'{params.real_data_dir}{params.mean_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
         Maxs = np.load(f'{params.real_data_dir}{params.max_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
     #    Means = np.load(f'{params.real_data_dir}stat_files/{params.mean_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
     #    Maxs = np.load(f'{params.real_data_dir}/stat_files/{params.max_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
     elif params.normalization=="minmax":
-       Mins = np.load(f'{params.real_data_dir}stat_files_Massif_Central/{params.min_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
-       Maxs = np.load(f'{params.real_data_dir}stat_files_Massif_Central/{params.max_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
+       Mins = np.load(f'{params.real_data_dir}stat_files/{params.min_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
+       Maxs = np.load(f'{params.real_data_dir}stat_files/{params.max_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
     else:
        raise ValueError(f"Unknown normalization: {params.normalization}")
 
@@ -198,6 +197,8 @@ if __name__=="__main__" :
         for lt in params.leadtimes:
             params.date_index = datename
             params.lt_index = lt
+            print('DATENAME', datename, 'LT',lt)
+            
             
             # Check if the files already exists (to qave computation time)
             already_exist = []
@@ -227,9 +228,9 @@ if __name__=="__main__" :
                 if len(df0)==0:
                    print("# samples: 0")
                    continue
-
-                Ens_r = utils.load_batch_from_timestamp(df_extract, date_, lt, params.real_data_dir, Shape=params.Shape, var_indices=params.var_indices) #, crop_indices=params.crop_indices)
-
+                print('DF_EXTRACT', df_extract)
+                Ens_r = utils.load_batch_from_timestamp(df_extract, date_, 3, params.real_data_dir, Shape=params.Shape, var_indices=params.var_indices) #, crop_indices=params.crop_indices)
+                print('JE SUIS LE TYPE',type(Ens_r),Ens_r.shape)
                 # n_samples = np.min([Ens_r.shape[0], 6])
                 # print(f"extracting {n_samples} samples for inversion\n")
                 # Ens_r = Ens_r[:n_samples]
@@ -305,7 +306,8 @@ if __name__=="__main__" :
                 #     print(f"unable to save figure: {figname}")
                 # plt.close()
 
-
+                Ens_r = torch.from_numpy(np.load('./samples_precip/Rsemble_Var_PACA Ouest_Drôme-S_2.npy').astype(np.float32))
+                np.save(params.pack_dir+f'Rsemble_{VAR_PACA_2}.npy', Ens_r.numpy().astype(np.float32))
                 inv.optimize(Ens_r, G, latent_mean, params.device, params)
 
 
