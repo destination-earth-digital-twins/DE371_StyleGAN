@@ -24,14 +24,15 @@ module load Apptainer/1.2.4-GCCcore-12.3.0
 apptainer exec --nv /project/scratch/p200177/DE_371/resources/apptainer_container/container.sif torchrun --nproc_per_node=4 main_gan.py \
         --data_dir='/project/home/p200177/DE_371/datasets/dataset_Meteo_France/IS_1_1.0_0_0_0_0_0_256_large_lt_done/' \
         --id_file="Large_lt_train_labels_1.csv" \
-        --output_dir='/project/scratch/p200177/DE_371/victorsanchez/results/gan_training/exp_train_sequential_every_3h/' \
-        --g_channels=15 \
-        --d_channels=15 \
-        --epochs_num=4000 \
-        --var_names=['t2m'] \
+        --output_dir='/project/scratch/p200177/DE_371/victorsanchez/results/gan_training/exp_train_sequential_every_3h_10000_u_v_t2m_channel_multiplier=4/' \
+        --g_channels=45 \
+        --d_channels=45 \
+        --epochs_num=10000 \
+        --var_names=['u','v','t2m'] \
         --config_dir='/project/scratch/p200177/DE_371/victorsanchez/results/gan_training/Set_UseNoiseFalse/' \
         --use_noise=True \
-        --multi_timestep_mode=True \
+        --multi_timestep_mode \
         --nb_timesteps=15 \
         --timestep_period=3 \
-        --stack_sample_along_time_and_variable=True 
+        --stack_sample_along_time_and_variable \
+        --channel_multiplier=4

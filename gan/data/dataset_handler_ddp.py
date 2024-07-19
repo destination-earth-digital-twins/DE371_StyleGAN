@@ -211,9 +211,12 @@ class ISDataset(Dataset):
         else :
             # print(f'\n stat before normalization : \
             #       (var) (min) (mean) (max) \n \
-            #       t2m{sample.min()} {sample.mean()} {sample.max()} \n\  ')
+            #        t2m{sample.min()} {sample.mean()} {sample.max()} \n\  ')
             sample = sample.transpose(2,3,1,0)
+            # print('after T', np.shape(sample))
             sample = np.array([self.transform(sample[:,:,:,t]) for t in range(self.config.nb_timesteps)])
+            # print('after', np.shape(sample))
+            
             # print(f'\n stat after normalization : \
             #       (var) (min) (mean) (max)\n \
             #       t2m{sample[:,:,:,0].min()} {sample[:,:,:,0].mean()} {sample[:,:,:,0].max()} \n\  ')

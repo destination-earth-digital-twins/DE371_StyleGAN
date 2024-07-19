@@ -80,11 +80,15 @@ class VGGPerceptualLoss(torch.nn.Module):
             x = block(x)
             y = block(y)
             if i in feature_layers:
-                loss += alpha_feature*torch.nn.functional.l1_loss(x, y)
+                loss_features = torch.nn.functional.l1_loss(x, y)
+                # print('loss_features', loss_features)
+                loss += alpha_feature*loss_features
             if i in style_layers: # see https://www.cv-foundation.org/openaccess/content_cvpr_2016/papers/Gatys_Image_Style_Transfer_CVPR_2016_paper.pdf
                 act_x = x.reshape(x.shape[0], x.shape[1], -1)
                 act_y = y.reshape(y.shape[0], y.shape[1], -1)
                 gram_x = act_x @ act_x.permute(0, 2, 1)
                 gram_y = act_y @ act_y.permute(0, 2, 1)
-                loss += alpha_style*torch.nn.functional.l1_loss(gram_x, gram_y)
+                loss_style = torch.nn.functional.l1_loss(gram_x, gram_y)
+                # print('loss_style', loss_style)
+                loss += alpha_style*loss_style
         return loss

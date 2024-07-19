@@ -20,6 +20,7 @@ apptainer exec --nv /project/scratch/p200177/DE_371/resources/apptainer_containe
         --ckpt_dir='/project/scratch/p200177/DE_371/victorsanchez/models/trained_generator/000024.pt' \
         --real_data_dir='/project/home/p200177/DE_371/datasets/dataset_Meteo_France/IS_1_1.0_0_0_0_0_0_256_large_lt_done/' \
         --output_dir='/project/scratch/p200177/DE_371/victorsanchez/results/scaled_perturbation/ScaleTune/' \
-        --ensemble_data_dir='/project/scratch/p200177/DE_371/victorsanchez/results/inversion/Ens_Perceptual_Random_VGG_Loss_sol3_not_fixed_noise_no_noise_inj/Pack_Perceptual_Random_VGG_Loss_sol3_not_fixed_noise_no_noise_inj/' \
-        --fake_data_dir='/project/scratch/p200177/DE_371/victorsanchez/results/inversion/Ens_Perceptual_Random_VGG_Loss_sol3/Inversion_Perceptual_Random_VGG_Loss_sol3/' \
+        --ensemble_data_dir='/project/scratch/p200177/DE_371/victorsanchez/results/inversion/Validation_Set_For_ScaleTune/Pack_Perceptual/' \
+        --fake_data_dir='/project/scratch/p200177/DE_371/victorsanchez/results/inversion/Validation_Set_For_ScaleTune/Inversion/' \
+        --invert_step=2000 \
         

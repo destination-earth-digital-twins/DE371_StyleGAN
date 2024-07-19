@@ -219,10 +219,10 @@ def get_expe_parameters():
     parser.add_argument('--full_size', type=str2inttuple, default=(256,256))
     
     # Data Description - Temporal Aspect
-    parser.add_argument('--multi_timestep_mode', type=bool, default=False)
+    parser.add_argument('--multi_timestep_mode', action='store_true')
     parser.add_argument('--nb_timesteps', type=int, default=13)
     parser.add_argument('--timestep_period', type=int, default=3)
-    parser.add_argument('--stack_sample_along_time_and_variable', type=bool, default=True)
+    parser.add_argument('--stack_sample_along_time_and_variable', action='store_true')
     
     # Training settings -schedulers
     parser.add_argument('--lrD_sched', type=str, default='None', \

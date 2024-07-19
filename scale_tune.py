@@ -79,7 +79,7 @@ if __name__=="__main__" :
     print("instances already existing", instances)
     os.makedirs(output_dir + f"Instance_{instances+1}/",exist_ok=True)
     output_dir = output_dir + f"Instance_{instances+1}/"
-    df = pd.read_csv(args.real_data_dir + 'Large_lt_test_labels.csv') #Large_lt_val_labels
+    df = pd.read_csv(args.real_data_dir + 'Large_lt_val_labels.csv') #Large_lt_val_labels
     df_date = df.copy()
 
     liste_dates = df_date['Date'].unique().tolist()
@@ -148,12 +148,12 @@ if __name__=="__main__" :
                 w_avg = torch.load(args.fake_data_dir + f'w_avg_{date[:10]}_{lt}_{args.pca_cut}_{args.invert_step}.pt')
 
                 if w_avg.shape!=(args.pca_cut,512):
-                    Cov, w_avg = pca.computeCovarianceW(batch_w[:,:args.pca_cut],cut=args.n_samples-1)
+                    Cov, w_avg = pca.computeReducedCovarianceW(batch_w[:,:args.pca_cut],cut=args.n_samples-1)
                     torch.save(Cov, args.fake_data_dir + f'Cov_{date[:10]}_{lt}_{args.pca_cut}_{args.invert_step}.pt')
                     torch.save(w_avg, args.fake_data_dir + f'w_avg_{date[:10]}_{lt}_{args.pca_cut}_{args.invert_step}.pt')
 
             except FileNotFoundError:
-                Cov, w_avg  = pca.computeCovarianceW(batch_w[:,:args.pca_cut],cut=args.n_samples-1)
+                Cov, w_avg  = pca.computeReducedCovarianceW(batch_w[:,:args.pca_cut],cut=args.n_samples-1)
                 torch.save(Cov, args.fake_data_dir + f'Cov_{date[:10]}_{lt}_{args.pca_cut}_{args.invert_step}.pt')
                 torch.save(w_avg, args.fake_data_dir + f'w_avg_{date[:10]}_{lt}_{args.pca_cut}_{args.invert_step}.pt')
             

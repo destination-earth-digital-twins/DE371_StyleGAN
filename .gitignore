@@ -16,3 +16,10 @@ gan/configs/*
 *.sif
 .vscode/
 /test_*.py
+*.log
+init_*.sh
+!init_inversion.sh
+!init_training.sh
+!init_perturbation.sh
+!init_scaling_perturbation.sh
+!init_training_temporal.sh

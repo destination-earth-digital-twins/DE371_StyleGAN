@@ -269,81 +269,81 @@ def optimize(Ens_r, g_ema, latent_mean, device, params):
             # np.save(params.output_dir+'Time_MSE_loss_{}_{}.npy'.format(params.date_index,params.lt_index),list_time_to_compute_mse_loss)
 
 
-def optimize_noise(Ens_r, g_ema, device, params, w):
-    print("noise optimization, keeping w fixed")
+# def optimize_noise(Ens_r, g_ema, device, params, w):
+#     print("noise optimization, keeping w fixed")
 
-    w = w.to(device)
-    Ens_r = Ens_r.to(device)
+#     w = w.to(device)
+#     Ens_r = Ens_r.to(device)
 
-    noises_single = g_ema.make_noise()
-    noises = [] # per pixel noise to inject in each layer
-    for i, noise in enumerate(noises_single):
-        noises.append(noise.repeat(Ens_r.shape[0], 1, 1, 1).normal_())
+#     noises_single = g_ema.make_noise()
+#     noises = [] # per pixel noise to inject in each layer
+#     for i, noise in enumerate(noises_single):
+#         noises.append(noise.repeat(Ens_r.shape[0], 1, 1, 1).normal_())
 
-    for noise in noises:
-        noise.requires_grad = True
+#     for noise in noises:
+#         noise.requires_grad = True
 
-    optimizer = optim.Adam(noises, lr=params.lr)
-    pbar = tqdm(range(params.invstep))
-    VGG_loss = VGGPerceptualLoss()
-    VGG_loss.to(device)
+#     optimizer = optim.Adam(noises, lr=params.lr)
+#     pbar = tqdm(range(params.invstep))
+#     VGG_loss = VGGPerceptualLoss()
+#     VGG_loss.to(device)
 
-    for i in pbar:
-        t = i / params.invstep
-        lr = get_lr(t, params.lr)
-        optimizer.param_groups[0]["lr"] = lr
-        Gen = g_ema([w], input_is_latent=True, noise=noises)
+#     for i in pbar:
+#         t = i / params.invstep
+#         lr = get_lr(t, params.lr)
+#         optimizer.param_groups[0]["lr"] = lr
+#         Gen = g_ema([w], input_is_latent=True, noise=noises)
 
-        img_gen = Gen[0] # generated samples
+#         img_gen = Gen[0] # generated samples
 
-        batch, channel, height, width = img_gen.shape
+#         batch, channel, height, width = img_gen.shape
 
-        if params.pixel_loss_type=='mse' :
-            noise_loss = noise_regularize(noises)
-            pixel_loss = F.mse_loss(img_gen, Ens_r)
-            loss = params.lambda_noise*noise_loss + params.lambda_pixel*pixel_loss
+#         if params.pixel_loss_type=='mse' :
+#             noise_loss = noise_regularize(noises)
+#             pixel_loss = F.mse_loss(img_gen, Ens_r)
+#             loss = params.lambda_noise*noise_loss + params.lambda_pixel*pixel_loss
 
-        elif params.pixel_loss_type=='mae':
-            noise_loss = noise_regularize(noises)
-            pixel_loss = F.l1_loss(img_gen, Ens_r)
-            loss = params.lambda_noise*noise_loss + params.lambda_pixel*pixel_loss
+#         elif params.pixel_loss_type=='mae':
+#             noise_loss = noise_regularize(noises)
+#             pixel_loss = F.l1_loss(img_gen, Ens_r)
+#             loss = params.lambda_noise*noise_loss + params.lambda_pixel*pixel_loss
 
-        perceptual_loss = 0.
-        if params.lambda_vgg>0:
-            for i_mem in range(img_gen.shape[0]):
-                    for i_var in range(img_gen.shape[1]):
-                        perceptual_loss += VGG_loss((img_gen[i_mem, i_var, :, :]+1)/2, (Ens_r[i_mem, i_var, :, :]+1)/2, feature_layers=params.vgg_feature_layers, style_layers=params.vgg_style_layers)
-            perceptual_loss /= img_gen.shape[0]*img_gen.shape[1]
+#         perceptual_loss = 0.
+#         if params.lambda_vgg>0:
+#             for i_mem in range(img_gen.shape[0]):
+#                     for i_var in range(img_gen.shape[1]):
+#                         perceptual_loss += VGG_loss((img_gen[i_mem, i_var, :, :]+1)/2, (Ens_r[i_mem, i_var, :, :]+1)/2, feature_layers=params.vgg_feature_layers, style_layers=params.vgg_style_layers)
+#             perceptual_loss /= img_gen.shape[0]*img_gen.shape[1]
 
-        loss += perceptual_loss
+#         loss += perceptual_loss
 
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
+#         optimizer.zero_grad()
+#         loss.backward()
+#         optimizer.step()
 
-        if params.noise_normalize:
-            noise_normalize_(noises)
+#         if params.noise_normalize:
+#             noise_normalize_(noises)
 
-        pbar.set_description(
-            (
-                f" loss: {loss.item():.6f}; lr: {lr:.4f}"
-            )
-        )
+#         pbar.set_description(
+#             (
+#                 f" loss: {loss.item():.6f}; lr: {lr:.4f}"
+#             )
+#         )
 
-        if i+1 in params.inv_checkpoints:
-            print(f"--saving checkpoint {i+1}")
+#         if i+1 in params.inv_checkpoints:
+#             print(f"--saving checkpoint {i+1}")
 
-            # save noise
-            with open(params.output_dir+'noise_{}_{}_{}.p'.format(params.date_index,params.lt_index,i+1), 'wb') as f:
-                pickle.dump({j : n.cpu().detach().numpy() for j,n in enumerate(noises)},f)
+#             # save noise
+#             with open(params.output_dir+'noise_{}_{}_{}.p'.format(params.date_index,params.lt_index,i+1), 'wb') as f:
+#                 pickle.dump({j : n.cpu().detach().numpy() for j,n in enumerate(noises)},f)
 
-            # save inverted samples
-            np.save(params.output_dir+'invertFsemble_{}_{}_{}.npy'.format(params.date_index,params.lt_index,i+1),img_gen.cpu().detach().numpy())
+#             # save inverted samples
+#             np.save(params.output_dir+'invertFsemble_{}_{}_{}.npy'.format(params.date_index,params.lt_index,i+1),img_gen.cpu().detach().numpy())
 
 
-            # plot inverted samples
-            figname = params.output_dir + f"{params.date_index}_{params.lt_index}_step_{i+1}_.png"
-            print(f"--plotting checkpoint {i+1}: {figname}")
-            figtitle = f"{params.date_index}_{params.lt_index}_step_{i+1}"
-            online_inv_plot(Ens_r.cpu().detach().numpy(), img_gen.cpu().detach().numpy(), figtitle=figtitle, figname=figname)
-    return
+#             # plot inverted samples
+#             figname = params.output_dir + f"{params.date_index}_{params.lt_index}_step_{i+1}_.png"
+#             print(f"--plotting checkpoint {i+1}: {figname}")
+#             figtitle = f"{params.date_index}_{params.lt_index}_step_{i+1}"
+#             online_inv_plot(Ens_r.cpu().detach().numpy(), img_gen.cpu().detach().numpy(), figtitle=figtitle, figname=figname)
+#     return
