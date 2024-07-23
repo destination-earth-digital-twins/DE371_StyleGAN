@@ -8,9 +8,11 @@ import torch.nn.functional as F
 import numpy as np
 import pickle
 from tqdm import tqdm
-from inversion.lpips import VGGPerceptualLoss
+from inversion.vgg_perceptual_loss import VGGPerceptualLoss
 from inversion.plotter import online_inv_plot_2, online_inv_plot
+import inversion.PerceptualSimilarity.lpips as lpips
 import time
+from torch.autograd import Variable
 
 def noise_regularize(noises):
     r'''
@@ -136,13 +138,18 @@ def optimize(Ens_r, g_ema, latent_mean, device, params):
     pbar = tqdm(range(params.invstep))
 
     latent_path = []
+    if params.lambda_lpips and params.lambda_vgg:
+        raise NotImplementedError
+    
     if params.lambda_vgg>0 :
         VGG_loss = VGGPerceptualLoss(
                         state_dict_path=params.vgg_state_dict_path,
                         init_layer=True if params.vgg_computation=='sol4' else False,
                         vgg_single_channel_input=True if params.vgg_computation=='sol5' else False
-        )
-        VGG_loss.to(device)
+        ).to(device)
+    if params.lambda_lpips>0:
+        LPIPS_loss = lpips.LPIPS(net='vgg', model_path=params.vgg_state_dict_path, pretrained=True, pnet_rand=True, pnet_tune=True).to(device)
+
 
     list_perceptual_loss = []
     list_pixel_loss = []
@@ -211,6 +218,12 @@ def optimize(Ens_r, g_ema, latent_mean, device, params):
         else :
             list_time_to_compute_vgg_loss.append(np.NaN)
             list_perceptual_loss.append(np.NaN)
+        
+        perceptual_lpips_loss = torch.tensor(0.).to(device)
+        if params.lambda_lpips>0:
+            perceptual_lpips_loss =  LPIPS_loss.forward(img_gen, Ens_r)
+            perceptual_lpips_loss = torch.sum(torch.abs(perceptual_lpips_loss))
+            # print(perceptual_lpips_loss)
 
         # compute mae/mse pixel loss
         if params.pixel_loss_type=='mse' :
@@ -227,10 +240,10 @@ def optimize(Ens_r, g_ema, latent_mean, device, params):
 
         # compute total loss
         if not params.progressive_loss_mode :
-            loss = params.noise_optimize*params.lambda_noise*noise_loss + params.lambda_pixel*pixel_loss + params.lambda_vgg*perceptual_loss
+            loss = params.noise_optimize*params.lambda_noise*noise_loss + params.lambda_pixel*pixel_loss + params.lambda_vgg*perceptual_loss + perceptual_lpips_loss*params.lambda_lpips
         else :
             # Todo : See if it is relevant to include the noise loss in the (1-t) part
-            loss = params.noise_optimize*params.lambda_noise*noise_loss + params.lambda_pixel*pixel_loss*(1-t) + params.lambda_vgg*perceptual_loss*t
+            loss = params.noise_optimize*params.lambda_noise*noise_loss + params.lambda_pixel*pixel_loss*(1-t) + (perceptual_lpips_loss*params.lambda_lpips+params.lambda_vgg*perceptual_loss)*t
 
         optimizer.zero_grad()
         loss.backward()

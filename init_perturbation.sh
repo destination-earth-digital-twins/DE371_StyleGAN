@@ -19,15 +19,15 @@ module load Apptainer/1.2.4-GCCcore-12.3.0
 apptainer exec --nv /project/scratch/p200177/DE_371/resources/apptainer_container/container.sif python3 main_perturbation.py \
         --ckpt_dir='/project/scratch/p200177/DE_371/victorsanchez/models/trained_generator/000024.pt' \
         --real_data_dir='/project/home/p200177/DE_371/datasets/dataset_Meteo_France/IS_1_1.0_0_0_0_0_0_256_large_lt_done/' \
-        --data_dir='/project/scratch/p200177/DE_371/victorsanchez/results/final_mse_vs_perceptual/mse_only/inversion/' \
-        --pack_dir='/project/scratch/p200177/DE_371/victorsanchez/results/final_mse_vs_perceptual/mse_only/pack/' \
-        --output_dir='/project/scratch/p200177/DE_371/victorsanchez/results/final_mse_vs_perceptual/mse_only/perturbation/' \
+        --data_dir='/project/scratch/p200177/DE_371/victorsanchez/results/final_mse_vs_perceptual/perceptual_mse_exp39/inversion/' \
+        --pack_dir='/project/scratch/p200177/DE_371/victorsanchez/results/final_mse_vs_perceptual/perceptual_mse_exp39/pack/' \
+        --output_dir='/project/scratch/p200177/DE_371/victorsanchez/results/final_mse_vs_perceptual/perceptual_mse_exp39/perturbation/' \
         --scale_dir='/project/home/p200177/DE_371/datasets/dataset_Meteo_France/scale_dir_gan_training/' \
         --eigendir='/project/home/p200177/DE_371/datasets/dataset_Meteo_France/eigenvalues_gan_training/' \
         --device='cuda' \
         --N_samples=112 \
         --N_conditioners=16 \
-        --inv_step=1000 \
+        --inv_step=2000 \
         --style_indices='[1,1,1,1,1,1,1,1,1,1,0,0,0,0]' \
         --date_start=2021-07-01 \
         --date_stop=2021-08-01 \

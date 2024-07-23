@@ -23,3 +23,5 @@ init_*.sh
 !init_perturbation.sh
 !init_scaling_perturbation.sh
 !init_training_temporal.sh
+inversion/PerceptualSimilarity
+test_

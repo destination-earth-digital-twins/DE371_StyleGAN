@@ -86,6 +86,7 @@ if __name__=="__main__" :
     parser.add_argument("--lambda_pixel", type=float, default=10.0, help="weight of the (mae/mse) pixel loss")
     
     # Parameter related to perceptual loss 
+    parser.add_argument("--lambda_lpips", type=float, default=0.0, help="weight of the lpips (perceptual) loss")
     parser.add_argument("--lambda_vgg", type=float, default=1.0, help="weight of the vgg (perceptual) loss")
     parser.add_argument("--vgg_computation", type=str, default='sol2', choices = ['sol1', 'sol2', 'sol3', 'sol4', 'sol5'], 
                         help="Either we compute layer by layer and member per member but we have to triple th einput to make it rgb or all in one (naive)")

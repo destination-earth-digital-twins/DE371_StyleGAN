@@ -20,20 +20,18 @@ module load Apptainer/1.2.4-GCCcore-12.3.0
 apptainer exec --nv /project/scratch/p200177/DE_371/resources/apptainer_container/container.sif python3 main_inversion.py \
         --ckpt_dir='/project/scratch/p200177/DE_371/victorsanchez/models/trained_generator/000024.pt' \
         --real_data_dir='/project/home/p200177/DE_371/datasets/dataset_Meteo_France/IS_1_1.0_0_0_0_0_0_256_large_lt_done/' \
-        --output_dir='/project/scratch/p200177/DE_371/victorsanchez/results/inversion/with_style_Loss/inversion/' \
-        --pack_dir='/project/scratch/p200177/DE_371/victorsanchez/results/inversion/with_style_Loss/pack/' \
+        --output_dir='/project/scratch/p200177/DE_371/victorsanchez/results/inversion/test_lpips/inversion_vgg/' \
+        --pack_dir='/project/scratch/p200177/DE_371/victorsanchez/results/inversion/test_lpips/pack_vgg/' \
         --device='cuda' \
         --lambda_pixel=10 \
-        --lambda_vgg=1 \
-        --vgg_computation='sol3' \
+        --lambda_lpips=1 \
+        --lambda_vgg=0 \
+        --vgg_computation='sol2' \
         --lambda_noise=0 \
         --invstep=2000 \
         --inv_checkpoints='[250,500,1000,1500,2000]' \
         --date_start=2021-07-01 \
         --date_stop=2021-07-02 \
         --leadtimes='[3,6,9,12,15,18,21,24,27,30,33,36,39,42]' \
-        --vgg_state_dict_path='/project/scratch/p200177/DE_371/resources/vgg_weights/vgg16-random.pth' \
+        --vgg_state_dict_path='/home/users/u101833/project/DE371_StyleGAN/inversion/PerceptualSimilarity/lpips/weights/v0.1/vgg.pth' \
         --plot_checkpoint \
-        --progressive_loss_mode \
-        --vgg_style_layers='[0,1,2,3]' \
-        --vgg_alpha_style=0.01

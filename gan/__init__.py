@@ -1,0 +1,1 @@
+from gan.model.stylegan2 import Generator
