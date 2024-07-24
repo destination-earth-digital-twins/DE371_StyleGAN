@@ -220,7 +220,7 @@ def get_expe_parameters():
     
     # Data Description - Temporal Aspect
     parser.add_argument('--multi_timestep_mode', action='store_true')
-    parser.add_argument('--nb_timesteps', type=int, default=13)
+    parser.add_argument('--nb_timesteps', type=int, default=15)
     parser.add_argument('--timestep_period', type=int, default=3)
     parser.add_argument('--stack_sample_along_time_and_variable', action='store_true')
     

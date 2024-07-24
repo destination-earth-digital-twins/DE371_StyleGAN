@@ -172,7 +172,7 @@ def optimize(Ens_r, g_ema, latent_mean, device, params):
         img_gen = Gen[0] # generated samples
 
         batch, channel, height, width = img_gen.shape
-
+        print('img_gen shape :', img_gen.shape)
         if params.noise_optimize:
             noise_loss = noise_regularize(noises)
         else :
@@ -197,6 +197,7 @@ def optimize(Ens_r, g_ema, latent_mean, device, params):
                 elif params.vgg_computation in ['sol2', 'sol4', 'sol5']:
                     perceptual_loss = torch.tensor(0.).to(device)
                     for i_var in range(img_gen.shape[1]):
+                        print(np.shape(img_gen[:, i_var, :, :]))
                         perceptual_loss += VGG_loss( (img_gen[:, i_var, :, :]+1)/2,
                                                         (Ens_r[:, i_var, :, :]+1)/2,
                                                         feature_layers = params.vgg_feature_layers,

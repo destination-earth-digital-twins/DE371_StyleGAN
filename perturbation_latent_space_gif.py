@@ -111,42 +111,42 @@ w_samples_reduced, w_samples_sorted_eigenvalue, w_samples_sorted_eigenvectors = 
 prop_var_w_samples = w_samples_sorted_eigenvalue / np.sum(w_samples_sorted_eigenvalue)
 diff_flag = False
 member_id = 0
-for pca_axis_id in range(10):
+for first_pca_axis in range(0,5):
+    for second_pca_axis_id in range(first_pca_axis, 5):
+        eigenvector_subset = np.concatenate((np.expand_dims(w_samples_sorted_eigenvectors[:,first_pca_axis], axis=1),np.expand_dims(w_samples_sorted_eigenvectors[:,second_pca_axis_id], axis=1)), axis=1)
+        w_member = (w_inv1[member_id]-np.mean(w_inv1[member_id], axis=0))
+        img_from_w_member = G([torch.from_numpy(w_inv1[member_id]).unsqueeze(0).cuda()], input_is_latent=True)[0].cpu().detach().numpy()[0]
+        variables = ['u', 'v', 't2m']
+        style_vector = [1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+        for var_id, var in enumerate(variables):
+            print(var)
+            fig, ax = plt.subplots(nrows=7, ncols=7, figsize=(56,56))
+            for id_ax1, perturbation_intensity_pca1 in enumerate(np.linspace(-2,2,7)) :
+                for id_ax2, perturbation_intensity_pca2 in enumerate(np.linspace(-2,2,7)) :
+                    perturbation_on_pca1 = np.array(style_vector).reshape((14,1))*perturbation_intensity_pca1
+                    perturbation_on_pca2 = np.array(style_vector).reshape((14,1))*perturbation_intensity_pca2
+                    projected_perturbation = np.concatenate((perturbation_on_pca1, perturbation_on_pca2), axis=1)
+                    perturbation = np.dot(projected_perturbation, eigenvector_subset.T)
 
-    eigenvector_subset = w_samples_sorted_eigenvectors[:,pca_axis_id:pca_axis_id+2]
-    w_member = (w_inv1[member_id]-np.mean(w_inv1[member_id], axis=0))
-    projected_w_member = projection(w_member, eigenvector_subset)
-    img_from_w_member = G([torch.from_numpy(w_inv1[member_id]).unsqueeze(0).cuda()], input_is_latent=True)[0].cpu().detach().numpy()[0]
-    variables = ['u', 'v', 't2m']
-    style_vector = [1,1,1,1,1,1,1,1,1,1,1,1,1,1]
-    for var_id, var in enumerate(variables):
-        print(var)
-        fig, ax = plt.subplots(nrows=7, ncols=7, figsize=(56,56))
-        for id_ax1, perturbation_intensity_pca1 in enumerate(np.linspace(-5,5,7)) :
-            for id_ax2, perturbation_intensity_pca2 in enumerate(np.linspace(-5,5,7)) :
-                perturbation_on_pca1 = np.array(style_vector).reshape((14,1))*perturbation_intensity_pca1
-                perturbation_on_pca2 = np.array(style_vector).reshape((14,1))*perturbation_intensity_pca2
-                perturbation = np.concatenate((perturbation_on_pca1,perturbation_on_pca2), axis=1)
-                projected_w_member_perturbated = projected_w_member + perturbation
-                unprojected_w_member = (np.dot(eigenvector_subset, projected_w_member_perturbated.T).T+np.mean(w_inv1[member_id], axis=0)).astype(np.float32)
-                img_from_perturbated_w_member = G([torch.from_numpy(unprojected_w_member).unsqueeze(0).cuda()], input_is_latent=True)[0].cpu().detach().numpy()[0]
-                if diff_flag :
-                    diff = img_from_perturbated_w_member[var_id] - img_from_w_member[var_id]
-                if not diff_flag and var=='t2m':
-                    cmap = 'coolwarm'
-                elif not diff_flag :
-                    cmap = 'viridis'
-                else :
-                    cmap='RdYlGn'
-                if diff_flag :
-                    ax[id_ax1][id_ax2].imshow(diff,  origin="lower", cmap=cmap)
-                else :
-                    ax[id_ax1][id_ax2].imshow(img_from_perturbated_w_member[var_id],  origin="lower", cmap=cmap)
-                ax[id_ax1][id_ax2].set_title('pert {} | var {}'.format((perturbation_intensity_pca1,perturbation_intensity_pca2), var), fontsize=20)
-        if diff_flag :
-            fig.suptitle(f"diff_perturbation of {var} on style : {style_vector}", fontsize=60)
-            fig.savefig(args.output_dir+f'diff_perturbation_of_{var}_{style_vector}.png')
-        else :
-            fig.suptitle(f"perturbation of {var} on style : {style_vector}", fontsize=60)
-            fig.savefig(args.output_dir+f'perturbation_of_{var}_{style_vector}_pca_axis_{(pca_axis_id,pca_axis_id+1)}.png')
-        plt.close() 
+                    latent_w = (w_inv1[member_id] + perturbation).astype(np.float32)
+                    img_from_perturbated_w_member = G([torch.from_numpy(latent_w).unsqueeze(0).cuda()], input_is_latent=True)[0].cpu().detach().numpy()[0]
+                    if diff_flag :
+                        diff = img_from_perturbated_w_member[var_id] - img_from_w_member[var_id]
+                    if not diff_flag and var=='t2m':
+                        cmap = 'coolwarm'
+                    elif not diff_flag :
+                        cmap = 'viridis'
+                    else :
+                        cmap='RdYlGn'
+                    if diff_flag :
+                        ax[id_ax1][id_ax2].imshow(diff,  origin="lower", cmap=cmap, clim=(-0.5,0.5))
+                    else :
+                        ax[id_ax1][id_ax2].imshow(img_from_perturbated_w_member[var_id],  origin="lower", cmap=cmap)
+                    ax[id_ax1][id_ax2].set_title('pert {} | var {}'.format((perturbation_intensity_pca1,perturbation_intensity_pca2), var), fontsize=20)
+            if diff_flag :
+                fig.suptitle(f"diff_perturbation of {var} on style : {style_vector}", fontsize=60)
+                fig.savefig(args.output_dir+f'diff_perturbation_of_{var}_{style_vector}_axis_{(first_pca_axis,second_pca_axis_id)}.png')
+            else :
+                fig.suptitle(f"perturbation of {var} on style : {style_vector}", fontsize=60)
+                fig.savefig(args.output_dir+f'perturbation_of_{var}_{style_vector}_pca_axis_{(first_pca_axis,second_pca_axis_id)}.png')
+            plt.close() 

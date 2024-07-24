@@ -55,6 +55,12 @@ if __name__=="__main__" :
     
     parser.add_argument('--device', type=str, default='cuda')
 
+    ############################ SEQUENCE PARAMETERS #################    
+    parser.add_argument('--multi_timestep_mode', action='store_true')
+    parser.add_argument('--nb_timesteps', type=int, default=15)
+    parser.add_argument('--timestep_period', type=int, default=3)
+    parser.add_argument('--stack_sample_along_time_and_variable', action='store_true')
+
     ############################ INVERSION PARAMETERS #################    
 
     parser.add_argument("--lr_rampup",type=float,default=0.05,help="duration of the learning rate warmup")
@@ -66,7 +72,7 @@ if __name__=="__main__" :
     parser.add_argument("--noise_ramp",type=float,default=0.75,help="duration of the noise level decay")
     
     parser.add_argument("--var_indices", type=utils.str2intlist, default=[1,2,3])
-    parser.add_argument("--Shape", type=tuple, default=(3,256,256), help='size of the samples')
+    parser.add_argument("--Shape", type=tuple, default=(1,256,256), help='size of the samples')
     parser.add_argument("--crop_indices", type=int, nargs='+', default=[0,256,0,256])
     
     # Progressive loss mode
@@ -105,7 +111,7 @@ if __name__=="__main__" :
     parser.add_argument("--dates_file", type=str, default = 'Large_lt_test_labels.csv')
     parser.add_argument("--date_start", type=str, default = "2021-07-01")
     parser.add_argument("--date_stop", type=str, default = "2021-07-02")
-    parser.add_argument("--leadtimes", type=utils.str2intlist, default=[3,6,9,12,15,18,21,24,27,30,33,36,39,42,45])
+    parser.add_argument("--leadtimes", type=utils.str2intlist, default=[3,6,9,12,15,18,21,24,27,30,33,36,39,42])
     
     parser.add_argument("--seed", type=int, default=42)
     
@@ -133,7 +139,9 @@ if __name__=="__main__" :
     df_extract = df_date[(df_date['Date']>=params.date_start) & (df_date['Date']<=params.date_stop)]
 
     list_dates = df_extract['Date'].unique()
-    
+    Means=None
+    Maxs=None
+    Mins=None
     if params.normalization=="meanmax":
         Means = np.load(f'{params.real_data_dir}{params.mean_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
         Maxs = np.load(f'{params.real_data_dir}{params.max_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
@@ -146,7 +154,10 @@ if __name__=="__main__" :
        raise ValueError(f"Unknown normalization: {params.normalization}")
 
     ################ loading network #################
-    G = Generator(params.Shape[1], 512,n_mlp=8,nb_var=params.Shape[0])
+    if not params.multi_timestep_mode :
+        G = Generator(params.Shape[1], 512,n_mlp=8, nb_var=params.Shape[0])
+    else :
+        G = Generator(params.Shape[1], 512,n_mlp=8, nb_var=params.nb_timesteps)
     ckpt = torch.load(params.ckpt_dir, map_location='cpu')['g_ema']
 
     if 'module' in list(ckpt.items())[0][0]: #juglling with Pytorch versioning and different module packaging
@@ -228,21 +239,38 @@ if __name__=="__main__" :
                 if len(df0)==0:
                    print("# samples: 0")
                    continue
-
-                Ens_r = utils.load_batch_from_timestamp(df_extract, date_, lt, params.real_data_dir, Shape=params.Shape, var_indices=params.var_indices) #, crop_indices=params.crop_indices)
-
-                # n_samples = np.min([Ens_r.shape[0], 6])
-                # print(f"extracting {n_samples} samples for inversion\n")
-                # Ens_r = Ens_r[:n_samples]
-
-                # normalise samples and save in pack dir. obs! make sure normalization is done correctly (according to how model was trained)
-                if params.normalization=="meanmax":
-                   Ens_r = torch.tensor(0.95*(Ens_r - Means) / (Maxs), dtype = torch.float32)
-                elif params.normalization=="minmax":
-                   Ens_r = torch.tensor(-1. + 2*(Ens_r - Mins) / (Maxs-Mins), dtype = torch.float32)
-                else:
-                   raise ValueError(f"Unknown normalization: {params.normalization}")
-                np.save(params.pack_dir+f'Rsemble_{datename}_{lt}.npy', Ens_r.numpy().astype(np.float32))
+                
+                if not params.multi_timestep_mode :
+                    Ens_r = utils.load_batch_from_timestamp(
+                        df_extract, 
+                        date_, 
+                        lt, 
+                        params.real_data_dir, 
+                        Shape=params.Shape, 
+                        var_indices=params.var_indices,
+                        normalization=params.normalization,
+                        Means=Means,
+                        Mins=Mins,
+                        Maxs=Maxs
+                        
+                    ) #, crop_indices=params.crop_indices)
+                    np.save(params.pack_dir+f'Rsemble_{datename}_{lt}.npy', Ens_r.numpy().astype(np.float32))
+                    
+                else : 
+                    Ens_r = utils.load_batch_sequence_from_date(
+                        df_extract,
+                        date_,
+                        params.real_data_dir,
+                        concatenate_variable_and_time=params.stack_sample_along_time_and_variable,
+                        dt=params.timestep_period,
+                        Shape=params.Shape,
+                        var_indices=params.var_indices,
+                        normalization=params.normalization,
+                        Means=Means,
+                        Mins=Mins,
+                        Maxs=Maxs
+                    )
+                    np.save(params.pack_dir+f'Rsemble_sequence_{datename}.npy', Ens_r.numpy().astype(np.float32))
 
                 
                 inv.optimize(Ens_r, G, latent_mean, params.device, params)

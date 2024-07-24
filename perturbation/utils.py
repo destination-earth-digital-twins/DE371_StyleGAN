@@ -1,7 +1,7 @@
 import pandas as pd 
 import numpy as np
 import random
-
+import torch
 #random.seed(0)
 
 def str2intlist(li):
@@ -17,7 +17,18 @@ def str2intlist(li):
     else : 
         raise ValueError("li argument must be a string or a list, not '{}'".format(type(li)))
 
-def load_batch_from_timestamp(dataframe, date, lt, data_dir, Shape=(3,256,256), var_indices=[0,1,2]):
+def load_batch_from_timestamp(
+        dataframe,
+        date,
+        lt,
+        data_dir,
+        Shape=(3,256,256),
+        var_indices=[0,1,2],
+        normalization="meanmax",
+        Means=None,
+        Mins=None,
+        Maxs=None
+        ):
 
     df0 = dataframe[(dataframe['Date']==date) & (dataframe['LeadTime']==lt)]
 
@@ -31,7 +42,58 @@ def load_batch_from_timestamp(dataframe, date, lt, data_dir, Shape=(3,256,256), 
 
         batch[i] = sn
     
+    # normalise samples and save in pack dir. obs! make sure normalization is done correctly (according to how model was trained)
+    if normalization=="meanmax":
+        batch = torch.tensor(0.95*(batch - Means) / (Maxs), dtype = torch.float32)
+    elif normalization=="minmax":
+        batch = torch.tensor(-1. + 2*(batch - Mins) / (Maxs-Mins), dtype = torch.float32)
+    else:
+        raise ValueError(f"Unknown normalization: {normalization}")
+
     return batch
+
+
+def load_batch_sequence_from_date(
+        dataframe, 
+        date, 
+        data_dir, 
+        concatenate_variable_and_time=False, 
+        dt=3, 
+        Shape=(3,256,256), 
+        var_indices=[0,1,2],
+        normalization="meanmax",
+        Means=None,
+        Mins=None,
+        Maxs=None
+    ):
+    r''' 
+
+    '''
+    batch_sequence=[]
+    for member_id in range(16) :
+        df0 = dataframe[(dataframe['Date']==date) & (dataframe['Member']==member_id)]
+        Nb = len(df0) # nb total leadtime
+
+        sample = np.zeros((Nb//dt,) + tuple(Shape))
+
+        for i,s in enumerate(df0['Name']):
+            if i%dt == 0:
+                sn = np.load(f'{data_dir}{s}.npy')[var_indices,:,:].astype(np.float32)
+                # normalization
+                if normalization=="meanmax":
+                    sn = np.array(0.95*(sn - Means) / (Maxs), dtype = np.float32)
+                elif normalization=="minmax":
+                    sn = np.array(-1. + 2*(sn - Mins) / (Maxs-Mins), dtype = torch.float32)
+                else:
+                    raise ValueError(f"Unknown normalization: {normalization}")
+                sample[i//dt] = sn
+        if concatenate_variable_and_time :
+            lt, var, x, y = np.shape(sample)
+            sample = sample.reshape((lt*var,x,y))
+
+        batch_sequence.append(sample)
+
+    return torch.tensor(batch_sequence, dtype=torch.float32)
 
 def rescale(generated, Mean, Max, scale) : 
     r''' 
