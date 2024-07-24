@@ -35,8 +35,11 @@ if __name__=="__main__" :
     
     ########################### Directories ###########################
     # Checkpoint directory - PATH to generator's weight
+   #SANS EP parser.add_argument('--ckpt_dir', type = str, 
+                        #default ='/scratch/mrmn/brochetc/GAN_2D/tests/Set_UseNoiseFalse/stylegan2_stylegan_dom_256_lat-dim_512_bs_8_0.002_0.002_ch-mul_2_vars_rr_u_v_t2m_noise_False/Instance_2/models/216000.pt')
+    #Avec EP et noise true 
     parser.add_argument('--ckpt_dir', type = str, 
-                        default ='/scratch/mrmn/brochetc/GAN_2D/tests/Set_UseNoiseFalse/stylegan2_stylegan_dom_256_lat-dim_512_bs_8_0.002_0.002_ch-mul_2_vars_rr_u_v_t2m_noise_False/Instance_2/models/216000.pt')
+                        default ='./222000.pt')
     # Real Data Directory - PATH to samples of the dataset
     # parser.add_argument('--real_data_dir', type = str, 
     #                     default='/project/home/p200177/DE_371/datasets/dataset_Meteo_France/IS_1_1.0_0_0_0_0_0_256_large_lt_done/')
@@ -44,10 +47,10 @@ if __name__=="__main__" :
                         default='/scratch/mrmn/brochetc/GAN_2D/datasets_full_indexing/cropped_120_376_540_796/')
     # Output Directory - PATH where the output of the inversion will be saved
     parser.add_argument('--output_dir',type = str, 
-                        default ='/home/mrmn/bonamya/de371_stylegan/test/PACA_1/results/rr_mse/results_4var_test/inversion/')
+                        default ='/home/mrmn/bonamya/de371_stylegan/results_EP/WMSE/inversion/')
     # Pack Directory - PATH where the packed ensembles will be saved
     parser.add_argument("--pack_dir", type=str, 
-                        default = '/home/mrmn/bonamya/de371_stylegan/test/PACA_1/results/rr_mse/results_4var_test/pack/') # storing "packed" (normalized) real data
+                        default = '/home/mrmn/bonamya/de371_stylegan/results_EP/WMSE/pack/') # storing "packed" (normalized) real data
     
     # Dataset information
     parser.add_argument("--normalization", type=str, default="meanmax", choices=["minmax", "meanmax"])
@@ -80,7 +83,7 @@ if __name__=="__main__" :
     parser.add_argument("--fixed_noise", type=bool, default=False, help="Fixing the noise during optimization")
 
     # Parameter related to pixel loss 
-    parser.add_argument('--pixel_loss_type', type=str, default='mse', choices = ['mse', 'mae','wmse','amse','wamse'])
+    parser.add_argument('--pixel_loss_type', type=str, default='mse', choices = ['mse', 'mae','wmse','amse','wamse','sum_pixel_loss'])
     parser.add_argument("--lambda_pixel", type=float, default=10.0, help="weight of the (mae/mse/wmse) pixel loss")
     
     # Parameter related to perceptual loss 
@@ -95,13 +98,13 @@ if __name__=="__main__" :
     parser.add_argument("--vgg_alpha_style", type=float, default=0.01, help="weight of the style loss")
     parser.add_argument("--vgg_loss_after_step", type=float, default=0, help="compute the vgg loss only after a given number of steps")
 
-    parser.add_argument("--invstep", type=int, default=2000, help="optimize iterations")
+    parser.add_argument("--invstep", type=int, default=1000, help="optimize iterations")
     parser.add_argument("--inv_checkpoints", type=utils.str2intlist, default=[250,500,1000,1500,2000])
 
     ########################## CONTROL of Data to invert ######################
     parser.add_argument("--dates_file", type=str, default = 'labels.csv')
-    parser.add_argument("--date_start", type=str, default = "2021-07-01")
-    parser.add_argument("--date_stop", type=str, default = "2021-07-02")
+    parser.add_argument("--date_start", type=str, default = "2021-07-20")
+    parser.add_argument("--date_stop", type=str, default = "2021-07-30")
     parser.add_argument("--leadtimes", type=utils.str2intlist, default=[3,6,9,12,15,18,21,24,27,30,33,36,39,42,45])
     
     parser.add_argument("--seed", type=int, default=42)
@@ -131,7 +134,6 @@ if __name__=="__main__" :
     df_extract = df_date[(df_date['Date']>=params.date_start) & (df_date['Date']<=params.date_stop)]
 
     list_dates = df_extract['Date'].unique()
-    print('DF_EXTRACT', df_extract, 'LIST_DATES', list_dates)
     if params.normalization=="meanmax":
         Means = np.load(f'{params.real_data_dir}{params.mean_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
         Maxs = np.load(f'{params.real_data_dir}{params.max_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
@@ -158,7 +160,7 @@ if __name__=="__main__" :
 
     G.eval()
     G = G.to(params.device)
-    #print('JE SUIS G',G)
+
     ################### producing latent mean #######
     if not os.path.exists(f'{params.output_dir}latent_mean.npy'):
         latent_z = torch.empty(10000, 512).normal_().to(params.device)
@@ -188,127 +190,75 @@ if __name__=="__main__" :
     if params.vgg_loss_after_step >= params.invstep:
         print('The parameters vgg_loss_after_step cannot be superior or equal to the number of optim steps')
         raise ValueError
+    print(list_dates)
+    for i,j in enumerate(os.listdir('./datas_clement')):
+        print('JJJJJ',j)
+        Ens_r = torch.from_numpy(np.load(f'./datas_clement/{j}').astype(np.float32))
+        # Ens_r = torch.tensor(-1. + 2*(Ens_r - Mins) / (Maxs-Mins), dtype = torch.float32)
+        np.save(params.pack_dir+f'{j}', Ens_r.numpy().astype(np.float32))
+        inv.optimize(Ens_r, G, latent_mean, params.device, params,j)
 
-    #################### main loop ##################
-    for date_ in list_dates:
-        print(date_)
-        datename = date_.strftime('%Y-%m-%d')
-        print("\n===========================")
-        for lt in params.leadtimes:
-            params.date_index = datename
-            params.lt_index = lt
-            print('DATENAME', datename, 'LT',lt)
+    # #################### main loop ##################
+    # for date_ in list_dates:
+    #     print(date_)
+    #     datename = date_.strftime('%Y-%m-%d')
+    #     print("\n===========================")
+    #     for lt in params.leadtimes:
+    #         params.date_index = datename
+    #         params.lt_index = lt
             
             
-            # Check if the files already exists (to qave computation time)
-            already_exist = []
-            if os.path.isfile(params.pack_dir+f'Rsemble_{datename}_{lt}.npy'):
-                already_exist.append(True)
-            else :
-                already_exist.append(False)
-            for i in params.inv_checkpoints :
-                if os.path.isfile(params.output_dir+'w_{}_{}_{}.npy'.format(params.date_index,params.lt_index,i)):
-                    already_exist.append(True)
-                else :
-                    already_exist.append(False)
-                if os.path.isfile(params.output_dir+'invertFsemble_{}_{}_{}.npy'.format(params.date_index,params.lt_index,i)):
-                    already_exist.append(True)
-                else :
-                    already_exist.append(False)
-                if os.path.isfile(params.output_dir+'noise_{}_{}_{}.p'.format(params.date_index,params.lt_index,i)):
-                    already_exist.append(True)
-                else :
-                    already_exist.append(False)
+    #         # Check if the files already exists (to qave computation time)
+    #         already_exist = []
+    #         if os.path.isfile(params.pack_dir+f'Rsemble_{datename}_{lt}.npy'):
+    #             already_exist.append(True)
+    #         else :
+    #             already_exist.append(False)
+    #         for i in params.inv_checkpoints :
+    #             if os.path.isfile(params.output_dir+'w_{}_{}_{}.npy'.format(params.date_index,params.lt_index,i)):
+    #                 already_exist.append(True)
+    #             else :
+    #                 already_exist.append(False)
+    #             if os.path.isfile(params.output_dir+'invertFsemble_{}_{}_{}.npy'.format(params.date_index,params.lt_index,i)):
+    #                 already_exist.append(True)
+    #             else :
+    #                 already_exist.append(False)
+    #             if os.path.isfile(params.output_dir+'noise_{}_{}_{}.p'.format(params.date_index,params.lt_index,i)):
+    #                 already_exist.append(True)
+    #             else :
+    #                 already_exist.append(False)
 
-            if np.all(already_exist) :
-                print('The inversion was already done for the date {} with leadtime {}. This sample is skipped.'.format(datename,lt))
-            else :
-                print('Launching inversion process for the date {} with leadtime {}.'.format(datename,lt))
-                df0 = df_extract[(df_extract['Date']==date_) & (df_extract['LeadTime']==lt-1)]
-                if len(df0)==0:
-                   print("# samples: 0")
-                   continue
-                print('DF_EXTRACT', df_extract)
-                Ens_r = utils.load_batch_from_timestamp(df_extract, date_, 3, params.real_data_dir, Shape=params.Shape, var_indices=params.var_indices) #, crop_indices=params.crop_indices)
-                print('JE SUIS LE TYPE',type(Ens_r),Ens_r.shape)
-                # n_samples = np.min([Ens_r.shape[0], 6])
-                # print(f"extracting {n_samples} samples for inversion\n")
-                # Ens_r = Ens_r[:n_samples]
+    #         if np.all(already_exist) :
+    #             print('The inversion was already done for the date {} with leadtime {}. This sample is skipped.'.format(datename,lt))
+    #         else :
+    #             print('Launching inversion process for the date {} with leadtime {}.'.format(datename,lt))
+    #             df0 = df_extract[(df_extract['Date']==date_) & (df_extract['LeadTime']==lt-1)]
+    #             if len(df0)==0:
+    #                print("# samples: 0")
+    #                continue
+    #             Ens_r = utils.load_batch_from_timestamp(df_extract, date_, 3, params.real_data_dir, Shape=params.Shape, var_indices=params.var_indices) #, crop_indices=params.crop_indices)
+    #             print('JE SUIS LE TYPE',type(Ens_r),Ens_r.shape)
+    #             # n_samples = np.min([Ens_r.shape[0], 6])
+    #             # print(f"extracting {n_samples} samples for inversion\n")
+    #             # Ens_r = Ens_r[:n_samples]
+    #             #log pour les précipitations
+    #             channel_rr=Ens_r[:,0,:,:]
+    #             transformed_channel_rr = np.log(1+channel_rr)
+    #             Ens_r[:,0,:,:]=transformed_channel_rr
+    #             # normalise samples and save in pack dir. obs! make sure normalization is done correctly (according to how model was trained)
+    #             if params.normalization=="meanmax":
+    #                Ens_r = torch.tensor(0.95*(Ens_r - Means) / (Maxs), dtype = torch.float32)
+    #             elif params.normalization=="minmax":
+    #                Ens_r = torch.tensor(-1. + 2*(Ens_r - Mins) / (Maxs-Mins), dtype = torch.float32)
+    #             else:
+    #                raise ValueError(f"Unknown normalization: {params.normalization}")
+    #             #np.save(params.pack_dir+f'Rsemble_{datename}_{lt}.npy', Ens_r.numpy().astype(np.float32))
+    #             #print('JE SUIS DANS LE MAIN ',  np.shape(Ens_r[0][1].cpu().detach().numpy()),Ens_r[0][1].cpu().detach().numpy().astype(float))
 
-                # normalise samples and save in pack dir. obs! make sure normalization is done correctly (according to how model was trained)
-                if params.normalization=="meanmax":
-                   Ens_r = torch.tensor(0.95*(Ens_r - Means) / (Maxs), dtype = torch.float32)
-                elif params.normalization=="minmax":
-                   Ens_r = torch.tensor(-1. + 2*(Ens_r - Mins) / (Maxs-Mins), dtype = torch.float32)
-                else:
-                   raise ValueError(f"Unknown normalization: {params.normalization}")
-                np.save(params.pack_dir+f'Rsemble_{datename}_{lt}.npy', Ens_r.numpy().astype(np.float32))
-                #print('JE SUIS DANS LE MAIN ',  np.shape(Ens_r[0][1].cpu().detach().numpy()),Ens_r[0][1].cpu().detach().numpy().astype(float))
-
-                import matplotlib.pyplot as plt
-                import matplotlib.image
-
-                crop=[0,-1,0,-1]
-                mem_idx=1
-                fig = plt.figure(figsize=(20,20))
-                packsample = Ens_r.cpu().detach().numpy()
-
-                # #### u
-                # vmin = np.min([np.min(packsample[:,0,crop[0]:crop[1],crop[2]:crop[3]])])
-                # vmax = np.min([np.max(packsample[:,0,crop[0]:crop[1],crop[2]:crop[3]])])
-
-                # ax = fig.add_subplot(331)
-                # ax.set_title("rr real")
-                # im = ax.imshow(packsample[mem_idx,0,crop[0]:crop[1],crop[2]:crop[3]], clim=(vmin, vmax), origin="lower")
-                # fig.colorbar(im, shrink=0.5)
-
- 
-
-
-                # #### v
-                # vmin = np.min([np.min(packsample[:,1,crop[0]:crop[1],crop[2]:crop[3]])])
-                # vmax = np.min([np.max(packsample[:,1,crop[0]:crop[1],crop[2]:crop[3]])])
-
-                # ax = fig.add_subplot(332)
-                # ax.set_title("u real")
-                # im = ax.imshow(packsample[mem_idx,1,crop[0]:crop[1],crop[2]:crop[3]], clim=(vmin, vmax), origin="lower")
-                # fig.colorbar(im, shrink=0.5)
-
-            
-
-
-                # #### t2m
-                # vmin = np.min([np.min(packsample[:,2,crop[0]:crop[1],crop[2]:crop[3]])])
-                # vmax = np.min([np.max(packsample[:,2,crop[0]:crop[1],crop[2]:crop[3]])])
-
-                # ax = fig.add_subplot(333)
-                # ax.set_title("t2m real")
-                # im = ax.imshow(packsample[mem_idx,2,crop[0]:crop[1],crop[2]:crop[3]], clim=(vmin, vmax), origin="lower", cmap="coolwarm")
-                # fig.colorbar(im, shrink=0.5)
-
-                # vmin = np.min([np.min(packsample[:,3,crop[0]:crop[1],crop[2]:crop[3]])])
-                # vmax = np.min([np.max(packsample[:,3,crop[0]:crop[1],crop[2]:crop[3]])])
-
-                # ax = fig.add_subplot(333)
-                # ax.set_title(" real")
-                # im = ax.imshow(packsample[mem_idx,2,crop[0]:crop[1],crop[2]:crop[3]], clim=(vmin, vmax), origin="lower", cmap="coolwarm")
-                # fig.colorbar(im, shrink=0.5)
-
-
-
-
-
-                # fig.suptitle('la')
-                # fig.tight_layout()
-                # try:
-                #     fig.savefig('inv.png', dpi=100)
-                # except Exception:
-                #     print(f"unable to save figure: {figname}")
-                # plt.close()
-
-                Ens_r = torch.from_numpy(np.load('./samples_precip/Rsemble_Var_PACA Ouest_Drôme-S_2.npy').astype(np.float32))
-                np.save(params.pack_dir+f'Rsemble_{VAR_PACA_2}.npy', Ens_r.numpy().astype(np.float32))
-                inv.optimize(Ens_r, G, latent_mean, params.device, params)
+                # Ens_r = torch.from_numpy(np.load(f'j').astype(np.float32))
+                # # Ens_r = torch.tensor(-1. + 2*(Ens_r - Mins) / (Maxs-Mins), dtype = torch.float32)
+                # np.save(params.pack_dir+f'j', Ens_r.numpy().astype(np.float32))
+                # inv.optimize(Ens_r, G, latent_mean, params.device, params,j)
 
 
 

@@ -79,8 +79,8 @@ def latent_noise(latent, strength):
 
 
 
-def optimize(Ens_r, g_ema, latent_mean, device, params):
-
+def optimize(Ens_r, g_ema, latent_mean, device, params,j):
+    nom = j 
     """
 
     Inverting Ens_r and tuning the Generator g_ema
@@ -235,25 +235,32 @@ def optimize(Ens_r, g_ema, latent_mean, device, params):
         elif params.pixel_loss_type=='mae':
             pixel_loss = F.l1_loss(img_gen, Ens_r)
         
-        elif params.pixel_loss_type=='wmse' :
+        elif params.pixel_loss_type=='wmse':
             t0 = time.time()
-            print('LLAAAAAA TYPEEEE',type(F.mse_loss(img_gen, Ens_r) ),np.min(Ens_r.cpu().detach().numpy())) #type(np.minimum(Ens_r.cpu() + 1, 20)))
-            pixel_loss = F.mse_loss(img_gen[0], Ens_r[0])* torch.tensor(np.minimum(np.min(Ens_r[0].cpu().detach().numpy()) + 1, 20)).to(device)
+            pixel_loss = (F.mse_loss(img_gen, Ens_r)*torch.min(Ens_r+1,torch.tensor(20))).mean()
             list_time_to_compute_mse_loss.append(time.time()-t0)
             list_pixel_loss.append(pixel_loss.cpu().detach().numpy())
-            print('WMSE',pixel_loss, 'EXEMPLE mse', type(pixel_loss))
+            print('WMSE',pixel_loss, 'EXEMPLE wmse', type(pixel_loss))
 
         elif params.pixel_loss_type=='amse':
             t0 = time.time()
-            pixel_loss = F.mse_loss(img_gen, Ens_r).cpu().detach().numpy() + np.maximum(np.minimum(Ens_r.cpu().detach().numpy(), 20)-img_gen.cpu().detach().numpy(),0)
+            pixel_loss = F.mse_loss(img_gen, Ens_r) + torch.max(torch.min(Ens_r,torch.tensor(20))-img_gen,torch.tensor(0)).mean()
             list_time_to_compute_mse_loss.append(time.time()-t0)
-            list_pixel_loss.append(pixel_loss)
+            list_pixel_loss.append(pixel_loss.cpu().detach().numpy())
         
         elif params.pixel_loss_type=='wamse':
             t0 = time.time()
-            pixel_loss = F.mse_loss(img_gen, Ens_r) + np.maximum(np.minimum(Ens_r.cpu().detach().numpy(), 20)-img_gen.cpu().detach().numpy(),0)*np.minimum(np.min(Ens_r.cpu().detach().numpy()) + 1, 20)
+            pixel_loss = F.mse_loss(img_gen, Ens_r) + torch.max(torch.min(Ens_r,torch.tensor(20))-img_gen,torch.tensor(0)).mean()*torch.min(Ens_r+1,torch.tensor(20)).mean()
             list_time_to_compute_mse_loss.append(time.time()-t0)
-            list_pixel_loss.append(pixel_loss)
+            list_pixel_loss.append(pixel_loss.cpu().detach().numpy())
+            
+        elif params.pixel_loss_type=='sum_pixel_loss':
+            t0 = time.time()
+            pixel_loss = torch.sum(Ens_r.contiguous())-torch.sum(img_gen.contiguous())
+            print('JE SUIS OCNTINUF',torch.sum(Ens_r.contiguous()),torch.sum(img_gen.contiguous()),F.mse_loss(img_gen, Ens_r),torch.max(torch.min(Ens_r,torch.tensor(20))))
+
+            list_time_to_compute_mse_loss.append(time.time()-t0)
+            list_pixel_loss.append(pixel_loss.cpu().detach().numpy())
 
 
 
@@ -263,10 +270,12 @@ def optimize(Ens_r, g_ema, latent_mean, device, params):
         # compute total loss
         if not params.progressive_loss_mode :
             loss = params.noise_optimize*params.lambda_noise*noise_loss + params.lambda_pixel*pixel_loss #+ params.lambda_vgg*perceptual_loss
+            loss =loss.contiguous()
+
         else :
             # Todo : See if it is relevant to include the noise loss in the (1-t) part
             loss = params.noise_optimize*params.lambda_noise*noise_loss + params.lambda_pixel*pixel_loss*(1-t) #+ params.lambda_vgg*perceptual_loss*t
-
+            loss =loss.contiguous()
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
@@ -283,26 +292,25 @@ def optimize(Ens_r, g_ema, latent_mean, device, params):
             latent_path.append(latent_in.detach().clone())
 
         if i+1 in params.inv_checkpoints:
-            print(f"--saving checkpoint {i+1}:", params.output_dir+'w_{}_{}_{}.npy'.format(params.date_index,params.lt_index,i+1))
-            np.save(params.output_dir+'w_{}_{}_{}.npy'.format(params.date_index,params.lt_index,i+1),latent_in.cpu().detach().numpy())
-            if params.fixed_noise or params.noise_optimize :
-                with open(params.output_dir+'noise_{}_{}_{}.p'.format(params.date_index,params.lt_index,i+1), 'wb') as f:
-                    pickle.dump({j : n.cpu().detach().numpy() for j,n in enumerate(noises)},f)
+            # print(f"--saving checkpoint {i+1}:", params.output_dir+'w_{j}_{}_{}.npy')#.format(params.date_index,params.lt_index,i+1))
+            # np.save(params.output_dir+f'w_{j}_{}_{}.npy'.format(params.date_index,params.lt_index,i+1),latent_in.cpu().detach().numpy())#.format(params.date_index,params.lt_index,i+1),latent_in.cpu().detach().numpy())
+            # if params.fixed_noise or params.noise_optimize :
+            #     with open(params.output_dir+f'noise_{j}_{}_{}.p','wb') as f: #.format(params.date_index,params.lt_index,i+1), 'wb') as f:
+            #         pickle.dump({z : n.cpu().detach().numpy() for z,n in enumerate(noises)},f)
+            np.save(params.output_dir+f'invertFsemble_{j}_.npy',img_gen.cpu().detach().numpy())#.format(params.date_index,params.lt_index,i+1),img_gen.cpu().detach().numpy())
 
-            np.save(params.output_dir+'invertFsemble_{}_{}_{}.npy'.format(params.date_index,params.lt_index,i+1),img_gen.cpu().detach().numpy())
+        #     figname = params.output_dir + f"{params.date_index}_{params.lt_index}_step_{i+1}.png"
+        #     print(f"--plotting checkpoint {i+1}: {figname}")
+        #     figtitle = f"{params.date_index}_{params.lt_index}_step_{i+1}"
+        #    # print('ICI CEST MOIDDDDDDDDDDDDDDDDDDD',type(img_gen),type(Ens_r),img_gen.shape,Ens_r.shape)
 
-            figname = params.output_dir + f"{params.date_index}_{params.lt_index}_step_{i+1}.png"
-            print(f"--plotting checkpoint {i+1}: {figname}")
-            figtitle = f"{params.date_index}_{params.lt_index}_step_{i+1}"
-           # print('ICI CEST MOIDDDDDDDDDDDDDDDDDDD',type(img_gen),type(Ens_r),img_gen.shape,Ens_r.shape)
-
-            #online_inv_plot_2(Ens_r.cpu().detach().numpy(), img_gen.cpu().detach().numpy(), figtitle=figtitle, figname=figname)
+        #     #online_inv_plot_2(Ens_r.cpu().detach().numpy(), img_gen.cpu().detach().numpy(), figtitle=figtitle, figname=figname)
             
-            print(f"--saving loss_function {i+1}: {figname}")
-            np.save(params.output_dir+'MSE_loss_{}_{}.npy'.format(params.date_index,params.lt_index),list_pixel_loss)
-         #   np.save(params.output_dir+'Perceptual_loss_{}_{}.npy'.format(params.date_index,params.lt_index),list_perceptual_loss)
-           # np.save(params.output_dir+'Time_Perceptual_loss_{}_{}.npy'.format(params.date_index,params.lt_index),list_time_to_compute_vgg_loss)
-            np.save(params.output_dir+'Time_MSE_loss_{}_{}.npy'.format(params.date_index,params.lt_index),list_time_to_compute_mse_loss)
+        #     print(f"--saving loss_function {i+1}: {figname}")
+        #     np.save(params.output_dir+'MSE_loss_{}_{}.npy'.format(params.date_index,params.lt_index),list_pixel_loss)
+        #  #   np.save(params.output_dir+'Perceptual_loss_{}_{}.npy'.format(params.date_index,params.lt_index),list_perceptual_loss)
+        #    # np.save(params.output_dir+'Time_Perceptual_loss_{}_{}.npy'.format(params.date_index,params.lt_index),list_time_to_compute_vgg_loss)
+        #     np.save(params.output_dir+'Time_MSE_loss_{}_{}.npy'.format(params.date_index,params.lt_index),list_time_to_compute_mse_loss)
             # print(f"--saving loss_function {i+1}: {figname}")
             # np.save(params.output_dir+'MSE_loss_{}_{}.npy'.format(params.date_index,params.lt_index),list_pixel_loss)
             # np.save(params.output_dir+'Perceptual_loss_{}_{}.npy'.format(params.date_index,params.lt_index),list_perceptual_loss)
