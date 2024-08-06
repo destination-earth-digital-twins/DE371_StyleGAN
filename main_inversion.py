@@ -72,7 +72,7 @@ if __name__=="__main__" :
     parser.add_argument("--noise_ramp",type=float,default=0.75,help="duration of the noise level decay")
     
     parser.add_argument("--var_indices", type=utils.str2intlist, default=[1,2,3])
-    parser.add_argument("--Shape", type=tuple, default=(1,256,256), help='size of the samples')
+    parser.add_argument("--Shape", type=tuple, default=(3,256,256), help='size of the samples')
     parser.add_argument("--crop_indices", type=int, nargs='+', default=[0,256,0,256])
     
     # Progressive loss mode

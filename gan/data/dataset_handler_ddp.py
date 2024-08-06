@@ -209,17 +209,22 @@ class ISDataset(Dataset):
             #       (var) (min) (mean) (max)\n \
             #       t2m{sample.min()} {sample.mean()} {sample.max()} \n\  ')
         else :
-            # print(f'\n stat before normalization : \
+            # print(f'\n stat before normalization (shape : {np.shape(sample)}): \n \
             #       (var) (min) (mean) (max) \n \
-            #        t2m{sample.min()} {sample.mean()} {sample.max()} \n\  ')
+            #        u {sample[0].min()} {sample[0].mean()} {sample[0].max()} \n \
+            #        v {sample[1].min()} {sample[1].mean()} {sample[1].max()} \n \
+            #        t2m {sample[2].min()} {sample[2].mean()} {sample[2].max()} \n')
             sample = sample.transpose(2,3,1,0)
             # print('after T', np.shape(sample))
             sample = np.array([self.transform(sample[:,:,:,t]) for t in range(self.config.nb_timesteps)])
             # print('after', np.shape(sample))
             
-            # print(f'\n stat after normalization : \
+            # print(f'\n stat after normalization (shape : {np.shape(sample)}): \n \
             #       (var) (min) (mean) (max)\n \
-            #       t2m{sample[:,:,:,0].min()} {sample[:,:,:,0].mean()} {sample[:,:,:,0].max()} \n\  ')
+            #       u{sample[:,:,:,0].min()} {sample[:,:,:,0].mean()} {sample[:,:,:,0].max()} \n \
+            #       v{sample[:,:,:,1].min()} {sample[:,:,:,1].mean()} {sample[:,:,:,1].max()} \n \
+            #       t2m{sample[:,:,:,2].min()} {sample[:,:,:,2].mean()} {sample[:,:,:,2].max()} \n \
+            #             ')
             if self.config.stack_sample_along_time_and_variable :
                 sample = sample.reshape((self.config.nb_timesteps*len(self.VI), single_sample.shape[-2], single_sample.shape[-1]))
                 # sample = np.vstack(sample)

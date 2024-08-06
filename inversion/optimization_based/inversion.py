@@ -172,7 +172,7 @@ def optimize(Ens_r, g_ema, latent_mean, device, params):
         img_gen = Gen[0] # generated samples
 
         batch, channel, height, width = img_gen.shape
-        print('img_gen shape :', img_gen.shape)
+        # print('img_gen shape :', img_gen.shape)
         if params.noise_optimize:
             noise_loss = noise_regularize(noises)
         else :
