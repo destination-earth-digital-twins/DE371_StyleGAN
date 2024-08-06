@@ -88,15 +88,15 @@ def optimize(Ens_r, g_ema, latent_mean, device, params):
     #Ens_r = Ens_r[0:2] for faster tests...
     Ens_r = Ens_r.to(device)
     
-    latent_mean = latent_mean.to(device)
+    latent_mean = latent_mean.to(device).contiguous()
     
-    latent_in = latent_mean.detach().clone().unsqueeze(0).repeat(Ens_r.shape[0], 1)
+    latent_in = latent_mean.detach().clone().unsqueeze(0).repeat(Ens_r.shape[0], 1).contiguous()
     
     with torch.no_grad():
-        noise_sample = torch.randn(Ens_r.shape[0], 512, device=device)
-        latent_out = g_ema.style(noise_sample)
+        noise_sample = torch.randn(Ens_r.shape[0], 512, device=device).contiguous()
+        latent_out = g_ema.style(noise_sample).contiguous()
     
-        latent_mean = latent_out.mean(0)
+        latent_mean = latent_out.mean(0).contiguous()
         latent_std = ((latent_out - latent_mean).pow(2).sum() / Ens_r.shape[0]) ** 0.5
     
 
@@ -110,9 +110,9 @@ def optimize(Ens_r, g_ema, latent_mean, device, params):
     for noise in noises_single:
         noises.append(noise.repeat(Ens_r.shape[0], 1, 1, 1).normal_())
     
-    latent_in = latent_mean.detach().clone().unsqueeze(0).repeat(Ens_r.shape[0], 1)
+    latent_in = latent_mean.detach().clone().unsqueeze(0).repeat(Ens_r.shape[0], 1).contiguous()
     
-    latent_in = latent_in.unsqueeze(1).repeat(1, g_ema.n_latent, 1)
+    latent_in = latent_in.unsqueeze(1).repeat(1, g_ema.n_latent, 1).contiguous()
     
     latent_in.requires_grad = True
     
@@ -128,6 +128,7 @@ def optimize(Ens_r, g_ema, latent_mean, device, params):
     
     
     for i in pbar:
+        print('JE SUIS ',i)
         t = i / params.invstep
         
         lr = get_lr(t, params.lr)
@@ -135,11 +136,11 @@ def optimize(Ens_r, g_ema, latent_mean, device, params):
         
         noise_strength = latent_std * params.noise * max(0, 1 - t / params.noise_ramp) ** 2
         
-        latent_n = latent_noise(latent_in, noise_strength.item())
+        latent_n = latent_noise(latent_in.contiguous(), noise_strength.item())
     
-        Gen = g_ema([latent_n], input_is_latent=True, noise = noises)
+        Gen = g_ema([latent_n.contiguous()], input_is_latent=True, noise = noises)
 
-        img_gen = Gen[0]
+        img_gen = Gen[0].contiguous()
     
         batch, channel, height, width = img_gen.shape
     
@@ -157,12 +158,52 @@ def optimize(Ens_r, g_ema, latent_mean, device, params):
         elif params.pixel_loss_type=='mae_std' :
             
             pixel_loss = F.l1_loss(img_gen, Ens_r) + F.l1_loss(img_gen.std(dim=0), Ens_r.std(dim=0)) 
+        elif params.pixel_loss_type=='wmse':
             
-        loss = params.lambda_pixel * pixel_loss
+            pixel_loss = (F.mse_loss(img_gen, Ens_r)*torch.min(Ens_r+1,torch.tensor(20))).mean()
+        
+        elif params.pixel_loss_type=='amse':
+            
+            pixel_loss = F.mse_loss(img_gen, Ens_r) + torch.max(torch.min(Ens_r,torch.tensor(20))-img_gen,torch.tensor(0)).mean()
+            
+        elif params.pixel_loss_type=='wamse':
+            
+            pixel_loss = F.mse_loss(img_gen, Ens_r) + torch.max(torch.min(Ens_r,torch.tensor(20))-img_gen,torch.tensor(0)).mean()*torch.min(Ens_r+1,torch.tensor(20)).mean()
+            
+        elif params.pixel_loss_type=='sum_pixel_loss':
+            x = Ens_r.contiguous()
+            y = img_gen.contiguous()
+            pixel_loss = torch.abs((x-y).sum())
+            
+        elif params.pixel_loss_type =='sum_pixel_loss_mae':
+            if i <995:
+                pixel_loss = F.l1_loss(img_gen, Ens_r)
+            else:
+                x = Ens_r.contiguous()
+                y = img_gen.contiguous()
+                pixel_loss = torch.abs((x-y).sum())
+                    
+        elif params.pixel_loss_type =='mul_pixel_loss_mae':
+
+            pixel_loss_mse = F.l1_loss(img_gen, Ens_r)
+            x = Ens_r.contiguous()
+            y = img_gen.contiguous()
+            pixel_loss_sum = torch.abs((x-y).sum())
+            pixel_loss = params.lambda_pixel * pixel_loss_mse + 0.00002* pixel_loss_sum
+            
+        elif params.pixel_loss_type =='mul_pixel_loss_mse':
+
+            pixel_loss_mse = F.mse_loss(img_gen, Ens_r)
+            x = Ens_r.contiguous()
+            y = img_gen.contiguous()
+            pixel_loss_sum = torch.abs((x-y).sum())
+            pixel_loss = params.lambda_pixel * pixel_loss_mse + 0.00002* pixel_loss_sum
+    
+            
+
         
         loss = params.noise_regularize * n_loss\
             + params.lambda_pixel * pixel_loss
-
 
         optimizer.zero_grad()
         loss.backward()

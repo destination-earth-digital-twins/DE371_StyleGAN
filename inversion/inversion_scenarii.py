@@ -21,13 +21,13 @@ if __name__=="__main__" :
     ########################### Directories ###########################
 
     parser.add_argument('--ckpt_dir', type = str, 
-                        default ='/scratch/work/brochetc/Exp_StyleGAN_fixart/Set_UseNoiseFalse/stylegan2_stylegan_dom_256_lat-dim_512_bs_8_0.002_0.002_ch-mul_2_vars_rr_u_v_t2m_noise_False/Instance_8/models/200000.pt')
+                        default ='/project/scratch/p200177/DE_371/angeliquebonamy/stylegan2_stylegan_dom_256_lat-dim_512_bs_8_0.002_0.002_ch-mul_2_vars_rr_u_v_t2m_noise_True/model/222000.pt')
     parser.add_argument('--real_data_dir', type = str, 
-                        default ='/scratch/work/brochetc/samples_AROME_for_AE_1/')
+                        default ='/project/scratch/p200177/DE_371/angeliquebonamy/data_basile_inv/samples_AROME_for_AE_1/')
     parser.add_argument('--output_dir',type = str, 
-                        default ='/scratch/work/brochetc/rain_inversion_2/')
-    parser.add_argument("--pack_dir", type=str, default = '/scratch/work/brochetc/samples_AROME_for_AE_1/') # storing "packed" (normalized) real data
-    parser.add_argument("--stat_dir", type=str, default = '/scratch/work/brochetc/datasets/')
+                        default ='/project/scratch/p200177/DE_371/angeliquebonamy/results/inversion/')
+    parser.add_argument("--pack_dir", type=str, default = '/project/scratch/p200177/DE_371/angeliquebonamy/results/pack/') # storing "packed" (normalized) real data
+    parser.add_argument("--stat_dir", type=str, default = '//project/scratch/p200177/DE_371/angeliquebonamy/data_basile_inv/samples_AROME_for_AE_1/stat/stat_file/')
     parser.add_argument('--min_file', type=str, default='min_rr_log.npy')
     parser.add_argument('--max_file', type=str, default='max_rr_log.npy')
     parser.add_argument('--use_noise',action="store_true")
