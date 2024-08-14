@@ -7,6 +7,9 @@ from gan.model.stylegan2 import Generator
 from numpy import save
 from collections import OrderedDict
 from tqdm import trange
+import numpy as np
+
+var_dict = {'rr': 0, 'u': 1, 'v': 2, 't2m': 3, 'orog': 4, 'z500': 5, 't850': 6, 'tpw850': 7}
 
 def humanbytes(B):
     """Return the given bytes as a human friendly KB, MB, GB, or TB string.
@@ -46,13 +49,31 @@ def generate(args, g_ema, mean_latent, step):
     with torch.no_grad():
         g_ema.eval()
         for t in trange(args.n_batches) :
-            mem_cuda = torch.cuda.memory_allocated(device='cuda:0')
-            sample_z = torch.randn(args.sample, args.latent).to('cuda:0')
-            print(f'memory allocated for sample z : {humanbytes(mem_cuda - torch.cuda.memory_allocated(device='cuda:0'))}')
+            # mem_cuda = torch.cuda.memory_allocated(device='cuda:0')
+            sample_z = torch.randn(args.sample, args.latent).to(args.device)
+            # print(f'memory allocated for sample z : {humanbytes(mem_cuda - torch.cuda.memory_allocated(device='cuda:0'))}')
             x_sample, w_sample, _ = g_ema([sample_z], return_latents=True, truncation=args.truncation, truncation_latent=mean_latent
 	                   )
-            save(args.output_dir+'_x_sample_'+str(step)+'_'+str(t)+'.npy', x_sample.detach().cpu().numpy())
             save(args.output_dir+'_w_sample_'+str(step)+'_'+str(t)+'.npy', w_sample.detach().cpu().numpy())
+            if args.multi_timestep_mode :
+                # no matter the configuration the data are stored as (4,256,256) (to be the same as the dataset)
+                x_sample = x_sample.detach().cpu().numpy()
+                # print(x_sample.shape)
+                b, c, h, w = x_sample.shape
+                x_sample = x_sample.reshape((b, c//(args.timestep_period), len(args.var_names), h,w))
+                for time_step in range(args.nb_timesteps):
+                    x_sample_post_processed = np.empty((b,4,h,w))
+                    for batch_id in range(b):
+                        _sample = x_sample[batch_id][time_step]
+                        for var_id, variable_name in enumerate(args.var_names):
+                            # print(np.shape(_sample[var_id]))
+                            x_sample_post_processed[batch_id][var_dict[variable_name]] = _sample[var_id]
+                    save(args.output_dir+'_x_sample_'+str(step)+'_'+str(t)+'.npy', x_sample_post_processed)
+            else :
+                x_sample = x_sample.detach().cpu().numpy()
+                b, c, h, w = x_sample.shape
+                x_sample_post_processed = np.concatenate((np.zeros((b, 1, h, w)), x_sample), axis=1)
+                save(args.output_dir+'_x_sample_'+str(step)+'_'+str(t)+'.npy', x_sample_post_processed)
 
 def main():
 
@@ -64,12 +85,12 @@ def main():
     parser.add_argument(
         "--sample",
         type=int,
-        default=50,
+        default=128,
         help="number of samples to be generated per batch",
     )
     
     parser.add_argument(
-        "--n_batches", type=int, default=410, help="number of batches to be generated"
+        "--n_batches", type=int, default=128, help="number of batches to be generated"
     )
     
     parser.add_argument(
@@ -77,7 +98,7 @@ def main():
     )
 
     parser.add_argument(
-        "--output_dir", type=str, default="/project/scratch/p200177/DE_371/victorsanchez/results/gan_training/exp_train_sequential_every_1h_channel_multiplier_6/final_unconditional_samples/" # change with your path
+        "--output_dir", type=str, default="/project/scratch/p200177/DE_371/victorsanchez/results/gan_training/exp_train_sequential_every_1h_channel_multiplier_2/final_unconditional_samples/" # change with your path
     )
 
     parser.add_argument("--truncation", type=float, default=1, help="truncation ratio")
@@ -90,27 +111,38 @@ def main():
     parser.add_argument(
         "--ckpt",
         type=str,
-        default="/project/scratch/p200177/DE_371/victorsanchez/results/gan_training/exp_train_sequential_every_1h_channel_multiplier_6/models/", # change with your path
+        default="/project/scratch/p200177/DE_371/victorsanchez/results/gan_training/exp_train_sequential_every_1h_channel_multiplier_2/models/", # change with your path
         help="path to the model checkpoint",
     )
     parser.add_argument(
         "--channel_multiplier",
         type=int,
-        default=6,
+        default=2,
         help="channel multiplier of the generator. config-f = 2, else = 1",
     )
 
-    args = parser.parse_args()
+    parser.add_argument('--multi_timestep_mode', action='store_true')
+    parser.add_argument('--nb_timesteps', type=int, default=45)
+    parser.add_argument('--timestep_period', type=int, default=1)
+    parser.add_argument('--var_names', type=str2list, default=['t2m'])#, 'orog'])
+    parser.add_argument('--device', type=str, default='cuda:0')#, 'orog'])
 
+    args = parser.parse_args()
+    device = args.device
     args.latent = 512
     args.n_mlp = 8
-    mem_cuda = torch.cuda.memory_allocated(device='cuda:0')
-    print('memory_allocated {}'.format(humanbytes(mem_cuda)))
+    mem_cuda = torch.cuda.memory_allocated(device=device)
+    # print('memory_allocated {}'.format(humanbytes(mem_cuda)))
+    if args.multi_timestep_mode :
+        nb_var=45*len(args.var_names)//args.timestep_period
+    else :
+        nb_var=len(args.var_names)
     g_ema = Generator(
-        args.size, args.latent, args.n_mlp, channel_multiplier=args.channel_multiplier, nb_var=45
-    ).to('cuda:0')
-    mem_g = torch.cuda.memory_allocated(device='cuda:0')-mem_cuda
-    print('memory_allocated for Generator {}'.format(humanbytes(mem_g)))
+        args.size, args.latent, args.n_mlp, channel_multiplier=args.channel_multiplier, nb_var=nb_var
+    ).to(device)
+
+    mem_g = torch.cuda.memory_allocated(device=device)-mem_cuda
+    # print('memory_allocated for Generator {}'.format(humanbytes(mem_g)))
     for step in args.list_steps :
         checkpoint = torch.load(args.ckpt+f'{str(step).zfill(6)}.pt')["g_ema"]
         if 'module' in list(checkpoint.items())[0][0]: # juglling with Pytorch versioning and different module packaging
@@ -128,3 +160,6 @@ def main():
             mean_latent = None
 
         generate(args, g_ema, mean_latent, step)
+
+if __name__ == "__main__":
+    main()

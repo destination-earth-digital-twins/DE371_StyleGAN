@@ -42,10 +42,10 @@ if __name__=="__main__" :
                         default='/project/home/p200177/DE_371/datasets/dataset_Meteo_France/IS_1_1.0_0_0_0_0_0_256_large_lt_done/')
     # Output Directory - PATH where the output of the inversion will be saved
     parser.add_argument('--output_dir',type = str, 
-                        default ='/home/users/u101833/project/results/inversion/Ens_Perceptual_Random_VGG_Loss/Inversion_Perceptual_Random_VGG_Loss/')
+                        default ='/project/scratch/p200177/DE_371/victorsanchez/results/member_inversion/test_lpips/inversion_squeeze_tuning/')
     # Pack Directory - PATH where the packed ensembles will be saved
     parser.add_argument("--pack_dir", type=str, 
-                        default = '/home/users/u101833/project/results/inversion/Ens_Perceptual_Random_VGG_Loss/Pack_Perceptual_Random_VGG_Loss/') # storing "packed" (normalized) real data
+                        default = '/project/scratch/p200177/DE_371/victorsanchez/results/member_inversion/test_lpips/pack_squeeze_tuning/') # storing "packed" (normalized) real data
     
     # Dataset information
     parser.add_argument("--normalization", type=str, default="meanmax", choices=["minmax", "meanmax"])
@@ -83,7 +83,7 @@ if __name__=="__main__" :
 
     # Noise optimization and loss noise parameter
     parser.add_argument("--noise_optimize", action='store_true', help="joint optimization of noise and latent code (1) or latent code optimization only (0)?")
-    parser.add_argument("--lambda_noise", type=float, default=10e6, help="weight of the noise regularization")
+    parser.add_argument("--lambda_noise", type=float, default=1e5, help="weight of the noise regularization")
     # In case noise_optimize=0, the lambda_noise is not taken into account in the loss computation
     parser.add_argument("--fixed_noise", action='store_true', help="Fixing the noise during optimization")
 
@@ -92,7 +92,18 @@ if __name__=="__main__" :
     parser.add_argument("--lambda_pixel", type=float, default=10.0, help="weight of the (mae/mse) pixel loss")
     
     # Parameter related to perceptual loss 
+    parser.add_argument("--optimize_features_computation", action='store_true', help="Compute the features of original ensemble only once")
+
+    # LPIPS
+    parser.add_argument("--lpips_pnet", type=str, default='alex', choices=['alex','vgg','squeeze'], help="network type for lpips loss")
+    parser.add_argument("--lpips_pnet_tune", action='store_true', help="tuning the weights of the pnet")
+    parser.add_argument("--lpips_pnet_state_dict_path", type=str, default='/home/users/u101833/project/DE371_StyleGAN/inversion/PerceptualSimilarity/lpips/weights_pnets/alex_random.pth', help="path to lpips pre-trained network weights")
     parser.add_argument("--lambda_lpips", type=float, default=0.0, help="weight of the lpips (perceptual) loss")
+
+    parser.add_argument("--lpips_mode", action='store_true', help="if lpips mode=False, it act like simple vgg")
+    parser.add_argument("--lpips_linear_layers_state_dict_path", type=str, default='/home/users/u101833/project/DE371_StyleGAN/inversion/PerceptualSimilarity/lpips/weights_linear_layers/v0.1/vgg.pth', help="path to liunear layer lpips")
+    
+    # VGG
     parser.add_argument("--lambda_vgg", type=float, default=1.0, help="weight of the vgg (perceptual) loss")
     parser.add_argument("--vgg_computation", type=str, default='sol2', choices = ['sol1', 'sol2', 'sol3', 'sol4', 'sol5'], 
                         help="Either we compute layer by layer and member per member but we have to triple th einput to make it rgb or all in one (naive)")
@@ -104,7 +115,7 @@ if __name__=="__main__" :
     parser.add_argument("--vgg_loss_after_step", type=float, default=0, help="compute the vgg loss only after a given number of steps")
 
     parser.add_argument("--invstep", type=int, default=2000, help="optimize iterations")
-    parser.add_argument("--inv_checkpoints", type=utils.str2intlist, default=[250,500,1000,1500,2000])
+    parser.add_argument("--inv_checkpoints", type=utils.str2intlist, default=[10,50,100,250,500,1000,1500,2000])
     parser.add_argument("--plot_checkpoint", action='store_true')
     
     ########################## CONTROL of Data to invert ######################
@@ -226,10 +237,10 @@ if __name__=="__main__" :
                     already_exist.append(True)
                 else :
                     already_exist.append(False)
-                if os.path.isfile(params.output_dir+'noise_{}_{}_{}.p'.format(params.date_index,params.lt_index,i)):
-                    already_exist.append(True)
-                else :
-                    already_exist.append(False)
+                # if os.path.isfile(params.output_dir+'noise_{}_{}_{}.p'.format(params.date_index,params.lt_index,i)):
+                #     already_exist.append(True)
+                # else :
+                #     already_exist.append(False)
 
             if np.all(already_exist) :
                 print('The inversion was already done for the date {} with leadtime {}. This sample is skipped.'.format(datename,lt))

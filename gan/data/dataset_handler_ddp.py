@@ -131,7 +131,7 @@ class ISDataset(Dataset):
 
                 # We want Multiple Leadtimes per Members : 
                 #           16*self.config.timestep_period*leadtime_id
-                # We need to Jump per days after iterating over all leadtimes of a day :
+                # We need to Jump per days after iterating over all leadtimes and members of a day :
                 #           ((self.nb_leadtime_in_dataset-1)*16)*((idx)//batch_size)
                 # 16 being the number of members 
                 
