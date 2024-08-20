@@ -39,7 +39,7 @@ def calc_propor(list_imgs,threshold):
             for number in range(len(list_imgs)):
                 members=[]
                 for member in range(list_imgs[number].shape[0]):
-                    image = list_imgs[number][member][0]
+                    image = np.exp((list_imgs[number][member][0]+1)*5.78319931/2)-1
                     pixel_above_thresh = np.sum(image>=thresh)
                     porportion_per_member = pixel_above_thresh/(256*256)
                     members.append(porportion_per_member)
@@ -60,7 +60,7 @@ list_imgs = images_load('/project/scratch/p200177/DE_371/angeliquebonamy/data_ba
 #   i   ci, on obtient pour un threshold et un scénario la moyenne du nombre de pixels <= a ce seuil 
 # pour continuer il faut créer une liste vide et la remplir de cette valeur pour tous les scénarios puis tracer dans un premier temps 
 scenarios_pack=[]
-thresh= [-1,-0.5,-0.1,0,0.1,0.5,0.75,1]
+thresh= [0,1,5,10]
 for i,folder in enumerate(os.listdir(dossier_pack)):
     path_to_folder = os.path.join(dossier_pack,folder)
     list_imgs = images_load(path_to_folder)
@@ -110,7 +110,7 @@ for i in range(len(scenarios_inv)):
     plt.xlabel('a')
     plt.ylabel('Value')
     plt.title(f'Graphique {i+1}')
-   # plt.yscale('log')  # Mettre l'échelle en ordonnées en log10
+    plt.yscale('log')  # Mettre l'échelle en ordonnées en log10
     plt.grid(True, which="both", ls="--")
     plt.legend()
     

@@ -38,10 +38,10 @@ if __name__=="__main__" :
     parser.add_argument('--ckpt_dir', type = str, 
                         default ='/project/scratch/p200177/DE_371/angeliquebonamy/stylegan2_stylegan_dom_256_lat-dim_512_bs_8_0.002_0.002_ch-mul_2_vars_rr_u_v_t2m_noise_True/model/222000.pt')
     parser.add_argument('--real_data_dir', type = str, 
-                        default ='/project/scratch/p200177/DE_371/angeliquebonamy/data_basile_inv/samples_AROME_for_AE_1/batch2/')
+                        default ='/project/scratch/p200177/DE_371/angeliquebonamy/data_basile_inv/samples_AROME_for_AE_1/batchs/')
     parser.add_argument('--output_dir',type = str, 
-                        default ='/project/scratch/p200177/DE_371/angeliquebonamy/results/scenarios/batch2/inversion/')
-    parser.add_argument("--pack_dir", type=str, default = '/project/scratch/p200177/DE_371/angeliquebonamy/results/scenarios/batch2/pack/') # storing "packed" (normalized) real data
+                        default ='/project/scratch/p200177/DE_371/angeliquebonamy/results/scenarios/batchs/inversion/')
+    parser.add_argument("--pack_dir", type=str, default = '/project/scratch/p200177/DE_371/angeliquebonamy/results/scenarios/batchs/pack/') # storing "packed" (normalized) real data
     parser.add_argument("--stat_dir", type=str, default = '/project/scratch/p200177/DE_371/angeliquebonamy/data_basile_inv/samples_AROME_for_AE_1/stat/stat_file/')
     parser.add_argument('--min_file', type=str, default='min_rr_log.npy')
     parser.add_argument('--max_file', type=str, default='max_rr_log.npy')
@@ -65,21 +65,34 @@ if __name__=="__main__" :
     # Progressive loss mode
     parser.add_argument("--progressive_loss_mode", type=bool, default=False, help="Progressive Loss between pixel loss and perceptual loss | Start : Only MSE | End : Only Perceptual")
     # Noise optdimization and loss noise parameter
-    parser.add_argument("--noise_optimize", type=bool, default=False, help="joint optimization of noise and latent code (1) or latent code optimization only (0)?")
-    parser.add_argument("--lambda_noise", type=float, default=10e6, help="weight of the noise regularization")
+    #"STORE_TRUE" signifie que si on l'ignore alors c'est false, sinon il suffit de l'écrire dans les params 
+    parser.add_argument("--noise_optimize", action='store_true', help="joint optimization of noise and latent code (1) or latent code optimization only (0)?")    
+    parser.add_argument("--lambda_noise", type=float, default=1e5, help="weight of the noise regularization")
     # In case noise_optimize=0, the lambda_noise is not taken into account in the loss computation
-    parser.add_argument("--fixed_noise", type=bool, default=False, help="Fixing the noise during optimization")
-
+    parser.add_argument("--fixed_noise", action='store_true', help="Fixing the noise during optimization")
     # Parameter related to pixel loss 
     parser.add_argument('--pixel_loss_type', type=str, default='mse', choices = ['mse', 'mae','wmse','amse','wamse','sum_pixel_loss','sum_pixel_loss_mae','mul_pixel_loss_mae','mul_pixel_loss_mse'])
     parser.add_argument("--lambda_pixel", type=float, default=10.0, help="weight of the (mae/mse/wmse) pixel loss")
     
     # Parameter related to perceptual loss 
+    parser.add_argument("--optimize_features_computation", action='store_true', help="Compute the features of original ensemble only once")
+
+    # LPIPS
+    parser.add_argument("--lpips_pnet", type=str, default='alex', choices=['alex','vgg','squeeze'], help="network type for lpips loss")
+    parser.add_argument("--lpips_pnet_tune", action='store_true', help="tuning the weights of the pnet")
+    parser.add_argument("--lpips_pnet_state_dict_path", type=str, default='/home/users/u101833/project/DE371_StyleGAN/inversion/PerceptualSimilarity/lpips/weights_pnets/alex_random.pth', help="path to lpips pre-trained network weights")
+    parser.add_argument("--lambda_lpips", type=float, default=0.0, help="weight of the lpips (perceptual) loss")
+
+    parser.add_argument("--lpips_mode", action='store_true', help="if lpips mode=False, it act like simple vgg")
+    parser.add_argument("--lpips_linear_layers_state_dict_path", type=str, default='/home/users/u101833/project/DE371_StyleGAN/inversion/PerceptualSimilarity/lpips/weights_linear_layers/v0.1/vgg.pth', help="path to liunear layer lpips")
+   
+    # Parameter related to perceptual loss 
     parser.add_argument("--lambda_vgg", type=float, default=1.0, help="weight of the vgg (perceptual) loss")
     parser.add_argument("--vgg_computation", type=str, default='sol2', choices = ['sol1', 'sol2', 'sol3', 'sol4', 'sol5'], 
                         help="Either we compute layer by layer and member per member but we have to triple th einput to make it rgb or all in one (naive)")
-    parser.add_argument("--vgg_state_dict_path", type=str, default='./vgg_weights/vgg16-random.pth', help="Insert a path")
-    #parser.add_argument("--vgg_state_dict_path", type=str, default='/project/scratch/p200177/DE_371/resources/vgg_weights/vgg16-random.pth', help="Insert a path")
+    # not pre-trained: '/project/scratch/p200177/DE_371/resources/vgg_weights/vgg16-random.pth'
+    # pre_trained: /project/scratch/p200177/DE_371/resources/vgg_weights/vgg16-397923af.pth
+    parser.add_argument("--vgg_state_dict_path", type=str, default='/project/scratch/p200177/DE_371/resources/vgg_weights/vgg16-397923af.pth', help="Insert a path")
     parser.add_argument("--vgg_style_layers", type=int, nargs='+', default=[], help="style layers to include in vgg loss computation")
     parser.add_argument("--vgg_feature_layers", type=int, nargs='+', default=[0,1,2,3], help="feature layers to include in vgg computation")
     parser.add_argument("--vgg_alpha_feature", type=float, default=1.0, help="weight of the feature/content loss")
@@ -128,68 +141,73 @@ if __name__=="__main__" :
      #print(params.inv_checkpoints, type(params.inv_checkpoints[0]))
     assert type(params.inv_checkpoints[0])==int
     ################## loading data to invert ##
+    for batch_dir in os.listdir(params.real_data_dir):
+        classes = pickle.load(open(params.real_data_dir + f'/{batch_dir}/'+ 'class_samples.p','rb'))
+        print('OK')
+        scenarii = classes.keys()
+        # Mins = np.load('/home/mrmn/bonamya/de371_stylegan/tests_inv_batch/min_rr_log.npy')#f'{params.real_data_dir}stat_files/{params.min_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
+        # Maxs = np.load('/home/mrmn/bonamya/de371_stylegan/tests_inv_batch/max_rr_log.npy')#f'{params.real_data_dir}stat_files/{params.max_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
 
-    classes = pickle.load(open(params.real_data_dir + 'class_samples.p','rb'))
-    scenarii = classes.keys()
-    # Mins = np.load('/home/mrmn/bonamya/de371_stylegan/tests_inv_batch/min_rr_log.npy')#f'{params.real_data_dir}stat_files/{params.min_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
-    # Maxs = np.load('/home/mrmn/bonamya/de371_stylegan/tests_inv_batch/max_rr_log.npy')#f'{params.real_data_dir}stat_files/{params.max_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
+        Mins = np.load(f'{params.stat_dir}{params.min_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
 
-    Mins = np.load(f'{params.stat_dir}{params.min_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
+        Maxs = np.load(f'{params.stat_dir}{params.max_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
+        ################ loading network #################
 
-    Maxs = np.load(f'{params.stat_dir}{params.max_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
-    ################ loading network #################
+        device = params.device if torch.cuda.is_available() else 'cpu'
 
-    device = params.device if torch.cuda.is_available() else 'cpu'
+        G = Generator(params.Shape[1], 512,n_mlp=8,nb_var=params.Shape[0])
 
-    G = Generator(params.Shape[1], 512,n_mlp=8,nb_var=params.Shape[0])
+        #print('###########################################"##################################################################################################################')
+        ckpt = torch.load(params.ckpt_dir, map_location='cpu')['g_ema']
 
-    #print('###########################################"##################################################################################################################')
-    ckpt = torch.load(params.ckpt_dir, map_location='cpu')['g_ema']
-
-    if 'module' in list(ckpt.items())[0][0]: #juglling with Pytorch versioning and different module packaging
-        ckpt_adapt = OrderedDict()
-        for k in ckpt.keys():
-            k0 = k[7:]
-            ckpt_adapt[k0] = ckpt[k]
-        G.load_state_dict(ckpt_adapt)
-
-
-    else:
-        G.load_state_dict(ckpt_dic)
-    G.eval()
-    G = G.to(device)
-
-    ################### producing latent mean #######
-
-    if not os.path.exists(f'{params.output_dir}latent_mean.npy'):
-
-        latent_z = torch.empty(10000, 512).normal_().to(device)
-        with torch.no_grad():
-            w = G.style(latent_z)
-
-        latent_mean = w.mean(dim=0).detach().cpu()
-
-        np.save(f'{params.output_dir}latent_mean.npy',latent_mean.numpy())
-    else : 
-
-        lm = np.load(f'{params.output_dir}latent_mean.npy').astype(np.float32)
-        latent_mean = torch.tensor(lm, dtype = torch.float32)
+        if 'module' in list(ckpt.items())[0][0]: #juglling with Pytorch versioning and different module packaging
+            ckpt_adapt = OrderedDict()
+            for k in ckpt.keys():
+                k0 = k[7:]
+                ckpt_adapt[k0] = ckpt[k]
+            G.load_state_dict(ckpt_adapt)
 
 
-    #################### main loop ##################
+        else:
+            G.load_state_dict(ckpt_dic)
+        G.eval()
+        G = G.to(device)
+            # create output and pack directories
+        if not os.path.exists(os.path.join(params.output_dir,batch_dir)):
+            os.makedirs(os.path.join(params.output_dir,batch_dir))
+        if not os.path.exists(os.path.join(params.pack_dir,batch_dir)):
+            os.makedirs(os.path.join(params.pack_dir,batch_dir))
+        ################### producing latent mean #######
+        print('DIRECT',os.path.join(params.output_dir,batch_dir))
+        if not os.path.exists(f'{os.path.join(params.output_dir,batch_dir)}/latent_mean.npy'):
 
-    for scenario in scenarii:
-        samples = torch.tensor(classes[scenario])
-        print(samples.size(),'SAMPLES')
-        samples = torch.split(samples,[16,16,16,2],dim=0)
-        for batch_idx, batch in enumerate(samples[:-1]):
-            params.date_index, params.lt_index = scenario, batch_idx
-            if not os.path.exists(params.output_dir +f'w_{scenario}_{batch_idx}_1000.npy'): #checking for already teer
-                batch[:,0] =  -1.0 + 2 * (torch.log(1 + batch[:,0]) - Mins[:,0]) / (Maxs[:,0] - Mins[:,0])
-                batch[:,1:] = -1.0 + 2 * (batch[:,1:] - Mins[:,1:]) / (Maxs[:,1:] - Mins[:,1:]) 
-                np.save(params.pack_dir+f'Rsemble_{scenario}_{batch_idx}.npy', batch.numpy().astype(np.float32))
-                #if params.use_noise:
-                inv.optimize(batch, G, latent_mean, device, params)
+            latent_z = torch.empty(10000, 512).normal_().to(device)
+            with torch.no_grad():
+                w = G.style(latent_z)
+
+            latent_mean = w.mean(dim=0).detach().cpu()
+
+            np.save(f'{os.path.join(params.output_dir,batch_dir)}/latent_mean.npy',latent_mean.numpy())
+        else : 
+
+            lm = np.load(f'{os.path.join(params.output_dir,batch_dir)}/latent_mean.npy').astype(np.float32)
+            latent_mean = torch.tensor(lm, dtype = torch.float32)
+
+
+        #################### main loop ##################
+
+        for scenario in scenarii:
+            samples = torch.tensor(classes[scenario])
+            print(samples.size(),'SAMPLES')
+            samples = torch.split(samples,[16,16,16,2],dim=0)
+            for batch_idx, batch in enumerate(samples[:-1]):
+                params.date_index, params.lt_index = scenario, batch_idx
+                if not os.path.exists(os.path.join(params.output_dir,batch_dir) +f'w_{scenario}_{batch_idx}_1000.npy'): #checking for already teer
+                    batch[:,0] =  -1.0 + 2 * (torch.log(1 + batch[:,0]) - Mins[:,0]) / (Maxs[:,0] - Mins[:,0])
+                    batch[:,1:] = -1.0 + 2 * (batch[:,1:] - Mins[:,1:]) / (Maxs[:,1:] - Mins[:,1:]) 
+                    np.save(os.path.join(params.pack_dir,batch_dir)+f'/Rsemble_{scenario}_{batch_idx}.npy', batch.numpy().astype(np.float32))
+                    #if params.use_noise:
+                    inv.optimize(batch_dir,batch, G, latent_mean, device, params)
                 # else:
                 #     inv_wonoise.optimize(batch, G, latent_mean, device, params)
     # ################## loading dates and file names ##

@@ -44,7 +44,7 @@ if __name__=="__main__" :
     # parser.add_argument('--real_data_dir', type = str, 
     #                     default='/project/home/p200177/DE_371/datasets/dataset_Meteo_France/IS_1_1.0_0_0_0_0_0_256_large_lt_done/')
     parser.add_argument('--real_data_dir', type = str, 
-                        default='/project/scratch/p200177/DE_371/angeliquebonamy/data_basile/')
+                        default='/project/home/p200177/DE_371/datasets/dataset_Meteo_France/IS_1_1.0_0_0_0_0_0_256_large_lt_done/')
     # Output Directory - PATH where the output of the inversion will be saved
     parser.add_argument('--output_dir',type = str, 
                         default ='/project/scratch/p200177/DE_371/angeliquebonamy/results/dates/inversion/')
@@ -54,7 +54,7 @@ if __name__=="__main__" :
     
     # Dataset information
     parser.add_argument("--normalization", type=str, default="minmax", choices=["minmax", "meanmax"])
-    parser.add_argument('--max_file', type=str, default='MaxNew_4_var.npy') # use 'MaxNew_4_var.npy' if AROME data # max_rr_log.npy
+    parser.add_argument('--max_file', type=str, default='max_rr_log.npy')#MaxNew_4_var.npy') # use 'MaxNew_4_var.npy' if AROME data # max_rr_log.npy
     parser.add_argument('--mean_file', type=str, default='Mean_4_var.npy') # not used if minmax normalization
     parser.add_argument('--min_file', type=str, default='min_rr_log.npy')  # not used if meanmax normalization
     
@@ -102,9 +102,9 @@ if __name__=="__main__" :
     parser.add_argument("--inv_checkpoints", type=utils.str2intlist, default=[250,500,1000,1500,2000])
 
     ########################## CONTROL of Data to invert ######################
-    parser.add_argument("--dates_file", type=str, default = 'labels.csv')
-    parser.add_argument("--date_start", type=str, default = "2021-06-18")
-    parser.add_argument("--date_stop", type=str, default = "2021-10-30")
+    parser.add_argument("--dates_file", type=str, default = 'Large_lt_test_labels.csv')
+    parser.add_argument("--date_start", type=str, default = "2021-06-16")
+    parser.add_argument("--date_stop", type=str, default = "2021-11-11")
     parser.add_argument("--leadtimes", type=utils.str2intlist, default=[3,18,33,45])
     
     parser.add_argument("--seed", type=int, default=42)
@@ -139,8 +139,8 @@ if __name__=="__main__" :
     #    Means = np.load(f'{params.real_data_dir}stat_files/{params.mean_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
     #    Maxs = np.load(f'{params.real_data_dir}/stat_files/{params.max_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
     elif params.normalization=="minmax":
-       Mins = np.load(f'{params.real_data_dir}stat_files/{params.min_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
-       Maxs = np.load(f'{params.real_data_dir}stat_files/{params.max_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
+       Mins = np.load(f'/project/scratch/p200177/DE_371/angeliquebonamy/data_basile_inv/samples_AROME_for_AE_1/stat/stat_file/{params.min_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
+       Maxs = np.load(f'/project/scratch/p200177/DE_371/angeliquebonamy/data_basile_inv/samples_AROME_for_AE_1/stat/stat_file/{params.max_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
     else:
        raise ValueError(f"Unknown normalization: {params.normalization}")
 
