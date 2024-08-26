@@ -31,7 +31,7 @@ from gan.distributed import (
 import gan.metrics4arome as METR
 import gan.plot.plotting_functions as plotFunc
 import gan.data.dataset_handler_ddp as DSH
-
+import gan.plot.plotting_functions as plf
 import gan.model.GAN_logic as GAN
 
 
@@ -704,6 +704,7 @@ class Trainer():
             if self.config.log_epoch > 0 and (
                     epoch % self.config.log_epoch == 0 or epoch == self.config.epochs_num - 1) and is_main_gpu():
                 self.log(true_epoch)
+                # plf.plot_metrics_from_csv(self.config.output_dir + '/log/', 'metrics.csv')
 
             ############### plotting distribution at plot epoch ############
             if self.plot_epoch > 0 and (

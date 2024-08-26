@@ -15,6 +15,7 @@ import gan.memutils.memory_consumption as memco
 import gan.metrics4arome as METR
 import gan.metrics4arome.spectrum_analysis as Spectral
 import gan.metrics4arome.wasserstein_distances as WD
+import metrics4arome.inception_metrics as inception
 import gan.model.trainer_ddp as trainer
 import gan.plot.plotting_functions as plf
 import torch
@@ -246,16 +247,11 @@ def get_expe_parameters():
 
     # Step size
 
-    parser.add_argument('--log_epoch', type=int,
-                        default=0)
-    parser.add_argument('--sample_epoch', type=int,
-                        default=0)
-    parser.add_argument('--plot_epoch', type=int,
-                        default=0)
-    parser.add_argument('--save_epoch', type=int,
-                        default=0)
-    parser.add_argument('--test_epoch', type=int,
-                        default=0)
+    parser.add_argument('--log_epoch', type=int, default=0)
+    # parser.add_argument('--sample_epoch', type=int, default=0)
+    parser.add_argument('--plot_epoch', type=int, default=0)
+    parser.add_argument('--save_epoch', type=int, default=0)
+    parser.add_argument('--test_epoch', type=int, default=0)
     parser.add_argument('--log_step', type=int, default=2000)# if very_small_exp else (1000 if small_exp else 3000)) #-> default is at the end of each epoch
     parser.add_argument('--sample_step', type=int, default=2000)# if very_small_exp else (1000 if small_exp else 3000)) # set to 0 if not needed
     parser.add_argument('--plot_step', type=int, default=2000)# if very_small_exp else (1000 if small_exp else 3000)) #set to 0 if not needed
@@ -417,8 +413,14 @@ if __name__=="__main__" :
     ###############################################################################
 
     # names used in test_metrics should belong to the metrics namespace --> on-the-fly definition of metrics
+    
+    setattr(METR, "fid", 
+                            METR.metric2D('Fréchet Inception Distance  ',\
+                                inception.FIDclass(inception.inceptionPath).FID,\
+                                ['FID']))
 
     sliced_wd = SWD.SWD_API2(numpy=False, ch_per_ch=False)
+
     setattr(METR, "SWD_metric_torch", 
                             METR.metric2D('Sliced Wasserstein Distance  ',\
                                 sliced_wd.End2End,\
@@ -457,8 +459,7 @@ if __name__=="__main__" :
     ###############################################################################
 
     print('\n creating trainer', flush=True)
-    TRAINER = trainer.Trainer(config,criterion="W1_center",\
-                            test_metrics=test_metr)
+    TRAINER = trainer.Trainer(config, criterion="W1_center", test_metrics=test_metr)
 
     modelG, modelD, modelG_ema, mem_g, mem_d, mem_opt, mem_cuda = TRAINER.instantiate(modelG, modelD, load_optim=ckpt, modelG_ema=modelG_ema)
 

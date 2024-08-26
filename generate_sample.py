@@ -46,12 +46,16 @@ def str2list(li):
 def generate(args, g_ema, mean_latent, step):
     if not os.path.exists(args.output_dir):
         os.makedirs(args.output_dir)
+    mem_cuda = torch.cuda.memory_allocated(device=args.device)
+    print('memory_allocated {}'.format(humanbytes(mem_cuda)))
     with torch.no_grad():
         g_ema.eval()
         for t in trange(args.n_batches) :
             # mem_cuda = torch.cuda.memory_allocated(device='cuda:0')
             sample_z = torch.randn(args.sample, args.latent).to(args.device)
             # print(f'memory allocated for sample z : {humanbytes(mem_cuda - torch.cuda.memory_allocated(device='cuda:0'))}')
+            mem_cuda = torch.cuda.memory_allocated(device=args.device)
+            # print('memory_allocated {}'.format(humanbytes(mem_cuda)))
             x_sample, w_sample, _ = g_ema([sample_z], return_latents=True, truncation=args.truncation, truncation_latent=mean_latent
 	                   )
             save(args.output_dir+'_w_sample_'+str(step)+'_'+str(t)+'.npy', w_sample.detach().cpu().numpy())
@@ -60,8 +64,9 @@ def generate(args, g_ema, mean_latent, step):
                 x_sample = x_sample.detach().cpu().numpy()
                 # print(x_sample.shape)
                 b, c, h, w = x_sample.shape
-                x_sample = x_sample.reshape((b, c//(args.timestep_period), len(args.var_names), h,w))
-                for time_step in range(args.nb_timesteps):
+                nb_timesteps_per_variable = c//len(args.var_names)
+                x_sample = x_sample.reshape((b, nb_timesteps_per_variable, len(args.var_names), h,w))
+                for time_step in range(nb_timesteps_per_variable):
                     x_sample_post_processed = np.empty((b,4,h,w))
                     for batch_id in range(b):
                         _sample = x_sample[batch_id][time_step]
@@ -132,9 +137,9 @@ def main():
     args.latent = 512
     args.n_mlp = 8
     mem_cuda = torch.cuda.memory_allocated(device=device)
-    # print('memory_allocated {}'.format(humanbytes(mem_cuda)))
+    print('memory_allocated {}'.format(humanbytes(mem_cuda)))
     if args.multi_timestep_mode :
-        nb_var=45*len(args.var_names)//args.timestep_period
+        nb_var=args.nb_timesteps
     else :
         nb_var=len(args.var_names)
     g_ema = Generator(
@@ -142,7 +147,7 @@ def main():
     ).to(device)
 
     mem_g = torch.cuda.memory_allocated(device=device)-mem_cuda
-    # print('memory_allocated for Generator {}'.format(humanbytes(mem_g)))
+    print('memory_allocated for Generator {}'.format(humanbytes(mem_g)))
     for step in args.list_steps :
         checkpoint = torch.load(args.ckpt+f'{str(step).zfill(6)}.pt')["g_ema"]
         if 'module' in list(checkpoint.items())[0][0]: # juglling with Pytorch versioning and different module packaging

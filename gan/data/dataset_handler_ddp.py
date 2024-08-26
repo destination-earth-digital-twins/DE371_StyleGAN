@@ -80,12 +80,12 @@ class ISDataset(Dataset):
         self.nb_members=16
         ####################
         self.cursor_incomplete_date = 0
-        if self.config.multi_timestep_mode:
-            if self.config.timestep_period not in [i for i in range(1,self.nb_leadtime_in_dataset+1) if 45%i==0]:
-                raise NotImplementedError
-            if self.config.nb_timesteps * self.config.timestep_period != self.nb_leadtime_in_dataset:
-                print(f'Warning : {self.config.nb_timesteps} * {self.config.timestep_period} != 45')
-                raise ValueError
+        # if self.config.multi_timestep_mode:
+        #     if self.config.timestep_period not in [i for i in range(1,self.nb_leadtime_in_dataset+1) if 45%i==0]:
+        #         raise NotImplementedError
+        #     if self.config.nb_timesteps * self.config.timestep_period != self.nb_leadtime_in_dataset:
+        #         print(f'Warning : {self.config.nb_timesteps} * {self.config.timestep_period} != 45')
+        #         raise ValueError
 
         
         self.cache = DatasetCache(use_cache=use_cache)
@@ -121,7 +121,7 @@ class ISDataset(Dataset):
         if self.config.multi_timestep_mode :
             # Multi time steps :
             sample = []
-
+            # print('################start batch################')
             for leadtime_id in np.arange(0, self.config.nb_timesteps):
                 # idx is fixed for a given batch
 
@@ -137,9 +137,11 @@ class ISDataset(Dataset):
                 
                 _idx = idx + 16*self.config.timestep_period*leadtime_id + ((self.nb_leadtime_in_dataset-1)*16)*((idx)//16) + self.cursor_incomplete_date*45*16
                 
-                # print('Batch index: ', idx)
-                # print('Leadtime index', leadtime_id, 'Leadtime index on csv', 16*self.config.timestep_period*leadtime_id)
-                # print('Day index', (idx//16), 'Day index on csv', ((self.nb_leadtime_in_dataset-1)*16)*(idx//16))
+                # print('sample id', _idx)
+                # print('Batch id: ', idx)
+                # print('Leadtime h', leadtime_id*self.config.timestep_period)
+                # print('Day num', _idx//((self.nb_leadtime_in_dataset)*16))
+                # print('Member num', idx)
                 
                 if self.labels.iloc[_idx]['Date'] in ['2021-02-13T21:00:00Z', '2021-08-15T21:00:00Z', '2021-09-29T21:00:00Z', '2021-05-30T21:00:00Z']:
                     print(f"Warning : Incomplete Date : {self.labels.iloc[_idx]['Date']}, switching to next sample day")
@@ -162,7 +164,7 @@ class ISDataset(Dataset):
                 if len(self.VI)>1:
                     single_sample = single_sample[np.newaxis:] # (1,Nvar,H,W) in case Nvar>1
                 sample.append(single_sample)
-
+            # print('################end batch################')
             sample = np.array(sample)
             
                 
