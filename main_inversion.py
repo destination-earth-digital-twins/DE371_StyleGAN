@@ -118,6 +118,9 @@ if __name__=="__main__" :
     parser.add_argument("--inv_checkpoints", type=utils.str2intlist, default=[10,50,100,250,500,1000,1500,2000])
     parser.add_argument("--plot_checkpoint", action='store_true')
     
+    # lambda_ms_ssim
+    parser.add_argument("--lambda_ms_ssim", type=float, default=0, help="weight of the MS-SSIM loss")
+
     ########################## CONTROL of Data to invert ######################
     parser.add_argument("--dates_file", type=str, default = 'Large_lt_test_labels.csv')
     parser.add_argument("--date_start", type=str, default = "2021-07-01")
@@ -136,7 +139,7 @@ if __name__=="__main__" :
     # create output and pack directories
     if not os.path.exists(params.output_dir):
         os.makedirs(params.output_dir)
-    if not os.path.exists(params.pack_dir):
+    if not os.path.exists(params.pack_dir) and params.pack_dir:
         os.makedirs(params.pack_dir)
 
     # set the seed for reproduciibility of runs
@@ -265,7 +268,8 @@ if __name__=="__main__" :
                         Maxs=Maxs
                         
                     ) #, crop_indices=params.crop_indices)
-                    np.save(params.pack_dir+f'Rsemble_{datename}_{lt}.npy', Ens_r.numpy().astype(np.float32))
+                    if params.pack_dir :
+                        np.save(params.pack_dir+f'Rsemble_{datename}_{lt}.npy', Ens_r.numpy().astype(np.float32))
                     
                 else : 
                     Ens_r = utils.load_batch_sequence_from_date(
@@ -281,7 +285,8 @@ if __name__=="__main__" :
                         Mins=Mins,
                         Maxs=Maxs
                     )
-                    np.save(params.pack_dir+f'Rsemble_sequence_{datename}.npy', Ens_r.numpy().astype(np.float32))
+                    if params.pack_dir :
+                        np.save(params.pack_dir+f'Rsemble_sequence_{datename}.npy', Ens_r.numpy().astype(np.float32))
 
                 
                 inv.optimize(Ens_r, G, latent_mean, params.device, params)
