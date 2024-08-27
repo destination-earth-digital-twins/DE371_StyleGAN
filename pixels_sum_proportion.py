@@ -54,65 +54,66 @@ def calc_propor(list_imgs,threshold):
         return(th)
         
 
-dossier_pack = '/project/scratch/p200177/DE_371/angeliquebonamy/data_basile_inv/samples_AROME_for_AE_1/scenarios/'
-dossier_inv = '/project/scratch/p200177/DE_371/angeliquebonamy/results/scenarios/mse/inversion/scenarios/'
-list_imgs = images_load('/project/scratch/p200177/DE_371/angeliquebonamy/data_basile_inv/samples_AROME_for_AE_1/scenarios/')
+dossier_pack = '/project/scratch/p200177/DE_371/angeliquebonamy/results/scenarios/scenarios/mse/pack'
+dossier_inv = '/project/scratch/p200177/DE_371/angeliquebonamy/results/scenarios/scenarios/mse/inversion'
+list_imgs = images_load('/project/scratch/p200177/DE_371/angeliquebonamy/results/scenarios/scenarios/mse/pack')
+print(list_imgs)
 #   i   ci, on obtient pour un threshold et un scénario la moyenne du nombre de pixels <= a ce seuil 
 # pour continuer il faut créer une liste vide et la remplir de cette valeur pour tous les scénarios puis tracer dans un premier temps 
-scenarios_pack=[]
-thresh= [0,1,5,10]
-for i,folder in enumerate(os.listdir(dossier_pack)):
-    path_to_folder = os.path.join(dossier_pack,folder)
-    list_imgs = images_load(path_to_folder)
-    scenarios_pack.append(calc_propor(list_imgs,thresh))
-    data = calc_propor(list_imgs,thresh)
-    thresh = [item[0] for item in data]
-    values = [item[1] for item in data]
-    # # Tracer les données
-    # plt.figure()
-    # plt.plot(thresh, values, marker='o')
-    # plt.xlabel('Thresh')
-    # plt.ylabel('Value')
-    # plt.yscale('log')
-    # plt.title('Graph of Values vs Thresh')
-    # plt.grid(True)
-    # print(path_to_folder)
+# scenarios_pack=[]
+# thresh= [0,1,5,10]
+# for i,folder in enumerate(os.listdir(dossier_pack)):
+#     path_to_folder = os.path.join(dossier_pack,folder)
+#     list_imgs = images_load(path_to_folder)
+#     scenarios_pack.append(calc_propor(list_imgs,thresh))
+#     data = calc_propor(list_imgs,thresh)
+#     thresh = [item[0] for item in data]
+#     values = [item[1] for item in data]
+#     # # Tracer les données
+#     # plt.figure()
+#     # plt.plot(thresh, values, marker='o')
+#     # plt.xlabel('Thresh')
+#     # plt.ylabel('Value')
+#     # plt.yscale('log')
+#     # plt.title('Graph of Values vs Thresh')
+#     # plt.grid(True)
+#     # print(path_to_folder)
     
-    # # Sauvegarder la figure
-    # plt.savefig(os.path.join(path_to_folder,'figure_thresh_pack.png'))
-scenarios_inv=[]
+#     # # Sauvegarder la figure
+#     # plt.savefig(os.path.join(path_to_folder,'figure_thresh_pack.png'))
+# scenarios_inv=[]
 
-for i,folder in enumerate(os.listdir(dossier_inv)):
-    path_to_folder = os.path.join(dossier_inv,folder)
-    list_imgs = images_load(path_to_folder)
-    scenarios_inv.append(calc_propor(list_imgs,thresh))
-    data = calc_propor(list_imgs,thresh)
-    thresh = [item[0] for item in data]
-    values = [item[1] for item in data]
+# for i,folder in enumerate(os.listdir(dossier_inv)):
+#     path_to_folder = os.path.join(dossier_inv,folder)
+#     list_imgs = images_load(path_to_folder)
+#     scenarios_inv.append(calc_propor(list_imgs,thresh))
+#     data = calc_propor(list_imgs,thresh)
+#     thresh = [item[0] for item in data]
+#     values = [item[1] for item in data]
     
 
-assert len(scenarios_inv) == len(scenarios_pack), "Les deux listes doivent avoir la même longueur"
+# assert len(scenarios_inv) == len(scenarios_pack), "Les deux listes doivent avoir la même longueur"
 
-# Boucle sur chaque sous-liste
-for i in range(len(scenarios_inv)):
-    # Séparer les a et les values pour premiereliste[i]
-    a_thresh = [item[0] for item in scenarios_inv[i]]
-    values_premiere = [item[1] for item in scenarios_inv[i]]
+# # Boucle sur chaque sous-liste
+# for i in range(len(scenarios_inv)):
+#     # Séparer les a et les values pour premiereliste[i]
+#     a_thresh = [item[0] for item in scenarios_inv[i]]
+#     values_premiere = [item[1] for item in scenarios_inv[i]]
     
-    # Séparer les a et les values pour deuxiemeliste[i]
-    a_thresh = [item[0] for item in scenarios_pack[i]]
-    values_deuxieme = [item[1] for item in scenarios_pack[i]]
+#     # Séparer les a et les values pour deuxiemeliste[i]
+#     a_thresh = [item[0] for item in scenarios_pack[i]]
+#     values_deuxieme = [item[1] for item in scenarios_pack[i]]
     
-    # Tracer les données
-    plt.figure()
-    plt.plot(a_thresh, values_premiere, marker='o', label='Inversion_scenarios')
-    plt.plot(a_thresh, values_deuxieme, marker='x', label='Scenarios Arome ')
-    plt.xlabel('a')
-    plt.ylabel('Value')
-    plt.title(f'Graphique {i+1}')
-    plt.yscale('log')  # Mettre l'échelle en ordonnées en log10
-    plt.grid(True, which="both", ls="--")
-    plt.legend()
+#     # Tracer les données
+#     plt.figure()
+#     plt.plot(a_thresh, values_premiere, marker='o', label='Inversion_scenarios')
+#     plt.plot(a_thresh, values_deuxieme, marker='x', label='Scenarios Arome ')
+#     plt.xlabel('a')
+#     plt.ylabel('Value')
+#     plt.title(f'Graphique {i+1}')
+#     plt.yscale('log')  # Mettre l'échelle en ordonnées en log10
+#     plt.grid(True, which="both", ls="--")
+#     plt.legend()
     
-    # Sauvegarder la figure
-    plt.savefig(f'figure_{i+1}.png')
+#     # Sauvegarder la figure
+#     plt.savefig(f'figure_{i+1}.png')

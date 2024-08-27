@@ -75,7 +75,6 @@ if __name__=="__main__" :
     parser.add_argument("--lambda_pixel", type=float, default=10.0, help="weight of the (mae/mse/wmse) pixel loss")
     
     # Parameter related to perceptual loss 
-    parser.add_argument("--optimize_features_computation", action='store_true', help="Compute the features of original ensemble only once")
 
     # LPIPS
     parser.add_argument("--lpips_pnet", type=str, default='alex', choices=['alex','vgg','squeeze'], help="network type for lpips loss")
@@ -92,13 +91,13 @@ if __name__=="__main__" :
                         help="Either we compute layer by layer and member per member but we have to triple th einput to make it rgb or all in one (naive)")
     # not pre-trained: '/project/scratch/p200177/DE_371/resources/vgg_weights/vgg16-random.pth'
     # pre_trained: /project/scratch/p200177/DE_371/resources/vgg_weights/vgg16-397923af.pth
-    parser.add_argument("--vgg_state_dict_path", type=str, default='/project/scratch/p200177/DE_371/resources/vgg_weights/vgg16-397923af.pth', help="Insert a path")
+    parser.add_argument("--vgg_state_dict_path", type=str, default='/project/scratch/p200177/DE_371/resources/vgg_weights/vgg16-random.pth', help="Insert a path")
     parser.add_argument("--vgg_style_layers", type=int, nargs='+', default=[], help="style layers to include in vgg loss computation")
     parser.add_argument("--vgg_feature_layers", type=int, nargs='+', default=[0,1,2,3], help="feature layers to include in vgg computation")
     parser.add_argument("--vgg_alpha_feature", type=float, default=1.0, help="weight of the feature/content loss")
     parser.add_argument("--vgg_alpha_style", type=float, default=0.01, help="weight of the style loss")
     parser.add_argument("--vgg_loss_after_step", type=float, default=0, help="compute the vgg loss only after a given number of steps")
-
+    parser.add_argument("--optimize_features_computation", action='store_true', help="Compute the features of original ensemble only once")
     parser.add_argument("--invstep", type=int, default=1000, help="optimize iterations")
     parser.add_argument("--inv_checkpoints", type=utils.str2intlist, default=[250,500,1000,1500,2000])
 
@@ -130,10 +129,10 @@ if __name__=="__main__" :
     params.noise_optimize=bool(params.noise_optimize==1)
 
     # create output and pack directories
-    if not os.path.exists(params.output_dir):
-        os.makedirs(params.output_dir)
-    if not os.path.exists(params.pack_dir):
-        os.makedirs(params.pack_dir)
+    # if not os.path.exists(params.output_dir):
+    #     os.makedirs(params.output_dir)
+    # if not os.path.exists(params.pack_dir):
+    #     os.makedirs(params.pack_dir)
 
     # set the seed for reproduciibility of runs
     seed = params.seed
@@ -145,6 +144,7 @@ if __name__=="__main__" :
         classes = pickle.load(open(params.real_data_dir + f'/{batch_dir}/'+ 'class_samples.p','rb'))
         print('OK')
         scenarii = classes.keys()
+        print('BATCHDIR',batch_dir)
         # Mins = np.load('/home/mrmn/bonamya/de371_stylegan/tests_inv_batch/min_rr_log.npy')#f'{params.real_data_dir}stat_files/{params.min_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
         # Maxs = np.load('/home/mrmn/bonamya/de371_stylegan/tests_inv_batch/max_rr_log.npy')#f'{params.real_data_dir}stat_files/{params.max_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
 
@@ -175,10 +175,11 @@ if __name__=="__main__" :
             # create output and pack directories
         if not os.path.exists(os.path.join(params.output_dir,batch_dir)):
             os.makedirs(os.path.join(params.output_dir,batch_dir))
-        if not os.path.exists(os.path.join(params.pack_dir,batch_dir)):
-            os.makedirs(os.path.join(params.pack_dir,batch_dir))
+        # if not os.path.exists(os.path.join(params.pack_dir,str('latent'),batch_dir)):
+        #     os.makedirs(os.path.join(params.pack_dir,str('latent'),batch_dir))
         ################### producing latent mean #######
         print('DIRECT',os.path.join(params.output_dir,batch_dir))
+        latent = 'latent'
         if not os.path.exists(f'{os.path.join(params.output_dir,batch_dir)}/latent_mean.npy'):
 
             latent_z = torch.empty(10000, 512).normal_().to(device)
@@ -186,7 +187,7 @@ if __name__=="__main__" :
                 w = G.style(latent_z)
 
             latent_mean = w.mean(dim=0).detach().cpu()
-
+            
             np.save(f'{os.path.join(params.output_dir,batch_dir)}/latent_mean.npy',latent_mean.numpy())
         else : 
 
@@ -198,18 +199,28 @@ if __name__=="__main__" :
 
         for scenario in scenarii:
             samples = torch.tensor(classes[scenario])
-            print(samples.size(),'SAMPLES')
+            # print(scenario,samples.size(),'SAMPLES',os.path.join(params.pack_dir,batch_dir))
             samples = torch.split(samples,[16,16,16,2],dim=0)
+            # print(len(samples[0]),len(samples[:-1]),'SAMPLES',os.path.join(params.pack_dir,batch_dir))
+
             for batch_idx, batch in enumerate(samples[:-1]):
                 params.date_index, params.lt_index = scenario, batch_idx
-                if not os.path.exists(os.path.join(params.output_dir,batch_dir) +f'w_{scenario}_{batch_idx}_1000.npy'): #checking for already teer
+                print('BATCHS', batch_idx,batch_dir,batch.size())
+                if not os.path.exists(os.path.join(params.output_dir,scenario)):
+                    os.makedirs(os.path.join(params.output_dir,scenario))
+                if not os.path.exists(os.path.join(params.pack_dir,scenario)):
+                    os.makedirs(os.path.join(params.pack_dir,scenario))
+
+                if not os.path.exists(os.path.join(params.output_dir,scenario) +f'w_{scenario}_{batch_idx}_1000.npy'): #checking for already teer
                     batch[:,0] =  -1.0 + 2 * (torch.log(1 + batch[:,0]) - Mins[:,0]) / (Maxs[:,0] - Mins[:,0])
                     batch[:,1:] = -1.0 + 2 * (batch[:,1:] - Mins[:,1:]) / (Maxs[:,1:] - Mins[:,1:]) 
-                    np.save(os.path.join(params.pack_dir,batch_dir)+f'/Rsemble_{scenario}_{batch_idx}.npy', batch.numpy().astype(np.float32))
-                    #if params.use_noise:
-                    inv.optimize(batch_dir,batch, G, latent_mean, device, params)
-                # else:
-                #     inv_wonoise.optimize(batch, G, latent_mean, device, params)
+                    np.save(os.path.join(params.pack_dir,scenario)+f'/Rsemble_{scenario}_{batch_idx}_{batch_dir}.npy', batch.numpy().astype(np.float32))
+                    # if params.use_noise:
+                    #     print('LA1')
+                    inv.optimize(batch_dir,batch,batch_idx, G, latent_mean, device, params,scenario)
+                    # else:
+                    #     print('LA')
+                    #     inv_wonoise.optimize(batch, G, latent_mean, device, params,scenarios)
     # ################## loading dates and file names ##
     # df = pd.read_csv(params.real_data_dir + params.dates_file)
     # df_date = df.copy()

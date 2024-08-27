@@ -17,74 +17,67 @@ export APPTAINER_BINDPATH="/project/home/p200177/DE_371/datasets:/project/home/p
 module load Apptainer/1.2.4-GCCcore-12.3.0
 
 apptainer exec --nv /project/scratch/p200177/DE_371/resources/apptainer_container/container.sif python3 main_inversion_precip_scenarios.py \
-        --pixel_loss_type='mse'\
-        --invstep=2000\
+        --invstep=1500\
         --device='cuda:0'\
-        --output_dir='/project/scratch/p200177/DE_371/angeliquebonamy/results/TEST_VGG_trained_sol5/mse/inversion/'\
-        --pack_dir='/project/scratch/p200177/DE_371/angeliquebonamy/results/TEST_VGG_trained_sol5/mse/pack/'\
-        #--noise_optimize\
-        --vgg_computation='sol5'
+        --output_dir='/project/scratch/p200177/DE_371/angeliquebonamy/results/scenarios/BON/VGG_random/sol5/inversion/'\
+        --pack_dir='/project/scratch/p200177/DE_371/angeliquebonamy/results/scenarios/BON/VGG_random/sol5/pack/'\
+        # --optimize_features_computation\
+        --vgg_computation='sol5'\
+        # --noise_optimize
 
 
-
-# apptainer exec --nv /project/scratch/p200177/DE_371/resources/apptainer_container/container.sif python3 main_inversion_precip_scenarios.py \
-#         --pixel_loss_type='mse'\
-#         --invstep=2000\
-#         --device='cuda:0'\
-#         --output_dir='/project/scratch/p200177/DE_371/angeliquebonamy/results/batch1/mse/inversion/'\
-#         --pack_dir='/project/scratch/p200177/DE_371/angeliquebonamy/results/batch1/mse/pack/'\
-#         --real_data_dir='/project/scratch/p200177/DE_371/angeliquebonamy/data_basile_inv/samples_AROME_for_AE_1/batch1/'
-
-
+#  ['mse', 'mae','wmse','amse','wamse','sum_pixel_loss','sum_pixel_loss_mae','mul_pixel_loss_mae','mul_pixel_loss_mse']
 # apptainer exec --nv /project/scratch/p200177/DE_371/resources/apptainer_container/container.sif python3 main_inversion_precip_scenarios.py \
 #         --pixel_loss_type='mae'\
-#         --invstep=2000\
+#         --invstep=1500\
+#         --lambda_vgg=0\
 #         --device='cuda:1'\
-#         --output_dir='/project/scratch/p200177/DE_371/angeliquebonamy/results/batch1/mae/inversion/'\
-#         --pack_dir='/project/scratch/p200177/DE_371/angeliquebonamy/results/batch1/mae/pack/'\
-#         --real_data_dir='/project/scratch/p200177/DE_371/angeliquebonamy/data_basile_inv/samples_AROME_for_AE_1/batch1/'
-
+#         --output_dir='/project/scratch/p200177/DE_371/angeliquebonamy/results/scenarios/mae/inversion/'\
+#         --pack_dir='/project/scratch/p200177/DE_371/angeliquebonamy/results/scenarios/mae/pack/'\
+#      #   --optimize_features_computation\
 
 # apptainer exec --nv /project/scratch/p200177/DE_371/resources/apptainer_container/container.sif python3 main_inversion_precip_scenarios.py \
 #         --pixel_loss_type='wmse'\
-#         --invstep=2000\
+#         --invstep=1500\
+#         --lambda_vgg=0\
 #         --device='cuda:2'\
-#         --output_dir='/project/scratch/p200177/DE_371/angeliquebonamy/results/batch1/wmse/inversion/'\
-#         --pack_dir='/project/scratch/p200177/DE_371/angeliquebonamy/results/batch1/wmse/pack/'\
-#         --real_data_dir='/project/scratch/p200177/DE_371/angeliquebonamy/data_basile_inv/samples_AROME_for_AE_1/batch1/'
-
-
-# apptainer exec --nv /project/scratch/p200177/DE_371/resources/apptainer_container/container.sif python3 main_inversion_precip_scenarios.py \
-#         --pixel_loss_type='wamse'\
-#         --invstep=2000\
-#         --device='cuda:3'\
-#         --output_dir='/project/scratch/p200177/DE_371/angeliquebonamy/results/batch1/wamse/inversion/'\
-#         --pack_dir='/project/scratch/p200177/DE_371/angeliquebonamy/results/batch1/wamse/pack/'\
-#         --real_data_dir='/project/scratch/p200177/DE_371/angeliquebonamy/data_basile_inv/samples_AROME_for_AE_1/batch1/'
-
+#         --output_dir='/project/scratch/p200177/DE_371/angeliquebonamy/results/scenarios/wmse/inversion/'\
+#         --pack_dir='/project/scratch/p200177/DE_371/angeliquebonamy/results/scenarios/wmse/pack/'\
+#         # --optimize_features_computation\
 
 # apptainer exec --nv /project/scratch/p200177/DE_371/resources/apptainer_container/container.sif python3 main_inversion_precip_scenarios.py \
 #         --pixel_loss_type='amse'\
-#         --invstep=2000\
-#         --device='cuda:4'\
-#         --output_dir='/project/scratch/p200177/DE_371/angeliquebonamy/results/batch1/amse/inversion/'\
-#         --pack_dir='/project/scratch/p200177/DE_371/angeliquebonamy/results/batch1/amse/pack/'\
-#         --real_data_dir='/project/scratch/p200177/DE_371/angeliquebonamy/data_basile_inv/samples_AROME_for_AE_1/batch1/'
+#         --lambda_vgg=0\
+#         --invstep=1500\
+#         --device='cuda:0'\
+#         --output_dir='/project/scratch/p200177/DE_371/angeliquebonamy/results/scenarios/amse/inversion/'\
+#         --pack_dir='/project/scratch/p200177/DE_371/angeliquebonamy/results/scenarios/amse/pack/'\
+#         # --optimize_features_computation\
 
-
+# apptainer exec --nv /project/scratch/p200177/DE_371/resources/apptainer_container/container.sif python3 main_inversion_precip_scenarios.py \
+#         --pixel_loss_type='wamse'\
+#         --lambda_vgg=0\
+#         --invstep=1500\
+#         --device='cuda:1'\
+#         --output_dir='/project/scratch/p200177/DE_371/angeliquebonamy/results/scenarios/wamse/inversion/'\
+#         --pack_dir='/project/scratch/p200177/DE_371/angeliquebonamy/results/scenarios/wamse/pack/'\
+        # --optimize_features_computation\
 
 # apptainer exec --nv /project/scratch/p200177/DE_371/resources/apptainer_container/container.sif python3 main_inversion_precip_scenarios.py \
 #         --pixel_loss_type='mul_pixel_loss_mse'\
-#         --invstep=2000\
-#         --device='cuda:5'\
-#         --output_dir='/project/scratch/p200177/DE_371/angeliquebonamy/results/batch1/mul_pixel_loss_mse/inversion/'\
-#         --pack_dir='/project/scratch/p200177/DE_371/angeliquebonamy/results/batch1/mul_pixel_loss_mse/pack/'\
-#         --real_data_dir='/project/scratch/p200177/DE_371/angeliquebonamy/data_basile_inv/samples_AROME_for_AE_1/batch1/'
+#         --invstep=1500\
+#         --device='cuda:2'\
+#         --output_dir='/project/scratch/p200177/DE_371/angeliquebonamy/results/scenarios/batchs/mul_pixel_loss_mse/inversion/'\
+#         --pack_dir='/project/scratch/p200177/DE_371/angeliquebonamy/results/scenarios/batchs/mul_pixel_loss_mse/pack/'\
+#         --optimize_features_computation\
 
 # apptainer exec --nv /project/scratch/p200177/DE_371/resources/apptainer_container/container.sif python3 main_inversion_precip_scenarios.py \
-#         --pixel_loss_type='mul_pixel_loss_mse'\
-#         --invstep=2000\
-#         --device='cuda:6'\
-#         --output_dir='/project/scratch/p200177/DE_371/angeliquebonamy/results/batch1/mul_pixel_loss_mae/inversion/'\
-#         --pack_dir='/project/scratch/p200177/DE_371/angeliquebonamy/results/batch1/mul_pixel_loss_mae/pack/'\
-#         --real_data_dir='/project/scratch/p200177/DE_371/angeliquebonamy/data_basile_inv/samples_AROME_for_AE_1/batch1/'
+#         --pixel_loss_type='mul_pixel_loss_mae'\
+#         --invstep=1500\
+#         --device='cuda:0'\
+#         --output_dir='/project/scratch/p200177/DE_371/angeliquebonamy/results/scenarios/batchs/mul_pixel_loss_mae/inversion/'\
+#         --pack_dir='/project/scratch/p200177/DE_371/angeliquebonamy/results/scenarios/batchs/mul_pixel_loss_mae/pack/'\
+#         --optimize_features_computation\
+
+
+
