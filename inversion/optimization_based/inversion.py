@@ -10,8 +10,9 @@ import pickle
 from tqdm import tqdm
 from inversion.vgg_perceptual_loss import VGGPerceptualLoss
 from inversion.plotter import online_inv_plot_2, online_inv_plot
-import inversion.PerceptualSimilarity.lpips as lpips
+# import inversion.PerceptualSimilarity.lpips as lpips
 from inversion.ssim import ssim, ms_ssim, SSIM, MS_SSIM
+from inversion.hd_vgg_perceptual_loss import VGG16ConvLoss
 import time
 from torch.autograd import Variable
 
@@ -180,28 +181,47 @@ def optimize(Ens_r, g_ema, latent_mean, device, params):
     if params.lambda_lpips and params.lambda_vgg:
         raise NotImplementedError
     
-    if params.lambda_vgg>0 :
-        VGG_loss = VGGPerceptualLoss(
-                        state_dict_path=params.vgg_state_dict_path,
-                        init_layer=True if params.vgg_computation=='sol4' else False,
-                        vgg_single_channel_input=True if params.vgg_computation=='sol5' else False
-        ).to(device)
+    if params.hd_vgg :
+        VGG_loss = VGG16ConvLoss().to(device).requires_grad_(False)
+    else :
+        if params.lambda_vgg>0 :
+            VGG_loss = VGGPerceptualLoss(
+                            state_dict_path=params.vgg_state_dict_path,
+                            init_layer=True if params.vgg_computation=='sol4' else False,
+                            vgg_single_channel_input=True if params.vgg_computation=='sol5' else False
+            ).to(device)
     if params.lambda_lpips>0:
-        LPIPS_loss = lpips.LPIPS(
-            net=params.lpips_pnet, 
-            model_path=params.lpips_linear_layers_state_dict_path, # linear layer linked to lpips
-            pretrained=True, # linear layer linked to lpips
-            pnet_rand_path=params.lpips_pnet_state_dict_path, # Perceptual Net Path
-            pnet_tune=params.lpips_pnet_tune,
-            lpips=params.lpips_mode
-        ).to(device)
+        raise NotImplementedError
+        # LPIPS_loss = lpips.LPIPS(
+        #     net=params.lpips_pnet, 
+        #     model_path=params.lpips_linear_layers_state_dict_path, # linear layer linked to lpips
+        #     pretrained=True, # linear layer linked to lpips
+        #     pnet_rand_path=params.lpips_pnet_state_dict_path, # Perceptual Net Path
+        #     pnet_tune=params.lpips_pnet_tune,
+        #     lpips=params.lpips_mode
+        # ).to(device)
         if params.lpips_pnet_tune:
             optimizer.add_param_group({'params':LPIPS_loss.net.parameters()})
         # params.lpips_pnet_state_dict_path
+    if params.hd_vgg :
+        Ens_r_features=[]
+        if params.vgg_computation=='sol1':
+            for i_mem in range(Ens_r.shape[0]):
+                for i_var in range(Ens_r.shape[1]):
+                    Ens_r_features.append(VGG_loss(Ens_r[i_mem, i_var, :, :]))
+        elif params.vgg_computation in ['sol2', 'sol4', 'sol5']:
+            for i_var in range(img_gen.shape[1]):
+                Ens_r_features.append(VGG_loss(Ens_r[:, i_var, :, :]))
+        elif params.vgg_computation == 'sol3':
+            Ens_r_features = VGG_loss(Ens_r)
+        else :
+            raise NotImplementedError
+        
 
-    if params.optimize_features_computation and (params.lambda_lpips or params.lambda_vgg) :    
-        Ens_r_features, Ens_r_styles = compute_perceptual_features(img=Ens_r, VGG_loss=VGG_loss, device=device, params=params)
-    
+    else :
+        if params.optimize_features_computation and (params.lambda_lpips or params.lambda_vgg) :    
+            Ens_r_features, Ens_r_styles = compute_perceptual_features(img=Ens_r, VGG_loss=VGG_loss, device=device, params=params)
+        
     # MS-SSIM module for MS-SSIM loss
     # ssim_module = SSIM(data_range=1, size_average=True, channel=1)
     if params.lambda_ms_ssim :
@@ -243,6 +263,8 @@ def optimize(Ens_r, g_ema, latent_mean, device, params):
         if (i >= params.vgg_loss_after_step and (params.lambda_vgg>0. or params.lambda_lpips>0.)) or params.lambda_ms_ssim>0:
                 t0 = time.time()
                 if not params.optimize_features_computation : 
+                    if not params.hd_vgg :
+                        raise NotImplementedError
                     if params.vgg_computation=='sol1':
                         for i_mem in range(img_gen.shape[0]):
                             for i_var in range(img_gen.shape[1]):
@@ -318,21 +340,25 @@ def optimize(Ens_r, g_ema, latent_mean, device, params):
                         for i_mem in range(img_gen.shape[0]):
                             for i_var in range(img_gen.shape[1]):
                                 # Perceptual Loss
-                                if params.lambda_vgg>0. :
-                                    features_input_img=Ens_r_features[i_mem+i_var]
-                                    if params.vgg_style_layers:
-                                        styles_input_img=Ens_r_styles[i_mem+i_var]
-                                    else :
-                                        styles_input_img=None
-                                    perceptual_loss += VGG_loss.forward_given_features(
-                                        target_img=(img_gen[i_mem, i_var, :, :]+1)/2,
-                                        features_input_img=features_input_img, 
-                                        styles_input_img=styles_input_img,
-                                        feature_layers = params.vgg_feature_layers,
-                                        style_layers = params.vgg_style_layers,
-                                        alpha_feature = params.vgg_alpha_feature,
-                                        alpha_style = params.vgg_alpha_style
-                                    )
+                                if params.hd_vgg :
+                                    img_gen_features = VGG_loss(img_gen[i_mem, i_var, :, :])
+                                    perceptual_loss += F.mse_loss(Ens_r_features[i_mem+i_var], img_gen_features)
+                                else :
+                                    if params.lambda_vgg>0. :
+                                        features_input_img=Ens_r_features[i_mem+i_var]
+                                        if params.vgg_style_layers:
+                                            styles_input_img=Ens_r_styles[i_mem+i_var]
+                                        else :
+                                            styles_input_img=None
+                                        perceptual_loss += VGG_loss.forward_given_features(
+                                            target_img=(img_gen[i_mem, i_var, :, :]+1)/2,
+                                            features_input_img=features_input_img, 
+                                            styles_input_img=styles_input_img,
+                                            feature_layers = params.vgg_feature_layers,
+                                            style_layers = params.vgg_style_layers,
+                                            alpha_feature = params.vgg_alpha_feature,
+                                            alpha_style = params.vgg_alpha_style
+                                        )
                                 # MS_SSIM Loss
                                 if params.lambda_ms_ssim>0. : 
                                     ms_ssim_loss += 1 - ms_ssim_module((img_gen[i_mem, i_var, :, :]+1)/2, (Ens_r[i_mem, i_var, :, :]+1)/2)
@@ -343,21 +369,25 @@ def optimize(Ens_r, g_ema, latent_mean, device, params):
                     elif params.vgg_computation in ['sol2', 'sol4', 'sol5']:
                         for i_var in range(img_gen.shape[1]):
                             # Perceptual Loss
-                            if params.lambda_vgg>0. :
-                                features_input_img=Ens_r_features[i_var]
-                                if params.vgg_style_layers:
-                                    styles_input_img=Ens_r_styles[i_var]
-                                else :
-                                    styles_input_img=None
-                                perceptual_loss += VGG_loss.forward_given_features(
-                                    target_img=(img_gen[:, i_var, :, :]+1)/2,
-                                    features_input_img=features_input_img, 
-                                    styles_input_img=styles_input_img,
-                                    feature_layers = params.vgg_feature_layers,
-                                    style_layers = params.vgg_style_layers,
-                                    alpha_feature = params.vgg_alpha_feature,
-                                    alpha_style = params.vgg_alpha_style
-                                )
+                            if params.hd_vgg :
+                                img_gen_features = VGG_loss(img_gen[:, i_var, :, :])
+                                perceptual_loss += F.mse_loss(Ens_r_features[i_var], img_gen_features)
+                            else :
+                                if params.lambda_vgg>0. :
+                                    features_input_img=Ens_r_features[i_var]
+                                    if params.vgg_style_layers:
+                                        styles_input_img=Ens_r_styles[i_var]
+                                    else :
+                                        styles_input_img=None
+                                    perceptual_loss += VGG_loss.forward_given_features(
+                                        target_img=(img_gen[:, i_var, :, :]+1)/2,
+                                        features_input_img=features_input_img, 
+                                        styles_input_img=styles_input_img,
+                                        feature_layers = params.vgg_feature_layers,
+                                        style_layers = params.vgg_style_layers,
+                                        alpha_feature = params.vgg_alpha_feature,
+                                        alpha_style = params.vgg_alpha_style
+                                    )
                             # MS_SSIM Loss
                             if params.lambda_ms_ssim>0. : 
                                 # ssim_loss = 1 - ssim_module((img_gen[:, i_var, :, :]+1)/2, (Ens_r[:, i_var, :, :]+1)/2)
@@ -368,16 +398,20 @@ def optimize(Ens_r, g_ema, latent_mean, device, params):
 
                     elif params.vgg_computation == 'sol3':
                         # Perceptual Loss
-                        if params.lambda_vgg>0. :
-                            perceptual_loss += VGG_loss.forward_given_features(
-                                target_img=(img_gen+1)/2,
-                                features_input_img=Ens_r_features, 
-                                styles_input_img=Ens_r_styles,
-                                feature_layers = params.vgg_feature_layers,
-                                style_layers = params.vgg_style_layers,
-                                alpha_feature = params.vgg_alpha_feature,
-                                alpha_style = params.vgg_alpha_style
-                            )
+                        if params.hd_vgg :
+                            img_gen_features = VGG_loss(img_gen)
+                            perceptual_loss = F.mse_loss(Ens_r_features, img_gen_features)
+                        else :
+                            if params.lambda_vgg>0. :
+                                perceptual_loss += VGG_loss.forward_given_features(
+                                    target_img=(img_gen+1)/2,
+                                    features_input_img=Ens_r_features, 
+                                    styles_input_img=Ens_r_styles,
+                                    feature_layers = params.vgg_feature_layers,
+                                    style_layers = params.vgg_style_layers,
+                                    alpha_feature = params.vgg_alpha_feature,
+                                    alpha_style = params.vgg_alpha_style
+                                )
                         # MS_SSIM Loss
                         if params.lambda_ms_ssim>0. : 
                             ms_ssim_loss = 1 - ms_ssim_module((img_gen+1)/2, (Ens_r+1)/2)
