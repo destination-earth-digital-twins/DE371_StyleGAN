@@ -210,7 +210,8 @@ def optimize(Ens_r, g_ema, latent_mean, device, params):
                 for i_var in range(Ens_r.shape[1]):
                     Ens_r_features.append(VGG_loss(Ens_r[i_mem, i_var, :, :]))
         elif params.vgg_computation in ['sol2', 'sol4', 'sol5']:
-            for i_var in range(img_gen.shape[1]):
+            for i_var in range(Ens_r.shape[1]):
+                print(np.shape(Ens_r[:, i_var, :, :]))
                 Ens_r_features.append(VGG_loss(Ens_r[:, i_var, :, :]))
         elif params.vgg_computation == 'sol3':
             Ens_r_features = VGG_loss(Ens_r)
@@ -237,7 +238,7 @@ def optimize(Ens_r, g_ema, latent_mean, device, params):
 
     for i in pbar:
         t = i / params.invstep
-        lr = get_lr(t, params.lr)
+        lr = get_lr(t, params.lr, params.lr_rampdown, params.lr_rampup)
         optimizer.param_groups[0]["lr"] = lr
 
         noise_strength = latent_std * params.noise_strength * max(0, 1 - t / params.noise_ramp) ** 2
@@ -372,6 +373,7 @@ def optimize(Ens_r, g_ema, latent_mean, device, params):
                             if params.hd_vgg :
                                 img_gen_features = VGG_loss(img_gen[:, i_var, :, :])
                                 perceptual_loss += F.mse_loss(Ens_r_features[i_var], img_gen_features)
+                                
                             else :
                                 if params.lambda_vgg>0. :
                                     features_input_img=Ens_r_features[i_var]
@@ -465,8 +467,14 @@ def optimize(Ens_r, g_ema, latent_mean, device, params):
             display += f" || ms_ssim_loss: {ms_ssim_loss.item():.6f}"
         if params.lambda_vgg>0. or params.lambda_lpips>0. : 
             display += f" || perceptual_loss: {perceptual_loss.item():.6f}"
+        if weighted_perceptual_loss: 
+            display += f" || weighted_perceptual_loss: {weighted_perceptual_loss:.6f}"
         if params.lambda_pixel>0. : 
             display += f" || pixel_loss: {pixel_loss.item():.6f}"
+        if params.lambda_noise>0. : 
+            display += f" || noise_loss: {noise_loss.item():.6f}"
+            display += f" || weighted_noise_loss: {params.noise_optimize*params.lambda_noise*noise_loss.item():.6f}"
+            
             
         pbar.set_description((display))
 

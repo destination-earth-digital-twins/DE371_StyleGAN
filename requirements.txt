@@ -10,7 +10,5 @@ pyproj
 CRPS
 tornado
 ninja
-streamlit
 tl2
 timm==0.5.4
-lpips

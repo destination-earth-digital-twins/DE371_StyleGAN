@@ -247,6 +247,12 @@ class VGG16ConvLoss(torch.nn.Module):
     
     self.net.eval()
 
+    if (x.shape[1] == 1 or len(x.shape)==2): #sol1
+        # input size must be (B, 3, H, W). if input is (B, H, W) (grey scale image), we need to convert to (B, 3, H, W)
+            x = x.repeat(1, 3, 1, 1)
+    elif len(x.shape)==3 and x.shape[0]!=3: #sol2
+        x = x.unsqueeze(1).repeat(1, 3, 1, 1)
+
     x = (x + 1) / 2.
     x = self.transform(x)
     if downsample_size > 0:

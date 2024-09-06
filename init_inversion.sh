@@ -37,3 +37,5 @@ apptainer exec --nv /project/scratch/p200177/DE_371/resources/apptainer_containe
         --leadtimes='[3,6,9,12,15,18,21,24,27,30,33,36,39,42]' \
         --vgg_state_dict_path='/project/scratch/p200177/DE_371/resources/vgg_weights/vgg16-random.pth' \
         --plot_checkpoint
+
+#python3 main_inversion.py --ckpt_dir='/scratch/mrmn/sanchezv/project/results/archives_results/000024.pt' --real_data_dir='/scratch/mrmn/brochetc/GAN_2D/datasets_full_indexing/IS_1_1.0_0_0_0_0_0_256_large_lt_done/' --output_dir='/scratch/mrmn/sanchezv/project/results/inversion_experiments/test_HRinversion_code/' --pack_dir='' --device='cuda' --lambda_pixel=0 --lambda_vgg=10 --vgg_computation='sol2' --lambda_noise=1e5 --noise_optimize --invstep=2000 --optimize_features_computation --hd_vgg --inv_checkpoints='[250,500,1000,1500,2000]' --date_start=2021-07-01 --date_stop=2021-07-02 --leadtimes='[3,6,9,12,15,18,21,24,27,30,33,36,39,42]' --plot_checkpoint

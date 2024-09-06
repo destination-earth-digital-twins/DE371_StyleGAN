@@ -138,7 +138,7 @@ if __name__=="__main__" :
             batch_w = torch.tensor(np.load(args.fake_data_dir + f"w_{date[:10]}_{lt}_{args.invert_step}.npy").astype(np.float32)).to(device)
             batch_y = torch.tensor(np.load(args.ensemble_data_dir + f"Rsemble_{date[:10]}_{lt}.npy").astype(np.float32)).to(device)
             
-            t =  idx / len(ensemble_dataset) 
+            t =  idx / len(ensemble_dataset)
             optim.lr = learning_rate(t, args.lr0)
             scale_noise = add_noise(scale,sigma(t,epoch),device)
             interp_noise = add_noise(interp,sigma(t,epoch),device)
