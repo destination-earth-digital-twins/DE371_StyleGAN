@@ -107,9 +107,9 @@ if __name__=="__main__" :
         Ens_gen = utils.rescale(Ens_gen, Means, Maxs, 1/0.95)
 
         Nb_member=2
-        fig0, ax0 = plt.subplots(nrows=2*Nb_member, ncols=14, figsize=(60,40))
-        fig1, ax1 = plt.subplots(nrows=2*Nb_member, ncols=14, figsize=(60,40))
-        fig2, ax2 = plt.subplots(nrows=2*Nb_member, ncols=14, figsize=(60,40))
+        fig0, ax0 = plt.subplots(nrows=2*Nb_member, ncols=14, figsize=(200,50))
+        fig1, ax1 = plt.subplots(nrows=2*Nb_member, ncols=14, figsize=(200,50))
+        fig2, ax2 = plt.subplots(nrows=2*Nb_member, ncols=14, figsize=(200,50))
 
         for t in trange(params.nb_timesteps):
             for member_id in range(Nb_member):
@@ -117,44 +117,45 @@ if __name__=="__main__" :
                 Generated_member = Ens_gen[t][member_id]
 
                 im0=ax0[member_id][t].imshow(Arome_member[0], origin="lower", cmap="viridis", vmin=Arome_member[0].min(), vmax=Arome_member[0].max())
-                ax0[member_id][t].set_ylabel(f'True - M{member_id}')
+                ax0[member_id][t].set_ylabel(f'True - M{member_id}', fontsize=45)
                 ax0[member_id][t].set_xticks([])
                 ax0[member_id][t].set_yticks([])
 
                 im0=ax0[member_id+Nb_member][t].imshow(Generated_member[0], origin="lower", cmap="viridis", vmin=Generated_member[0].min(), vmax=Generated_member[0].max())
-                ax0[member_id+Nb_member][t].set_ylabel(f'Gen')
+                ax0[member_id+Nb_member][t].set_ylabel(f'Gen', fontsize=45)
                 ax0[member_id+Nb_member][t].set_xticks([])
                 ax0[member_id+Nb_member][t].set_yticks([])
 
                 im1=ax1[member_id][t].imshow(Arome_member[1], origin="lower", cmap="viridis", vmin=Arome_member[1].min(), vmax=Arome_member[1].max())
-                ax1[member_id][t].set_ylabel(f'True - M{member_id}')
+                ax1[member_id][t].set_ylabel(f'True - M{member_id}', fontsize=45)
                 ax1[member_id][t].set_xticks([])
                 ax1[member_id][t].set_yticks([])
 
                 im1=ax1[member_id+Nb_member][t].imshow(Generated_member[1], origin="lower", cmap="viridis", vmin=Generated_member[1].min(), vmax=Generated_member[1].max())
-                ax1[member_id+Nb_member][t].set_ylabel(f'Gen')
+                ax1[member_id+Nb_member][t].set_ylabel(f'Gen', fontsize=45)
                 ax1[member_id+Nb_member][t].set_xticks([])
                 ax1[member_id+Nb_member][t].set_yticks([])
 
                 im2=ax2[member_id][t].imshow(Arome_member[2], origin="lower", cmap="coolwarm", vmin=Arome_member[2].min(), vmax=Arome_member[2].max())
-                ax2[member_id][t].set_ylabel(f'True - M{member_id}')
+                ax2[member_id][t].set_ylabel(f'True - M{member_id}', fontsize=45)
                 ax2[member_id][t].set_xticks([])
                 ax2[member_id][t].set_yticks([])
 
                 im2=ax2[member_id+Nb_member][t].imshow(Generated_member[2], origin="lower", cmap="coolwarm", vmin=Generated_member[2].min(), vmax=Generated_member[2].max())
-                ax2[member_id+Nb_member][t].set_ylabel(f'Gen')
+                ax2[member_id+Nb_member][t].set_ylabel(f'Gen', fontsize=45)
                 ax2[member_id+Nb_member][t].set_xticks([])
                 ax2[member_id+Nb_member][t].set_yticks([])
             
             
             if t==0 :
-                fig0.suptitle(f"Sequence of u for {date_}", fontsize=45)
-                fig1.suptitle(f"Sequence of v for {date_}", fontsize=45)
-                fig2.suptitle(f"Sequence of t2m for {date_}", fontsize=45)
+                fig0.suptitle(f"Sequence of u for {date_}", fontsize=100)
+                fig1.suptitle(f"Sequence of v for {date_}", fontsize=100)
+                fig2.suptitle(f"Sequence of t2m for {date_}", fontsize=100)
                 for fig,im in zip([fig0,fig1,fig2],[im0,im1,im2]):
                     fig.subplots_adjust(bottom=0.05,top=0.9, left=0.05, right=0.9)
                     cbax=fig.add_axes([0.92,0.05,0.02,0.85])
                     cb=fig.colorbar(im, cax=cbax)
+                    cb.ax.tick_params(labelsize=80) 
                     # fig.tight_layout()
                 
                 

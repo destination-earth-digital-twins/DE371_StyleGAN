@@ -25,7 +25,7 @@ module load Apptainer/1.2.4-GCCcore-12.3.0
 apptainer exec --nv /project/scratch/p200177/DE_371/resources/apptainer_container/container.sif torchrun --nproc_per_node=4 main_gan.py \
         --data_dir='/project/home/p200177/DE_371/datasets/dataset_Meteo_France/IS_1_1.0_0_0_0_0_0_256_large_lt_done/' \
         --id_file="Large_lt_train_labels_1.csv" \
-        --output_dir='/project/scratch/p200177/DE_371/victorsanchez/results/gan_training/exp5_seq_GAN_exp_train_sequential_every_3h_10000_u_v_t2m_channel_multiplier=2' \
+        --output_dir='/project/scratch/p200177/DE_371/victorsanchez/results/gan_training/exp16_seq_GAN_exp_train_sequential_every_3h_10000_u_v_t2m_channel_multiplier=10_cyclicLR' \
         --batch_size=8 \
         --g_channels=45 \
         --d_channels=45 \
@@ -37,5 +37,9 @@ apptainer exec --nv /project/scratch/p200177/DE_371/resources/apptainer_containe
         --nb_timesteps=15 \
         --timestep_period=3 \
         --stack_sample_along_time_and_variable \
-        --channel_multiplier=2 \
-        --pretrained_model=68000
+        --channel_multiplier=10 \
+        --pretrained_model=-1 \
+        --sample_num=5 \
+        --plot_samples=5 \
+        --lrD_sched='cyclic' \
+        --lrG_sched='cyclic' 

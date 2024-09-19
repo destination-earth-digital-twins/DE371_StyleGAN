@@ -227,9 +227,9 @@ def get_expe_parameters():
     
     # Training settings -schedulers
     parser.add_argument('--lrD_sched', type=str, default='None', \
-                        choices=['None','exp', 'linear'])
+                        choices=['None','exp', 'linear', 'cyclic'])
     parser.add_argument('--lrG_sched', type=str, default='None', \
-                        choices=['None','exp', 'linear'])
+                        choices=['None','exp', 'linear', 'cyclic'])
     parser.add_argument('--lrD_gamma', type=float, default=0.95)
     parser.add_argument('--lrG_gamma', type=float, default=0.95)
     
