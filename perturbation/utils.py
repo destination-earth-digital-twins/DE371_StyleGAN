@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 import random
 import torch
+import os
 #random.seed(0)
 
 def str2intlist(li):
@@ -80,9 +81,9 @@ def load_batch_sequence_from_date(
             if i%dt == 0:
                 sn = np.load(f'{data_dir}{s}.npy')[var_indices,:,:].astype(np.float32)
                 # normalization
-                if normalization=="meanmax":
+                if normalization=="meanmax" and (Means is not None and Maxs is not None):
                     sn = np.array(0.95*(sn - Means) / (Maxs), dtype = np.float32)
-                elif normalization=="minmax":
+                elif normalization=="minmax" and (Mins is not None and Maxs is not None):
                     sn = np.array(-1. + 2*(sn - Mins) / (Maxs-Mins), dtype = torch.float32)
                 else:
                     raise ValueError(f"Unknown normalization: {normalization}")
@@ -117,15 +118,23 @@ def collate_ensemble(data_dir, start_member, stop_member, lead_time , var_indice
 
     return batch
 
-def collate_w_ensemble(data_dir, members, lead_time , var_indices):
+def collate_w_ensemble(data_dir, members, lead_time , var_indices, inv_step):
     """
     Fetch individual members of the same forecast at a given lead time (as isolated files) 
     and feed them as one single array
     """
 
     nb_members = len(members)
-
-    batch = np.load(data_dir + f'w_ge_{lead_time}_875.npy').astype(np.float32)[members]
+    if os.path.exists(data_dir + f'w_ge_{lead_time}_875.npy') :
+        batch = np.load(data_dir + f'w_ge_{lead_time}_875.npy').astype(np.float32)[members]
+    elif os.path.exists(data_dir + f'w_0_15_{lead_time}_{inv_step}.npy') :
+        batch=[]
+        for i in range(0, 865, 16):
+            if i == 864:
+                batch.append(np.load(data_dir + f'w_{i}_{i+10}_{lead_time}_{inv_step}.npy', mmap_mode='r').astype(np.float32)) 
+            else :   
+                batch.append(np.load(data_dir + f'w_{i}_{i+15}_{lead_time}_{inv_step}.npy', mmap_mode='r').astype(np.float32))
+        batch = np.vstack(batch).astype(np.float32)
 
     print(batch.shape)
 
@@ -140,8 +149,46 @@ def collate_R_ensemble(data_dir, members, lead_time , var_indices):
     nb_members = len(members)
 
     batch = np.zeros((nb_members,3,256,256), dtype = np.float32)
+    if os.path.exists(data_dir + f'Rsemble_{lead_time}_875.npy') :
+        dataloaded = np.load(data_dir + f'Rsemble_{lead_time}_875.npy', mmap_mode='r').astype(np.float32)
+    elif os.path.exists(data_dir + f'Rsemble_0_15_{lead_time}.npy') :
+        dataloaded=[]
+        for i in range(0, 865, 16):
+            if i == 864:
+                dataloaded.append(np.load(data_dir + f'Rsemble_{i}_{i+10}_{lead_time}.npy', mmap_mode='r').astype(np.float32)) 
+            else :   
+                dataloaded.append(np.load(data_dir + f'Rsemble_{i}_{i+15}_{lead_time}.npy', mmap_mode='r').astype(np.float32))
+        dataloaded = np.vstack(dataloaded).astype(np.float32)
+    else :
+        raise FileNotFoundError
 
-    dataloaded = np.load(data_dir + f'Rsemble_{lead_time}_875.npy', mmap_mode='r').astype(np.float32)
+    
+    batch = dataloaded[members]
+
+    return batch
+
+def collate_inv_ensemble(data_dir, members, lead_time , var_indices, inv_step):
+    """
+    Fetch individual inverted members of the same forecast at a given lead time (as isolated files) 
+    and feed them as one single array
+    """
+
+    nb_members = len(members)
+
+    batch = np.zeros((nb_members,3,256,256), dtype = np.float32)
+    if os.path.exists(data_dir + f'invertFsemble_{lead_time}_875.npy') :
+        dataloaded = np.load(data_dir + f'invertFsemble_{lead_time}_875.npy', mmap_mode='r').astype(np.float32)
+    elif os.path.exists(data_dir + f'invertFsemble_0_15_{lead_time}_{inv_step}.npy') :
+        dataloaded=[]
+        for i in range(0, 865, 16):
+            if i == 864:
+                dataloaded.append(np.load(data_dir + f'invertFsemble_{i}_{i+10}_{lead_time}_{inv_step}.npy', mmap_mode='r').astype(np.float32)) 
+            else :   
+                dataloaded.append(np.load(data_dir + f'invertFsemble_{i}_{i+15}_{lead_time}_{inv_step}.npy', mmap_mode='r').astype(np.float32))
+        dataloaded = np.vstack(dataloaded).astype(np.float32)
+    else :
+        raise FileNotFoundError
+
     
     batch = dataloaded[members]
 

@@ -10,9 +10,9 @@ import pickle
 from tqdm import tqdm
 from inversion.vgg_perceptual_loss import VGGPerceptualLoss
 from inversion.plotter import online_inv_plot_2, online_inv_plot
-# import inversion.PerceptualSimilarity.lpips as lpips
+import inversion.PerceptualSimilarity.lpips as lpips
 from inversion.ssim import ssim, ms_ssim, SSIM, MS_SSIM
-from inversion.hd_vgg_perceptual_loss import VGG16ConvLoss
+# from inversion.hd_vgg_perceptual_loss import VGG16ConvLoss
 import time
 from torch.autograd import Variable
 
@@ -191,15 +191,14 @@ def optimize(Ens_r, g_ema, latent_mean, device, params):
                             vgg_single_channel_input=True if params.vgg_computation=='sol5' else False
             ).to(device)
     if params.lambda_lpips>0:
-        raise NotImplementedError
-        # LPIPS_loss = lpips.LPIPS(
-        #     net=params.lpips_pnet, 
-        #     model_path=params.lpips_linear_layers_state_dict_path, # linear layer linked to lpips
-        #     pretrained=True, # linear layer linked to lpips
-        #     pnet_rand_path=params.lpips_pnet_state_dict_path, # Perceptual Net Path
-        #     pnet_tune=params.lpips_pnet_tune,
-        #     lpips=params.lpips_mode
-        # ).to(device)
+        LPIPS_loss = lpips.LPIPS(
+            net=params.lpips_pnet, 
+            model_path=params.lpips_linear_layers_state_dict_path, # linear layer linked to lpips
+            pretrained=True, # linear layer linked to lpips
+            pnet_rand_path=params.lpips_pnet_state_dict_path, # Perceptual Net Path
+            pnet_tune=params.lpips_pnet_tune,
+            lpips=params.lpips_mode
+        ).to(device)
         if params.lpips_pnet_tune:
             optimizer.add_param_group({'params':LPIPS_loss.net.parameters()})
         # params.lpips_pnet_state_dict_path
@@ -264,7 +263,7 @@ def optimize(Ens_r, g_ema, latent_mean, device, params):
         if (i >= params.vgg_loss_after_step and (params.lambda_vgg>0. or params.lambda_lpips>0.)) or params.lambda_ms_ssim>0:
                 t0 = time.time()
                 if not params.optimize_features_computation : 
-                    if not params.hd_vgg :
+                    if params.hd_vgg :
                         raise NotImplementedError
                     if params.vgg_computation=='sol1':
                         for i_mem in range(img_gen.shape[0]):
@@ -471,9 +470,11 @@ def optimize(Ens_r, g_ema, latent_mean, device, params):
             display += f" || weighted_perceptual_loss: {weighted_perceptual_loss:.6f}"
         if params.lambda_pixel>0. : 
             display += f" || pixel_loss: {pixel_loss.item():.6f}"
+            display += f" || weighted_pixel_loss: {params.lambda_pixel*pixel_loss.item():.6f}"
+            
         if params.lambda_noise>0. : 
-            display += f" || noise_loss: {noise_loss.item():.6f}"
-            display += f" || weighted_noise_loss: {params.noise_optimize*params.lambda_noise*noise_loss.item():.6f}"
+            display += f" || noise_loss: {noise_loss:.6f}"
+            display += f" || weighted_noise_loss: {params.noise_optimize*params.lambda_noise*noise_loss:.6f}"
             
             
         pbar.set_description((display))

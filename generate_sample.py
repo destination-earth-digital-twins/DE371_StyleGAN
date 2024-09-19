@@ -44,8 +44,9 @@ def str2list(li):
         raise ValueError("li argument must be a string or a list, not '{}'".format(type(li)))
 
 def generate(args, g_ema, mean_latent, step):
-    if not os.path.exists(args.output_dir):
-        os.makedirs(args.output_dir)
+    output_dir = args.output_dir + f'/step={step}/'
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
     mem_cuda = torch.cuda.memory_allocated(device=args.device)
     print('memory_allocated {}'.format(humanbytes(mem_cuda)))
     with torch.no_grad():
@@ -58,7 +59,7 @@ def generate(args, g_ema, mean_latent, step):
             # print('memory_allocated {}'.format(humanbytes(mem_cuda)))
             x_sample, w_sample, _ = g_ema([sample_z], return_latents=True, truncation=args.truncation, truncation_latent=mean_latent
 	                   )
-            save(args.output_dir+'_w_sample_'+str(step)+'_'+str(t)+'.npy', w_sample.detach().cpu().numpy())
+            # save(output_dir+'_w_sample_'+str(step)+'_'+str(t)+'.npy', w_sample.detach().cpu().numpy())
             if args.multi_timestep_mode :
                 # no matter the configuration the data are stored as (4,256,256) (to be the same as the dataset)
                 x_sample = x_sample.detach().cpu().numpy()
@@ -73,12 +74,12 @@ def generate(args, g_ema, mean_latent, step):
                         for var_id, variable_name in enumerate(args.var_names):
                             # print(np.shape(_sample[var_id]))
                             x_sample_post_processed[batch_id][var_dict[variable_name]] = _sample[var_id]
-                    save(args.output_dir+'_x_sample_'+str(step)+'_'+str(t)+'.npy', x_sample_post_processed)
+                    save(output_dir+'_x_sample_'+str(step)+'_'+str(t)+'.npy', x_sample_post_processed)
             else :
                 x_sample = x_sample.detach().cpu().numpy()
                 b, c, h, w = x_sample.shape
                 x_sample_post_processed = np.concatenate((np.zeros((b, 1, h, w)), x_sample), axis=1)
-                save(args.output_dir+'_x_sample_'+str(step)+'_'+str(t)+'.npy', x_sample_post_processed)
+                save(output_dir+'_x_sample_'+str(step)+'_'+str(t)+'.npy', x_sample_post_processed)
 
 def main():
 
@@ -90,20 +91,20 @@ def main():
     parser.add_argument(
         "--sample",
         type=int,
-        default=128,
+        default=64,
         help="number of samples to be generated per batch",
     )
     
     parser.add_argument(
-        "--n_batches", type=int, default=128, help="number of batches to be generated"
+        "--n_batches", type=int, default=256, help="number of batches to be generated"
     )
     
     parser.add_argument(
-        "--list_steps", type=str2list, default=[32000], help="list of training steps to be used as checkpoints"
+        "--list_steps", type=str2list, default=[136000], help="list of training steps to be used as checkpoints"
     )
 
     parser.add_argument(
-        "--output_dir", type=str, default="/project/scratch/p200177/DE_371/victorsanchez/results/gan_training/exp_train_sequential_every_1h_channel_multiplier_2/final_unconditional_samples/" # change with your path
+        "--output_dir", type=str, default="/project/scratch/p200177/DE_371/victorsanchez/results/gan_training/exp11_seq_GAN_exp_train_sequential_every_6h_10000_u_v_t2m_channel_multiplier=6/final_unconditional_samples/step=136000/" # change with your path
     )
 
     parser.add_argument("--truncation", type=float, default=1, help="truncation ratio")
@@ -116,20 +117,20 @@ def main():
     parser.add_argument(
         "--ckpt",
         type=str,
-        default="/project/scratch/p200177/DE_371/victorsanchez/results/gan_training/exp_train_sequential_every_1h_channel_multiplier_2/models/", # change with your path
+        default="/project/scratch/p200177/DE_371/victorsanchez/results/gan_training/exp11_seq_GAN_exp_train_sequential_every_6h_10000_u_v_t2m_channel_multiplier=6/models/", # change with your path
         help="path to the model checkpoint",
     )
     parser.add_argument(
         "--channel_multiplier",
         type=int,
-        default=2,
+        default=6,
         help="channel multiplier of the generator. config-f = 2, else = 1",
     )
 
     parser.add_argument('--multi_timestep_mode', action='store_true')
-    parser.add_argument('--nb_timesteps', type=int, default=45)
+    parser.add_argument('--nb_timesteps', type=int, default=24)
     parser.add_argument('--timestep_period', type=int, default=1)
-    parser.add_argument('--var_names', type=str2list, default=['t2m'])#, 'orog'])
+    parser.add_argument('--var_names', type=str2list, default=['u','v','t2m'])#, 'orog'])
     parser.add_argument('--device', type=str, default='cuda:0')#, 'orog'])
 
     args = parser.parse_args()

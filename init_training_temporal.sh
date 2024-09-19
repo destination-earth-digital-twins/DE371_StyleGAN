@@ -1,12 +1,13 @@
 #!/bin/bash -l
 #SBATCH -J DE371_stylegan
 #SBATCH -A p200177
+#SBATCH -q default
 #SBATCH -N 1
-#SBATCH -G 4
 #SBATCH -p gpu
+#SBATCH --ntasks=4
 #SBATCH --ntasks-per-node=4
+#SBATCH --gpus-per-task=1
 #SBATCH --time=48:00:00
-#SBATCH --qos=default
 
 # Note : to launch a train, choose the following parameters : --time=48:00:00 --qos=default
 export TORCH_DISTRIBUTED_DEBUG=INFO 
@@ -24,15 +25,17 @@ module load Apptainer/1.2.4-GCCcore-12.3.0
 apptainer exec --nv /project/scratch/p200177/DE_371/resources/apptainer_container/container.sif torchrun --nproc_per_node=4 main_gan.py \
         --data_dir='/project/home/p200177/DE_371/datasets/dataset_Meteo_France/IS_1_1.0_0_0_0_0_0_256_large_lt_done/' \
         --id_file="Large_lt_train_labels_1.csv" \
-        --output_dir='/project/scratch/p200177/DE_371/victorsanchez/results/gan_training/exp_train_sequential_every_6h_10000_t2m_channel_multiplier=2/' \
-        --g_channels=8 \
-        --d_channels=8 \
-        --epochs_num=10000 \
-        --var_names=['t2m'] \
+        --output_dir='/project/scratch/p200177/DE_371/victorsanchez/results/gan_training/exp5_seq_GAN_exp_train_sequential_every_3h_10000_u_v_t2m_channel_multiplier=2' \
+        --batch_size=8 \
+        --g_channels=45 \
+        --d_channels=45 \
+        --epochs_num=20000 \
+        --var_names=['u','v','t2m'] \
         --config_dir='/project/scratch/p200177/DE_371/victorsanchez/results/gan_training/Set_UseNoiseFalse/' \
         --use_noise=True \
         --multi_timestep_mode \
-        --nb_timesteps=8 \
-        --timestep_period=6 \
+        --nb_timesteps=15 \
+        --timestep_period=3 \
         --stack_sample_along_time_and_variable \
-        --channel_multiplier=2
+        --channel_multiplier=2 \
+        --pretrained_model=68000

@@ -106,6 +106,7 @@ if __name__=="__main__" :
     # VGG
     parser.add_argument('--hd_vgg', action='store_true', help="to use the VGG loss from HRInversion paper")
     parser.add_argument("--lambda_vgg", type=float, default=1.0, help="weight of the vgg (perceptual) loss")
+    parser.add_argument("--resize_vgg_input", type=float, default=1.0, help="resize input for vgg loss")
     parser.add_argument("--vgg_computation", type=str, default='sol2', choices = ['sol1', 'sol2', 'sol3', 'sol4', 'sol5'], 
                         help="Either we compute layer by layer and member per member but we have to triple th einput to make it rgb or all in one (naive)")
     parser.add_argument("--vgg_state_dict_path", type=str, default='/project/scratch/p200177/DE_371/resources/vgg_weights/vgg16-random.pth', help="Insert a path")
@@ -160,8 +161,6 @@ if __name__=="__main__" :
     if params.normalization=="meanmax":
         Means = np.load(f'{params.real_data_dir}{params.mean_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
         Maxs = np.load(f'{params.real_data_dir}{params.max_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
-    #    Means = np.load(f'{params.real_data_dir}stat_files/{params.mean_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
-    #    Maxs = np.load(f'{params.real_data_dir}/stat_files/{params.max_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
     elif params.normalization=="minmax":
        Mins = np.load(f'{params.real_data_dir}/stat_files/{params.min_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
        Maxs = np.load(f'{params.real_data_dir}/stat_files/{params.max_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
@@ -249,13 +248,14 @@ if __name__=="__main__" :
             if np.all(already_exist) :
                 print('The inversion was already done for the date {} with leadtime {}. This sample is skipped.'.format(datename,lt))
             else :
-                print('Launching inversion process for the date {} with leadtime {}.'.format(datename,lt))
-                df0 = df_extract[(df_extract['Date']==date_) & (df_extract['LeadTime']==lt-1)]
-                if len(df0)==0:
-                   print("# samples: 0")
-                   continue
+                
                 
                 if not params.multi_timestep_mode :
+                    print('Launching inversion process for the date {} with leadtime {}.'.format(datename,lt))
+                    df0 = df_extract[(df_extract['Date']==date_) & (df_extract['LeadTime']==lt-1)]
+                    if len(df0)==0:
+                        print("# samples: 0")
+                        continue
                     Ens_r = utils.load_batch_from_timestamp(
                         df_extract, 
                         date_, 

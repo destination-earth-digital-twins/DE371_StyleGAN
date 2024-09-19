@@ -228,7 +228,12 @@ class ISDataset(Dataset):
             #       t2m{sample[:,:,:,2].min()} {sample[:,:,:,2].mean()} {sample[:,:,:,2].max()} \n \
             #             ')
             if self.config.stack_sample_along_time_and_variable :
+                # [[U0, V0, T0], [U1, V1, T1], ... ]
                 sample = sample.reshape((self.config.nb_timesteps*len(self.VI), single_sample.shape[-2], single_sample.shape[-1]))
+                
+                # [[U0,U1,U2,...], [V0,V1,V2,...], [T0,T1,T2,...]]
+                # sample = np.array([sample[:,i,:,:] for i in range(len(self.VI))])
+
                 # sample = np.vstack(sample)
                 # sample should now be : (Nb_leatime*N_var, H, W)
 

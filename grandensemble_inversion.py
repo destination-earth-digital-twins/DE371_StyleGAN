@@ -13,7 +13,7 @@ import argparse
 from gan.model.stylegan2 import Generator
 import os
 import numpy as np
-import perturbation.inversion as inv
+import inversion.optimization_based.inversion as inv
 from time import perf_counter
 from collections import OrderedDict
 
@@ -34,7 +34,7 @@ if __name__=="__main__" :
 
     parser.add_argument('--ckpt_dir', type = str, 
                         default ='/project/scratch/p200177/DE_371/victorsanchez/models/trained_generator/000024.pt')
-    parser.add_argument('--real_data_dir', type = str, default ='/scratch/work/brochetc/grandEnsemble/AROME/')
+    parser.add_argument('--real_data_dir', type = str, default ='/project/home/p200177/DE_371/datasets/dataset_Meteo_France/grandEnsemble/AROME/')
     parser.add_argument('--output_dir',type = str, default ='/project/scratch/p200177/DE_371/victorsanchez/results/Grand_Ensemble/Inversion')
     parser.add_argument("--pack_dir", type=str, default = '/project/scratch/p200177/DE_371/victorsanchez/results/Grand_Ensemble/Pack/') # storing "packed" (normalized) real data
     
@@ -71,6 +71,8 @@ if __name__=="__main__" :
     
     # Parameter related to perceptual loss 
     parser.add_argument("--optimize_features_computation", action='store_true', help="Compute the features of original ensemble only once")
+    parser.add_argument("--progressive_loss_mode", action='store_true', help="Progressive Loss between pixel loss and perceptual loss | Start : Only MSE | End : Only Perceptual")
+
 
     # LPIPS
     parser.add_argument("--lpips_pnet", type=str, default='alex', choices=['alex','vgg','squeeze'], help="network type for lpips loss")
@@ -92,6 +94,9 @@ if __name__=="__main__" :
     parser.add_argument("--vgg_alpha_style", type=float, default=0.01, help="weight of the style loss")
     parser.add_argument("--vgg_loss_after_step", type=float, default=0, help="compute the vgg loss only after a given number of steps")
 
+    # lambda_ms_ssim
+    parser.add_argument("--lambda_ms_ssim", type=float, default=0, help="weight of the MS-SSIM loss")
+
     parser.add_argument("--invstep", type=int, default=2000, help="optimize iterations")
     
     
@@ -99,7 +104,7 @@ if __name__=="__main__" :
     parser.add_argument('--stop_member', type=int, default=874)
 
     
-    parser.add_argument("--inv_checkpoints", type=utils.str2intlist, default=[10,50,100,250,500,1000,1500,2000])
+    parser.add_argument("--inv_checkpoints", type=utils.str2intlist, default=[500,1000,1500,2000])
     parser.add_argument("--plot_checkpoint", action='store_true')
 
     parser.add_argument("--seed", type=int, default=42)
@@ -162,7 +167,7 @@ if __name__=="__main__" :
         
         for lt in params.leadtimes:
             print(start, stop, lt)
-            if not os.path.exists(params.output_dir +f'w_{start}_{stop}_{lt}_1000.npy'): #checking for already teer
+            if not os.path.exists(params.output_dir +f'w_{start}_{stop}_{lt}_2000.npy'): #checking for already teer
 
                 Ens_r = utils.collate_ensemble(params.real_data_dir, start, stop, lt, params.var_indices)
                 Ens_r = torch.tensor(0.95 * (Ens_r - Means) / Maxs, dtype = torch.float32)

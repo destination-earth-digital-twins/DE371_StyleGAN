@@ -40,7 +40,7 @@ import gan.model.GAN_logic as GAN
 
 ###################### Scheduler choice function ##############################
 
-def AllocScheduler(sched, optimizer, gamma, network):
+def AllocScheduler(sched, optimizer, gamma, network, base_lr=0.1):
     if sched == "exp":
         if is_main_gpu(): print(f"{network} scheduler set to exponential scheduler")
         return optim.lr_scheduler.ExponentialLR(optimizer, gamma=gamma)
@@ -48,6 +48,10 @@ def AllocScheduler(sched, optimizer, gamma, network):
         if is_main_gpu(): print(f"{network} scheduler set to linear scheduler")
         lambda0 = lambda epoch: 1.0 / (1.0 + gamma * epoch)
         return optim.lr_scheduler.LambdaLR(optimizer, lambda0)
+    elif sched == "cycle":
+        if is_main_gpu(): print(f"{network} scheduler set to cycle scheduler")
+        lambda0 = lambda epoch: 1.0 / (1.0 + gamma * epoch)
+        return torch.optim.lr_scheduler.CyclicLR(optimizer, base_lr=base_lr)
     else:
         if is_main_gpu(): print(f"{network} scheduler set to None")
         return None
@@ -245,8 +249,8 @@ class Trainer():
             print(f"Scheduler: {self.config.config_dir}{self.config.scheduler_config}")
             with open(f"{self.config.config_dir}{self.config.scheduler_config}", "r") as sched_config_file:
                 sched_yaml = yaml.safe_load(sched_config_file)
-            self.scheduler_G = AllocScheduler(sched_yaml["G_sched"], self.optim_G, sched_yaml["lrG_gamma"], "Generator")
-            self.scheduler_D = AllocScheduler(sched_yaml["D_sched"], self.optim_D, sched_yaml["lrD_gamma"], "Discriminator")
+            self.scheduler_G = AllocScheduler(sched_yaml["G_sched"], self.optim_G, sched_yaml["lrG_gamma"], "Generator", base_lr=self.config.lr_G * g_reg_ratio)
+            self.scheduler_D = AllocScheduler(sched_yaml["D_sched"], self.optim_D, sched_yaml["lrD_gamma"], "Discriminator", base_lr=self.config.lr_D * d_reg_ratio)
         else:
             print(f"No scheduler_config file provided, shedulers set to None")
             if self.config.scheduler_config != "" and self.config.pretrained_model > 0:

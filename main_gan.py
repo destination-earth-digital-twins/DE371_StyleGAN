@@ -247,15 +247,17 @@ def get_expe_parameters():
 
     # Step size
 
-    parser.add_argument('--log_epoch', type=int, default=0)
+    parser.add_argument('--log_epoch', type=int, default=1000)
     # parser.add_argument('--sample_epoch', type=int, default=0)
-    parser.add_argument('--plot_epoch', type=int, default=0)
-    parser.add_argument('--save_epoch', type=int, default=0)
-    parser.add_argument('--test_epoch', type=int, default=0)
+    parser.add_argument('--plot_epoch', type=int, default=1000)
+    parser.add_argument('--save_epoch', type=int, default=1000)
+    parser.add_argument('--test_epoch', type=int, default=1000)
+    parser.add_argument('--save_step', type=int, default=2000)# if very_small_exp else (1000 if small_exp else 3000)) # set to 0 if not needed
+
+    # Not used in trainer_ddp
     parser.add_argument('--log_step', type=int, default=2000)# if very_small_exp else (1000 if small_exp else 3000)) #-> default is at the end of each epoch
     parser.add_argument('--sample_step', type=int, default=2000)# if very_small_exp else (1000 if small_exp else 3000)) # set to 0 if not needed
     parser.add_argument('--plot_step', type=int, default=2000)# if very_small_exp else (1000 if small_exp else 3000)) #set to 0 if not needed
-    parser.add_argument('--save_step', type=int, default=2000)# if very_small_exp else (1000 if small_exp else 3000)) # set to 0 if not needed
     parser.add_argument('--test_step', type=int, default=2000)# if very_small_exp else (1000 if small_exp else 3000)) #set to 0 if not needed
 
     # parser.add_argument('--confi/home/mrmn/sanchezv/project/code/styleganpnria/gan/configs/Set_UseNoiseFalseg_dir', type=str, default="/home/users/u101833/project/DE371_StyleGAN/gan/configs/Set_UseNoiseFalse/", help="The config files absolute path")
@@ -283,6 +285,16 @@ if __name__=="__main__" :
         os.mkdir(config.output_dir + "/models")
     if not os.path.exists(config.output_dir + "/samples"):
         os.mkdir(config.output_dir + "/samples")
+
+    ########### write inversion parameters to file ############
+    config_file = config.output_dir + "/training_params.yaml"
+    print("writing params config file:", config_file)
+    try:
+        file=open(config_file,"w")
+        yaml.dump(config.__dict__,file)
+    except Exception as e:
+         print("unable to write params config file")
+         print(e)
 
     if config.model=='stylegan2':
         import gan.model.stylegan2 as RN

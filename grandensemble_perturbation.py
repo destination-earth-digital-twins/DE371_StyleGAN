@@ -28,8 +28,8 @@ import metrics4arome as metrics
 import perturbation.utils as utils
 import perturbation.smpca as smpca
 from shutil import copyfile
-
-device = 'cuda:0'
+from inversion.plotter import online_pert_plot
+device = 'cuda'
 
 def str2list(li):
     if type(li)==list:
@@ -49,11 +49,13 @@ def compute_generate_save(G, params, metrics_list, Means, Maxs, scale):
     N_samples = params.N_samples
 
     print('simple load')
-    Ens_r = utils.collate_R_ensemble(params.real_data_dir,params.mb,params.lt_index, params.var_indices)
+    Ens_r = utils.collate_R_ensemble(params.pack_dir,params.mb,params.lt_index, params.var_indices)
     print('r (rescaled) loaded')
     print(params.mb, params.lt_index)
     
-    w_ens = torch.tensor(utils.collate_w_ensemble(params.data_dir, params.mb, params.lt_index, params.var_indices), dtype=torch.float32)
+    w_ens = torch.tensor(utils.collate_w_ensemble(params.inv_data_dir, params.mb, params.lt_index, params.var_indices, params.inv_step), dtype=torch.float32)
+    inv_ens = utils.collate_inv_ensemble(params.inv_data_dir, params.mb, params.lt_index, params.var_indices, params.inv_step)
+    
     print('w loaded')
     print('############### Perturbating ###############')
     
@@ -63,14 +65,33 @@ def compute_generate_save(G, params, metrics_list, Means, Maxs, scale):
     scale = torch.tensor(np.load(os.path.join(params.scale_dir,"ema_scale.npy")).astype(np.float32)[params.scale_interp_step], device=device)
     interp = torch.tensor(np.load(os.path.join(params.scale_dir,"ema_interp.npy")).astype(np.float32)[params.scale_interp_step], device=device)
 
-    gen, w_new = smpca.sm_pca(w_ens, G, 
-                         N_samples, 
-                         params.style_indices, params.device, params.sample_rule,
-                         scale=scale,interp=interp, verbose=True,
-                         Whitening=Whitening,Coloring=Coloring,w0=w0)
+    gen, w_new = smpca.sm_pca(
+        w_ens, 
+        G, 
+        N_samples, 
+        params.style_indices,
+        params.device,
+        params.sample_rule,
+        scale=scale,interp=interp,
+        verbose=True,
+        Whitening=Whitening,
+        Coloring=Coloring,
+        w0=w0
+    )
     
     gen0 = utils.rescale(gen, Means, Maxs, 1/0.95)
     Ens_r = utils.rescale(Ens_r, Means, Maxs, 1/0.95)
+    inv_ens = utils.rescale(inv_ens, Means, Maxs, 1/0.95)
+    gen = utils.rescale(gen, Means, Maxs, 1/0.95)
+    online_pert_plot(
+        packsample=Ens_r, 
+        invsample=inv_ens, 
+        pert_sample=gen,
+        crop=[0,-1,0,-1],
+        mem_idx=0, 
+        figtitle=f"Generated samples for GrandEnsemble", 
+        figname=params.output_dir + f"/samples/genFsemble_{params.mb}.png"
+    )
 
     if params.runtime_metrics:
         print('############### Evaluating metrics ###############')
@@ -101,15 +122,14 @@ if __name__=="__main__" :
     ########################### Directories ###########################
 
     parser.add_argument('--ckpt_dir', type = str, 
-                        default ='/scratch/work/brochetc/Exp_StyleGAN/Set_1/stylegan2_stylegan_dom_256_lat-dim_512_bs_4_0.002_0.002_ch-mul_2_vars_u_v_t2m_noise_True/Instance_14/models/000024.pt')
-    parser.add_argument('--real_data_dir', type = str, 
-                        default ='/scratch/work/brochetc/Exp_StyleGAN/Pack_GE/')
-    parser.add_argument('--data_dir', type=str, default='/scratch/work/brochetc/Exp_StyleGAN/Inversion_GE/')
+                        default ='/project/scratch/p200177/DE_371/victorsanchez/models/trained_generator/000024.pt')
+    parser.add_argument('--real_data_dir', type = str, default ='/project/home/p200177/DE_371/datasets/dataset_Meteo_France/grandEnsemble/AROME/')
+    parser.add_argument('--inv_data_dir', type=str, default='/project/scratch/p200177/DE_371/victorsanchez/results/Grand_Ensemble/Inversion/')
     parser.add_argument('--output_dir',type = str, 
                         default ='/scratch/work/brochetc/Exp_StyleGAN/Perturbation_GE/')
     parser.add_argument('--eigendir',type = str, 
-                        default ='/scratch/work/brochetc/Exp_StyleGAN/Eigenvalues/')
-    parser.add_argument("--pack_dir", type=str, default = '') # storing "packed" (normalized) real data
+                        default ='/project/home/p200177/DE_371/datasets/dataset_Meteo_France/eigenvalues_gan_training/')
+    parser.add_argument("--pack_dir", type=str, default = '/project/scratch/p200177/DE_371/victorsanchez/results/Grand_Ensemble/Pack/') # storing "packed" (normalized) real data
     
     parser.add_argument('--mean_file', type=str, default='Mean_4_var.npy')
     parser.add_argument('--max_file', type=str, default='MaxNew_4_var.npy')
@@ -118,9 +138,9 @@ if __name__=="__main__" :
     parser.add_argument("--Shape", type=tuple, default=(3,256,256), help='size of the samples')
     parser.add_argument("--N_samples", type=int, default=120, help='number of new samples')
     parser.add_argument("--N_draws", type=int, default=300, help='number of conditioning members draws')    
-    parser.add_argument("--inv_step", type=int, default=1000, help='step of inversion to load w')
+    parser.add_argument("--inv_step", type=int, default=2000, help='step of inversion to load w')
     
-    parser.add_argument("--device", type=str, default='cuda:0')
+    parser.add_argument("--device", type=str, default='cuda')
 
     
     ######################## PERTURBATION PARAMETERS #######################
@@ -128,13 +148,13 @@ if __name__=="__main__" :
     parser.add_argument('--sample_rule', type=str, default='stochastic', 
                         choices = ['stochastic', 'extrapolation'])
     parser.add_argument('--style_indices', type = str2list, default='[0,0,0,0,0,0,0,0,0,0,0,0,0,0]')
-    parser.add_argument('--scale_dir', type=str, default="./")
+    parser.add_argument('--scale_dir', type=str, default="/project/home/p200177/DE_371/datasets/dataset_Meteo_France/scale_dir_gan_training/")
     parser.add_argument('--scale_interp_step',type=int, default=-1)
 
     parser.add_argument('--unbias',action='store_true')
     ########################## CONTROL of Data to perturb ######################
 
-    parser.add_argument("--leadtimes", type=utils.str2intlist, default=[3,6,12,18,24,30,36,42])
+    parser.add_argument("--leadtimes", type=utils.str2intlist, default=[6,12,18,24,30,36,42])
 
     ###########################################################################
     parser.add_argument("--runtime_metrics", action="store_true")
@@ -163,14 +183,14 @@ if __name__=="__main__" :
         os.mkdir(params.output_dir)
         os.mkdir(params.output_dir + '/samples/')
         os.mkdir(params.output_dir + '/log/')
-        source_readme = root_dir + 'ReadMe_0.txt'
-        target_readme = params.output_dir + 'ReadMe_0.txt'
-        copyfile(source_readme, target_readme)
+        # source_readme = root_dir + 'ReadMe_0.txt'
+        # target_readme = params.output_dir + 'ReadMe_0.txt'
+        # copyfile(source_readme, target_readme)
     
     
     ################ loading network #################
 
-    device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
     G = Generator(params.Shape[1], 512,n_mlp=8,nb_var=params.Shape[0])
 
@@ -204,7 +224,7 @@ if __name__=="__main__" :
 
         params.mb = mb
         for lt in params.leadtimes:
-            np.save(params.output_dir + f'mb_{draw_idx}_{lt}_1000.npy', np.array(mb))
+            np.save(params.output_dir + f'mb_{draw_idx}_{lt}_{params.inv_step}.npy', np.array(mb))
             print(mb,lt)
 
             params.lt_index = lt

@@ -108,9 +108,9 @@ class VGGPerceptualLoss(torch.nn.Module):
             y = (target_img-grayscale_mean) / grayscale_std
 
         for i, block in enumerate(self.blocks):
-            x = features_input_img[i]
             y = block(y)
             if i in feature_layers:
+                x = features_input_img[i]
                 loss_features = torch.nn.functional.l1_loss(x, y)
                 # print('loss_features', loss_features)
                 loss += alpha_feature*loss_features
@@ -121,6 +121,7 @@ class VGGPerceptualLoss(torch.nn.Module):
                 loss_style = torch.nn.functional.l1_loss(gram_x, gram_y)
                 # print('loss_style', loss_style)
                 loss += alpha_style*loss_style
+            
         return loss
 
     def forward(self, input_img, target_img, feature_layers=[0,1,2,3], style_layers=[], alpha_feature=1.0, alpha_style=0.01):
