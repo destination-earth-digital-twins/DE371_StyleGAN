@@ -60,7 +60,10 @@ if __name__=="__main__" :
     parser.add_argument('--nb_timesteps', type=int, default=15)
     parser.add_argument('--timestep_period', type=int, default=3)
     parser.add_argument('--stack_sample_along_time_and_variable', action='store_true')
-
+    parser.add_argument('--g_channels', type=int, default=3)
+    parser.add_argument('--channel_multiplier', type=int, default=2)
+    
+    
     ############################ INVERSION PARAMETERS #################    
 
     parser.add_argument("--lr_rampup",type=float,default=0.05,help="duration of the learning rate warmup")
@@ -127,7 +130,7 @@ if __name__=="__main__" :
     parser.add_argument("--dates_file", type=str, default = 'Large_lt_test_labels.csv')
     parser.add_argument("--date_start", type=str, default = "2021-07-01")
     parser.add_argument("--date_stop", type=str, default = "2021-07-02")
-    parser.add_argument("--leadtimes", type=utils.str2intlist, default=[3,6,9,12,15,18,21,24,27,30,33,36,39,42])
+    parser.add_argument("--leadtimes", type=utils.str2intlist, default=[3,6,9,12,15,18,21,24,27,30,33,36,39,42,45])
     
     parser.add_argument("--seed", type=int, default=42)
     
@@ -171,7 +174,7 @@ if __name__=="__main__" :
     if not params.multi_timestep_mode :
         G = Generator(params.Shape[1], 512,n_mlp=8, nb_var=params.Shape[0])
     else :
-        G = Generator(params.Shape[1], 512,n_mlp=8, nb_var=params.nb_timesteps)
+        G = Generator(params.Shape[1], 512,n_mlp=8, nb_var=params.g_channels, channel_multiplier=params.channel_multiplier)
     ckpt = torch.load(params.ckpt_dir, map_location='cpu')['g_ema']
 
     if 'module' in list(ckpt.items())[0][0]: #juglling with Pytorch versioning and different module packaging
@@ -259,7 +262,7 @@ if __name__=="__main__" :
                     Ens_r = utils.load_batch_from_timestamp(
                         df_extract, 
                         date_, 
-                        lt, 
+                        lt-1, 
                         params.real_data_dir, 
                         Shape=params.Shape, 
                         var_indices=params.var_indices,
