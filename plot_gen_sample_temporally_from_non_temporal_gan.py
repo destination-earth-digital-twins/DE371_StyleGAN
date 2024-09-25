@@ -28,6 +28,7 @@ if __name__=="__main__" :
     parser.add_argument("--var_indices", type=utils.str2intlist, default=[1,2,3])
     parser.add_argument('--device', type=str, default='cuda')
 
+    parser.add_argument('--sample_from_imported_perturbation', action='store_true')
     ############################ SEQUENCE PARAMETERS #################    
     parser.add_argument('--multi_timestep_mode', action='store_true')
     parser.add_argument('--nb_timesteps', type=int, default=14)
@@ -49,7 +50,7 @@ if __name__=="__main__" :
 
     # fix some of the inputs
     params.Shape = tuple(params.Shape)
-
+    
     # create output and pack directories
     if not os.path.exists(params.output_dir):
         os.makedirs(params.output_dir)
@@ -77,91 +78,118 @@ if __name__=="__main__" :
     else:
         raise ValueError(f"Unknown normalization: {params.normalization}")
 
+    display_AROME = False
+    if not params.sample_from_imported_perturbation:
+        label_perturbation = '_generated_pert'
+    else :
+        label_perturbation = '_imported_pert'
     #################### main loop ##################
     for date_ in list_dates:
         # Importing True samples
-        Ens_r = utils.load_batch_sequence_from_date(
-            df_extract,
-            date_,
-            params.real_data_dir,
-            concatenate_variable_and_time=params.stack_sample_along_time_and_variable,
-            dt=params.timestep_period,
-            Shape=params.Shape,
-            var_indices=params.var_indices,
-            normalization=params.normalization,
-            Means=Means,
-            Mins=Mins,
-            Maxs=Maxs
-        )
-        Ens_r = utils.rescale(Ens_r.numpy(), Means, Maxs, 1/0.95)
+        if display_AROME:
+            Ens_r = utils.load_batch_sequence_from_date(
+                df_extract,
+                date_,
+                params.real_data_dir,
+                concatenate_variable_and_time=params.stack_sample_along_time_and_variable,
+                dt=params.timestep_period,
+                Shape=params.Shape,
+                var_indices=params.var_indices,
+                normalization=params.normalization,
+                Means=Means,
+                Mins=Mins,
+                Maxs=Maxs
+            )
+            Ens_r = utils.rescale(Ens_r.numpy(), Means, Maxs, 1/0.95)
         # Importing Generated Samples
         Ens_gen = []
         date_=str(date_)[:10]
         for lt in params.leadtimes :
             try :
-                path_to_sample = params.gen_sample_dir + f"genFsemble_{date_}_{lt}_{params.invstep}_16_generated_pert.npy"    
-                Ens_gen.append(np.load(path_to_sample)[80:97])
+                path_to_sample = params.gen_sample_dir + f"genFsemble_{date_}_{lt}_{params.invstep}_16{label_perturbation}.npy"    
+                Ens_gen.append(np.load(path_to_sample)[10:27])
             except :
-                print(f"File 'genFsemble_{date_}_{lt}_{params.invstep}_16_generated_pert.npy' Not Found")
+                print(f"File 'genFsemble_{date_}_{lt}_{params.invstep}_16{label_perturbation}.npy' Not Found")
         Ens_gen = np.array(Ens_gen)
         Ens_gen = utils.rescale(Ens_gen, Means, Maxs, 1/0.95)
+        
 
-        Nb_member=2
-        fig0, ax0 = plt.subplots(nrows=2*Nb_member, ncols=14, figsize=(200,50))
-        fig1, ax1 = plt.subplots(nrows=2*Nb_member, ncols=14, figsize=(200,50))
-        fig2, ax2 = plt.subplots(nrows=2*Nb_member, ncols=14, figsize=(200,50))
+        Nb_member=16
+        if display_AROME:
+            fig0, ax0 = plt.subplots(nrows=Nb_member, ncols=14, figsize=(200,200))
+            fig1, ax1 = plt.subplots(nrows=Nb_member, ncols=14, figsize=(200,200))
+            fig2, ax2 = plt.subplots(nrows=Nb_member, ncols=14, figsize=(200,200))
+        fig0gen, ax0gen = plt.subplots(nrows=Nb_member, ncols=14, figsize=(200,200))
+        fig1gen, ax1gen = plt.subplots(nrows=Nb_member, ncols=14, figsize=(200,200))
+        fig2gen, ax2gen = plt.subplots(nrows=Nb_member, ncols=14, figsize=(200,200))
 
         for t in trange(params.nb_timesteps):
             for member_id in range(Nb_member):
-                Arome_member = Ens_r[member_id][t]
+                if display_AROME:
+                    Arome_member = Ens_r[member_id][t]
+                    
+
+                    im0=ax0[member_id][t].imshow(Arome_member[0], origin="lower", cmap="viridis", vmin=Arome_member[0].min(), vmax=Arome_member[0].max())
+                    ax0[member_id][t].set_ylabel(f'M{member_id+1}-t+{t}', fontsize=45)
+                    ax0[member_id][t].set_xticks([])
+                    ax0[member_id][t].set_yticks([])
+
+                    im1=ax1[member_id][t].imshow(Arome_member[1], origin="lower", cmap="viridis", vmin=Arome_member[1].min(), vmax=Arome_member[1].max())
+                    ax1[member_id][t].set_ylabel(f'M{member_id+1}-t+{t}', fontsize=45)
+                    ax1[member_id][t].set_xticks([])
+                    ax1[member_id][t].set_yticks([])
+
+                    im2=ax2[member_id][t].imshow(Arome_member[2], origin="lower", cmap="coolwarm", vmin=Arome_member[2].min(), vmax=Arome_member[2].max())
+                    ax2[member_id][t].set_ylabel(f'M{member_id+1}-t+{t}', fontsize=45)
+                    ax2[member_id][t].set_xticks([])
+                    ax2[member_id][t].set_yticks([])
+
                 Generated_member = Ens_gen[t][member_id]
+                im0gen=ax0gen[member_id][t].imshow(Generated_member[0], origin="lower", cmap="viridis", vmin=Generated_member[0].min(), vmax=Generated_member[0].max())
+                ax0gen[member_id][t].set_ylabel(f'GEN M{member_id+1}-t+{t}', fontsize=45)
+                ax0gen[member_id][t].set_xticks([])
+                ax0gen[member_id][t].set_yticks([])
 
-                im0=ax0[member_id][t].imshow(Arome_member[0], origin="lower", cmap="viridis", vmin=Arome_member[0].min(), vmax=Arome_member[0].max())
-                ax0[member_id][t].set_ylabel(f'True - M{member_id}', fontsize=45)
-                ax0[member_id][t].set_xticks([])
-                ax0[member_id][t].set_yticks([])
+                im1gen=ax1gen[member_id][t].imshow(Generated_member[1], origin="lower", cmap="viridis", vmin=Generated_member[1].min(), vmax=Generated_member[1].max())
+                ax1gen[member_id][t].set_ylabel(f'GEN M{member_id+1}-t+{t}', fontsize=45)
+                ax1gen[member_id][t].set_xticks([])
+                ax1gen[member_id][t].set_yticks([])
 
-                im0=ax0[member_id+Nb_member][t].imshow(Generated_member[0], origin="lower", cmap="viridis", vmin=Generated_member[0].min(), vmax=Generated_member[0].max())
-                ax0[member_id+Nb_member][t].set_ylabel(f'Gen', fontsize=45)
-                ax0[member_id+Nb_member][t].set_xticks([])
-                ax0[member_id+Nb_member][t].set_yticks([])
-
-                im1=ax1[member_id][t].imshow(Arome_member[1], origin="lower", cmap="viridis", vmin=Arome_member[1].min(), vmax=Arome_member[1].max())
-                ax1[member_id][t].set_ylabel(f'True - M{member_id}', fontsize=45)
-                ax1[member_id][t].set_xticks([])
-                ax1[member_id][t].set_yticks([])
-
-                im1=ax1[member_id+Nb_member][t].imshow(Generated_member[1], origin="lower", cmap="viridis", vmin=Generated_member[1].min(), vmax=Generated_member[1].max())
-                ax1[member_id+Nb_member][t].set_ylabel(f'Gen', fontsize=45)
-                ax1[member_id+Nb_member][t].set_xticks([])
-                ax1[member_id+Nb_member][t].set_yticks([])
-
-                im2=ax2[member_id][t].imshow(Arome_member[2], origin="lower", cmap="coolwarm", vmin=Arome_member[2].min(), vmax=Arome_member[2].max())
-                ax2[member_id][t].set_ylabel(f'True - M{member_id}', fontsize=45)
-                ax2[member_id][t].set_xticks([])
-                ax2[member_id][t].set_yticks([])
-
-                im2=ax2[member_id+Nb_member][t].imshow(Generated_member[2], origin="lower", cmap="coolwarm", vmin=Generated_member[2].min(), vmax=Generated_member[2].max())
-                ax2[member_id+Nb_member][t].set_ylabel(f'Gen', fontsize=45)
-                ax2[member_id+Nb_member][t].set_xticks([])
-                ax2[member_id+Nb_member][t].set_yticks([])
+                im2gen=ax2gen[member_id][t].imshow(Generated_member[2], origin="lower", cmap="coolwarm", vmin=Generated_member[2].min(), vmax=Generated_member[2].max())
+                ax2gen[member_id][t].set_ylabel(f'GEN M{member_id+1}-t+{t}', fontsize=45)
+                ax2gen[member_id][t].set_xticks([])
+                ax2gen[member_id][t].set_yticks([])
             
             
             if t==0 :
-                fig0.suptitle(f"Sequence of u for {date_}", fontsize=100)
-                fig1.suptitle(f"Sequence of v for {date_}", fontsize=100)
-                fig2.suptitle(f"Sequence of t2m for {date_}", fontsize=100)
-                for fig,im in zip([fig0,fig1,fig2],[im0,im1,im2]):
-                    fig.subplots_adjust(bottom=0.05,top=0.9, left=0.05, right=0.9)
-                    cbax=fig.add_axes([0.92,0.05,0.02,0.85])
-                    cb=fig.colorbar(im, cax=cbax)
-                    cb.ax.tick_params(labelsize=80) 
-                    # fig.tight_layout()
-                
-                
-        fig0.savefig(params.output_dir+f'sequence_comparison_u_{date_}.png')
-        fig1.savefig(params.output_dir+f'sequence_comparison_v_{date_}.png')
-        fig2.savefig(params.output_dir+f'sequence_comparison_t2m_{date_}.png')
+                if display_AROME:
+                    fig0.suptitle(f"AROME Sequence of u for {date_}", fontsize=100)
+                    fig1.suptitle(f"AROME Sequence of v for {date_}", fontsize=100)
+                    fig2.suptitle(f"AROME Sequence of t2m for {date_}", fontsize=100)
+                fig0gen.suptitle(f"Generated Samples of u for {date_}", fontsize=100)
+                fig1gen.suptitle(f"Generated Samples of v for {date_}", fontsize=100)
+                fig2gen.suptitle(f"Generated Samples of t2m for {date_}", fontsize=100)
+                if display_AROME:
+                    for fig,im in zip([fig0,fig1,fig2, fig0gen, fig1gen, fig2gen],[im0,im1,im2, im0gen, im1gen, im2gen]):
+                        fig.subplots_adjust(bottom=0.05,top=0.9, left=0.05, right=0.9)
+                        cbax=fig.add_axes([0.92,0.05,0.02,0.85])
+                        cb=fig.colorbar(im, cax=cbax)
+                        cb.ax.tick_params(labelsize=80) 
+                        # fig.tight_layout()
+                else :
+                    for fig,im in zip([fig0gen, fig1gen, fig2gen],[im0gen, im1gen, im2gen]):
+                        fig.subplots_adjust(bottom=0.05,top=0.9, left=0.05, right=0.9)
+                        cbax=fig.add_axes([0.92,0.05,0.02,0.85])
+                        cb=fig.colorbar(im, cax=cbax)
+                        cb.ax.tick_params(labelsize=80) 
+                        # fig.tight_layout()
+        if display_AROME:
+            fig0.savefig(params.output_dir+f'AROME_sequence_u_{date_}.png')
+            fig1.savefig(params.output_dir+f'AROME_sequence_v_{date_}.png')
+            fig2.savefig(params.output_dir+f'AROME_sequence_t2m_{date_}.png')
+        fig0gen.savefig(params.output_dir+f'gen_samples_u_{date_}{label_perturbation}.png')
+        fig1gen.savefig(params.output_dir+f'gen_samples_v_{date_}{label_perturbation}.png')
+        fig2gen.savefig(params.output_dir+f'gen_samples_t2m_{date_}{label_perturbation}.png')
         
         plt.close()
 

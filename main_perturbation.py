@@ -251,11 +251,15 @@ if __name__=="__main__" :
             params.lt_index = lt
             
             already_exist = []
-            if os.path.isfile(params.output_dir + f'/samples/genFsemble_{params.date_index}_{params.lt_index}_{params.inv_step}_{params.N_conditioners}_generated_pert.npy'):
+            if not params.import_perturbation :
+                label = 'generated_pert'
+            else :
+                label = 'imported_pert'
+            if os.path.isfile(params.output_dir + f'/samples/genFsemble_{params.date_index}_{params.lt_index}_{params.inv_step}_{params.N_conditioners}_{label}.npy'):
                 already_exist.append(True)
             else :
                 already_exist.append(False)
-            if os.path.isfile(params.output_dir + f'/samples/w_pert_{params.date_index}_{params.lt_index}_{params.inv_step}_{params.N_conditioners}_generated_pert.npy'):
+            if os.path.isfile(params.output_dir + f'/samples/w_pert_{params.date_index}_{params.lt_index}_{params.inv_step}_{params.N_conditioners}_{label}.npy'):
                 already_exist.append(True)
             else :
                 already_exist.append(False)

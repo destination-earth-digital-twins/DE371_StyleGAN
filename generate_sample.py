@@ -44,11 +44,12 @@ def str2list(li):
         raise ValueError("li argument must be a string or a list, not '{}'".format(type(li)))
 
 def generate(args, g_ema, mean_latent, step):
-    output_dir = args.output_dir + f'/step={step}/'
+    output_dir = args.training_dir + f'final_unconditional_samples/step={step}/'
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
     mem_cuda = torch.cuda.memory_allocated(device=args.device)
     print('memory_allocated {}'.format(humanbytes(mem_cuda)))
+    print(f'Generating samples for step : {step}')
     with torch.no_grad():
         g_ema.eval()
         for t in trange(args.n_batches) :
@@ -100,11 +101,11 @@ def main():
     )
     
     parser.add_argument(
-        "--list_steps", type=str2list, default=[136000], help="list of training steps to be used as checkpoints"
+        "--list_steps", type=str2list, default=[68000,102000,136000], help="list of training steps to be used as checkpoints"
     )
 
     parser.add_argument(
-        "--output_dir", type=str, default="/project/scratch/p200177/DE_371/victorsanchez/results/gan_training/exp11_seq_GAN_exp_train_sequential_every_6h_10000_u_v_t2m_channel_multiplier=6/final_unconditional_samples/step=136000/" # change with your path
+        "--training_dir", type=str, default="/project/scratch/p200177/DE_371/victorsanchez/results/gan_training/exp11bis_seq_GAN_exp_train_sequential_every_6h_20000_u_v_t2m_channel_multiplier=6/" # change with your path
     )
 
     parser.add_argument("--truncation", type=float, default=1, help="truncation ratio")
@@ -114,12 +115,7 @@ def main():
         default=4096,
         help="number of vectors to calculate mean for the truncation",
     )
-    parser.add_argument(
-        "--ckpt",
-        type=str,
-        default="/project/scratch/p200177/DE_371/victorsanchez/results/gan_training/exp11_seq_GAN_exp_train_sequential_every_6h_10000_u_v_t2m_channel_multiplier=6/models/", # change with your path
-        help="path to the model checkpoint",
-    )
+    
     parser.add_argument(
         "--channel_multiplier",
         type=int,
@@ -150,7 +146,7 @@ def main():
     mem_g = torch.cuda.memory_allocated(device=device)-mem_cuda
     print('memory_allocated for Generator {}'.format(humanbytes(mem_g)))
     for step in args.list_steps :
-        checkpoint = torch.load(args.ckpt+f'{str(step).zfill(6)}.pt')["g_ema"]
+        checkpoint = torch.load(args.training_dir+f'/models/{str(step).zfill(6)}.pt')["g_ema"]
         if 'module' in list(checkpoint.items())[0][0]: # juglling with Pytorch versioning and different module packaging
             ckpt_adapt = OrderedDict()
             for k in checkpoint.keys():

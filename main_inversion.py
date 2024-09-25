@@ -144,7 +144,7 @@ if __name__=="__main__" :
     # create output and pack directories
     if not os.path.exists(params.output_dir):
         os.makedirs(params.output_dir)
-    if not os.path.exists(params.pack_dir) and params.pack_dir:
+    if not os.path.exists(params.pack_dir) and params.pack_dir != '':
         os.makedirs(params.pack_dir)
 
     # set the seed for reproduciibility of runs
@@ -230,20 +230,27 @@ if __name__=="__main__" :
             
             # Check if the files already exists (to qave computation time)
             already_exist = []
-            if os.path.isfile(params.pack_dir+f'Rsemble_{datename}_{lt}.npy'):
-                already_exist.append(True)
-            else :
-                already_exist.append(False)
+            if params.pack_dir != '' :
+                if os.path.isfile(params.pack_dir+f'Rsemble_{datename}_{lt}.npy'):
+                    print(params.pack_dir+f'Rsemble_{datename}_{lt}.npy' + 'Pack already Exist')
+                    already_exist.append(True)
+                else :
+                    print(params.pack_dir+f'Rsemble_{datename}_{lt}.npy' + 'Pack do not Exist')
+                    already_exist.append(False)
             for i in params.inv_checkpoints :
-                if os.path.isfile(params.output_dir+'w_{}_{}_{}.npy'.format(params.date_index,params.lt_index,i)):
+                if os.path.isfile(params.output_dir+'w_{}_{}_{}.npy'.format(params.date_index,lt,i)):
+                    print(params.output_dir+'w_{}_{}_{}.npy'.format(params.date_index,lt,i) + ' already Exist')
                     already_exist.append(True)
                 else :
+                    print(params.output_dir+'w_{}_{}_{}.npy'.format(params.date_index,lt,i) + ' do not Exist')
                     already_exist.append(False)
-                if os.path.isfile(params.output_dir+'invertFsemble_{}_{}_{}.npy'.format(params.date_index,params.lt_index,i)):
+                if os.path.isfile(params.output_dir+'invertFsemble_{}_{}_{}.npy'.format(params.date_index,lt,i)):
+                    print(params.output_dir+'invertFsemble_{}_{}_{}.npy'.format(params.date_index,lt,i) +' already Exist')
                     already_exist.append(True)
                 else :
+                    print(params.output_dir+'invertFsemble_{}_{}_{}.npy'.format(params.date_index,lt,i) + ' do not Exist')
                     already_exist.append(False)
-                # if os.path.isfile(params.output_dir+'noise_{}_{}_{}.p'.format(params.date_index,params.lt_index,i)):
+                # if os.path.isfile(params.output_dir+'noise_{}_{}_{}.p'.format(params.date_index,lt,i)):
                 #     already_exist.append(True)
                 # else :
                 #     already_exist.append(False)

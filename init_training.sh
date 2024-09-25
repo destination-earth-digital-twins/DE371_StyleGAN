@@ -17,7 +17,7 @@ export APPTAINERENV_CUDA_VISIBLE_DEVICES='0,1,2,3'
 export CUDA_VISIBLE_DEVICES='0,1,2,3'
 export CXX=g++ #the compiler for cpp extensions
 export CC=gcc  #the compiler to access the good cpp standard
-export APPTAINER_BINDPATH="/project/home/p200177/DE_371/datasets:/project/home/p200177/DE_371/datasets/,/project/scratch/p200177/DE_371/victorsanchez:/project/scratch/p200177/DE_371/victorsanchez/"
+export APPTAINER_BINDPATH="/project/home/p200177/DE_371:/project/home/p200177/DE_371/,/project/scratch/p200177/DE_371:/project/scratch/p200177/DE_371/"
 export NCCL_ASYNC_ERROR_HANDLING=1
 module load Apptainer/1.2.4-GCCcore-12.3.0
 

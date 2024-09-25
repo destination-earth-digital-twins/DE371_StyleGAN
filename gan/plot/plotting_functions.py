@@ -209,7 +209,7 @@ def online_temporal_sample_plot(config, batch, Step, mean_pert=False):
         fig, ax = plt.subplots(nrows=4, ncols=nb_timesteps, figsize=(200,50))
         st = fig.suptitle(varname + (" pert" if mean_pert else ""), fontsize='100')
         # st.set_y(0.96)
-        # TODO : Display on the first three rows the generated sequence and on the last row, an original sequence
+        
         for seq_id in range(4):
             for t in range(nb_timesteps):
                 b = batch_to_print[seq_id][i+nb_var*t].view(img_size, img_size)

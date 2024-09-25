@@ -18,28 +18,27 @@ export APPTAINERENV_CUDA_VISIBLE_DEVICES='0,1,2,3'
 export CUDA_VISIBLE_DEVICES='0,1,2,3'
 export CXX=g++ #the compiler for cpp extensions
 export CC=gcc  #the compiler to access the good cpp standard
-export APPTAINER_BINDPATH="/project/home/p200177/DE_371/datasets:/project/home/p200177/DE_371/datasets/,/project/scratch/p200177/DE_371/victorsanchez:/project/scratch/p200177/DE_371/victorsanchez/"
+export APPTAINER_BINDPATH="/project/home/p200177/DE_371:/project/home/p200177/DE_371/,/project/scratch/p200177/DE_371:/project/scratch/p200177/DE_371/"
 export NCCL_ASYNC_ERROR_HANDLING=1
 module load Apptainer/1.2.4-GCCcore-12.3.0
 
 apptainer exec --nv /project/scratch/p200177/DE_371/resources/apptainer_container/container.sif torchrun --nproc_per_node=4 main_gan.py \
         --data_dir='/project/home/p200177/DE_371/datasets/dataset_Meteo_France/IS_1_1.0_0_0_0_0_0_256_large_lt_done/' \
         --id_file="Large_lt_train_labels_1.csv" \
-        --output_dir='/project/scratch/p200177/DE_371/victorsanchez/results/gan_training/exp16_seq_GAN_exp_train_sequential_every_3h_10000_u_v_t2m_channel_multiplier=10_cyclicLR' \
+        --output_dir='/project/scratch/p200177/DE_371/victorsanchez/results/gan_training/exp1bis_seq_GAN_exp_train_sequential_every_3h_channel_multiplier_2/' \
         --batch_size=8 \
-        --g_channels=45 \
-        --d_channels=45 \
+        --g_channels=15 \
+        --d_channels=15 \
         --epochs_num=20000 \
-        --var_names=['u','v','t2m'] \
+        --var_names=['t2m'] \
         --config_dir='/project/scratch/p200177/DE_371/victorsanchez/results/gan_training/Set_UseNoiseFalse/' \
         --use_noise=True \
         --multi_timestep_mode \
         --nb_timesteps=15 \
         --timestep_period=3 \
         --stack_sample_along_time_and_variable \
-        --channel_multiplier=10 \
+        --channel_multiplier=2 \
         --pretrained_model=-1 \
         --sample_num=5 \
         --plot_samples=5 \
-        --lrD_sched='cyclic' \
-        --lrG_sched='cyclic' 
+        --cutoff_dataset_leadtimes

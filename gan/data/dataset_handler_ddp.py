@@ -132,11 +132,12 @@ class ISDataset(Dataset):
                 # We want Multiple Leadtimes per Members : 
                 #           16*self.config.timestep_period*leadtime_id
                 # We need to Jump per days after iterating over all leadtimes and members of a day :
-                #           ((self.nb_leadtime_in_dataset-1)*16)*((idx)//batch_size)
+                #           ((self.nb_leadtime_in_dataset-1)*16)*((idx)//16)
                 # 16 being the number of members 
                 
-                _idx = idx + 16*self.config.timestep_period*leadtime_id + ((self.nb_leadtime_in_dataset-1)*16)*((idx)//16) + self.cursor_incomplete_date*45*16
-                
+                _idx = idx + 16*self.config.timestep_period*leadtime_id + self.cursor_incomplete_date*45*16
+                if self.config.cutoff_dataset_leadtimes :
+                    _idx += ((self.nb_leadtime_in_dataset-1)*16)*((idx)//16)
                 # print('sample id', _idx)
                 # print('Batch id: ', idx)
                 # print('Leadtime h', leadtime_id*self.config.timestep_period)

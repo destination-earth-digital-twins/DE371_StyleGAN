@@ -224,6 +224,7 @@ def get_expe_parameters():
     parser.add_argument('--nb_timesteps', type=int, default=15)
     parser.add_argument('--timestep_period', type=int, default=3)
     parser.add_argument('--stack_sample_along_time_and_variable', action='store_true')
+    parser.add_argument('--cutoff_dataset_leadtimes', action='store_true', help='To only consider [t+dt, t+2*dt...] and not the leadtime between t and dt')
     
     # Training settings -schedulers
     parser.add_argument('--lrD_sched', type=str, default='None', \

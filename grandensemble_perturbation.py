@@ -136,8 +136,8 @@ if __name__=="__main__" :
 
     parser.add_argument("--var_indices", type=utils.str2intlist, default=[1,2,3])
     parser.add_argument("--Shape", type=tuple, default=(3,256,256), help='size of the samples')
-    parser.add_argument("--N_samples", type=int, default=120, help='number of new samples')
-    parser.add_argument("--N_draws", type=int, default=300, help='number of conditioning members draws')    
+    parser.add_argument("--N_samples", type=int, default=875, help='number of new samples')
+    parser.add_argument("--N_draws", type=int, default=50, help='number of conditioning members draws')    
     parser.add_argument("--inv_step", type=int, default=2000, help='step of inversion to load w')
     
     parser.add_argument("--device", type=str, default='cuda')
