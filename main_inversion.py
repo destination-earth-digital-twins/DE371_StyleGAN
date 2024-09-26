@@ -139,8 +139,11 @@ if __name__=="__main__" :
     #    Means = np.load(f'{params.real_data_dir}stat_files/{params.mean_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
     #    Maxs = np.load(f'{params.real_data_dir}/stat_files/{params.max_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
     elif params.normalization=="minmax":
-       Mins = np.load(f'/project/scratch/p200177/DE_371/angeliquebonamy/data_basile_inv/samples_AROME_for_AE_1/stat/stat_file/{params.min_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
-       Maxs = np.load(f'/project/scratch/p200177/DE_371/angeliquebonamy/data_basile_inv/samples_AROME_for_AE_1/stat/stat_file/{params.max_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
+    #    Mins = np.load(f'/project/scratch/p200177/DE_371/angeliquebonamy/data_basile_inv/samples_AROME_for_AE_1/stat/stat_file/{params.min_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
+    #    Maxs = np.load(f'/project/scratch/p200177/DE_371/angeliquebonamy/data_basile_inv/samples_AROME_for_AE_1/stat/stat_file/{params.max_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
+        Mins = np.load(f'{params.real_data_dir}/stat_files/{params.min_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
+        Maxs = np.load(f'{params.real_data_dir}/stat_files/{params.max_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
+    
     else:
        raise ValueError(f"Unknown normalization: {params.normalization}")
 
@@ -250,6 +253,7 @@ if __name__=="__main__" :
                 if params.normalization=="meanmax":
                    Ens_r = torch.tensor(0.95*(Ens_r - Means) / (Maxs), dtype = torch.float32)
                 elif params.normalization=="minmax":
+                   print('NORMALLLLL',Mins,Maxs)
                    Ens_r = torch.tensor(-1. + 2*(Ens_r - Mins) / (Maxs-Mins), dtype = torch.float32)
                 else:
                    raise ValueError(f"Unknown normalization: {params.normalization}")

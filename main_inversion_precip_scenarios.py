@@ -91,7 +91,7 @@ if __name__=="__main__" :
                         help="Either we compute layer by layer and member per member but we have to triple th einput to make it rgb or all in one (naive)")
     # not pre-trained: '/project/scratch/p200177/DE_371/resources/vgg_weights/vgg16-random.pth'
     # pre_trained: /project/scratch/p200177/DE_371/resources/vgg_weights/vgg16-397923af.pth
-    parser.add_argument("--vgg_state_dict_path", type=str, default='/project/scratch/p200177/DE_371/resources/vgg_weights/vgg16-random.pth', help="Insert a path")
+    parser.add_argument("--vgg_state_dict_path", type=str, default='/project/scratch/p200177/DE_371/resources/vgg_weights/vgg16-397923af.pth', help="Insert a path")
     parser.add_argument("--vgg_style_layers", type=int, nargs='+', default=[], help="style layers to include in vgg loss computation")
     parser.add_argument("--vgg_feature_layers", type=int, nargs='+', default=[0,1,2,3], help="feature layers to include in vgg computation")
     parser.add_argument("--vgg_alpha_feature", type=float, default=1.0, help="weight of the feature/content loss")
