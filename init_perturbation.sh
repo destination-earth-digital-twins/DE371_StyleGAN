@@ -21,16 +21,16 @@ apptainer exec --nv /project/scratch/p200177/DE_371/resources/apptainer_containe
         --real_data_dir='/project/home/p200177/DE_371/datasets/dataset_Meteo_France/IS_1_1.0_0_0_0_0_0_256_large_lt_done/' \
         --data_dir='/project/home/p200177/DE_371/experiments_WP1/inversion_process_analysis/final_inversion_on_test_set/perceptual_exp45/inversion/' \
         --pack_dir='/project/home/p200177/DE_371/experiments_WP1/inversion_process_analysis/final_inversion_on_test_set/pack_meanmax/' \
-        --output_dir='/project/home/p200177/DE_371/experiments_WP1/inversion_process_analysis/final_inversion_on_test_set/perceptual_exp45/perturbation/' \
+        --output_dir='/project/home/p200177/DE_371/experiments_WP1/inversion_process_analysis/final_inversion_on_test_set/perceptual_exp45/perturbation_little/' \
         --scale_dir='/project/home/p200177/DE_371/datasets/dataset_Meteo_France/scale_dir_gan_training/' \
         --eigendir='/project/home/p200177/DE_371/datasets/dataset_Meteo_France/eigenvalues_gan_training/' \
         --device='cuda' \
-        --N_samples=112 \
+        --N_samples=16 \
         --N_conditioners=16 \
         --inv_step=1000 \
         --style_indices='[1,1,1,1,1,1,1,1,1,1,0,0,0,0]' \
-        --date_start=2021-06-10 \
-        --date_stop=2021-12-10 \
+        --date_start=2021-08-14 \
+        --date_stop=2021-08-15 \
         --leadtimes='[3,6,9,12,15,18,21,24,27,30,33,36,39,42]' \
         --save_w_perturbated \
         

@@ -184,24 +184,25 @@ if __name__=="__main__" :
                     loss = args.lambda_bias * mean_loss + args.lambda_spread * std_loss
             elif args.optim_criterion == 'exchangeability':
                 # TODO : Not operationnal at all, need to be tested
-                loss_batch_y = 0
-                for i in range(batch_y.shape[0]):
-                    for j in range(i, batch_y.shape[0]):
-                        if i!=j: # TODO : Maybe the MSE is not an optimal distance criterion
-                            loss_batch_y+=F.mse_loss(batch_y[i], batch_y[j])
-                loss_gen = 0
-                for i in range(gen.shape[0]):
-                    for j in range(i, gen.shape[0]):
-                        if i!=j:
-                            loss_gen+=F.mse_loss(gen[i], gen[j])
+                # Naïve version
+                # loss_batch_y = 0
+                # for i in range(batch_y.shape[0]):
+                #     for j in range(i, batch_y.shape[0]):
+                #         if i!=j: # TODO : Maybe the MSE is not an optimal distance criterion
+                #             loss_batch_y+=F.mse_loss(batch_y[i], batch_y[j])
+                # loss_gen = 0
+                # for i in range(gen.shape[0]):
+                #     for j in range(i, gen.shape[0]):
+                #         if i!=j:
+                #             loss_gen+=F.mse_loss(gen[i], gen[j])
                 
-                loss_inter = 0
-                for i in range(batch_y.shape[0]):
-                    for j in range(gen.shape[0]):
-                        loss_inter+=F.mse_loss(batch_y[i], gen[j])
+                # loss_inter = 0
+                # for i in range(batch_y.shape[0]):
+                #     for j in range(gen.shape[0]):
+                #         loss_inter+=F.mse_loss(batch_y[i], gen[j])
                 
-                loss = loss_batch_y - 2 * loss_inter + loss_gen
-
+                # loss = loss_batch_y - 2 * loss_inter + loss_gen
+                raise NotImplementedError
 
             optimizer.zero_grad()
             loss.backward()

@@ -125,6 +125,7 @@ def main():
 
     parser.add_argument('--multi_timestep_mode', action='store_true')
     parser.add_argument('--nb_timesteps', type=int, default=24)
+    parser.add_argument('--g_channels', type=int, default=3)
     parser.add_argument('--timestep_period', type=int, default=1)
     parser.add_argument('--var_names', type=str2list, default=['u','v','t2m'])#, 'orog'])
     parser.add_argument('--device', type=str, default='cuda:0')#, 'orog'])
@@ -135,12 +136,9 @@ def main():
     args.n_mlp = 8
     mem_cuda = torch.cuda.memory_allocated(device=device)
     print('memory_allocated {}'.format(humanbytes(mem_cuda)))
-    if args.multi_timestep_mode :
-        nb_var=args.nb_timesteps
-    else :
-        nb_var=len(args.var_names)
+
     g_ema = Generator(
-        args.size, args.latent, args.n_mlp, channel_multiplier=args.channel_multiplier, nb_var=nb_var
+        args.size, args.latent, args.n_mlp, channel_multiplier=args.channel_multiplier, nb_var=args.g_channels
     ).to(device)
 
     mem_g = torch.cuda.memory_allocated(device=device)-mem_cuda

@@ -16,8 +16,26 @@ import matplotlib.pyplot as plt
 from inversion.vgg_perceptual_loss import VGGPerceptualLoss
 from inversion.ssim import MS_SSIM
 import scipy
-
 torch.manual_seed(42) #reproducibility of runs
+
+def calc_anomaly_correlation_coefficient(x,y):
+    r"""Pearson product-moment correlation coefficient.
+
+    A measure of the linear association between the forecast and verification data that
+    is independent of the mean and variance of the individual distributions. This is
+    also known as the Anomaly Correlation Coefficient (ACC) when correlating anomalies.
+
+    .. math::
+        corr = \frac{cov(f, o)}{\sigma_{f}\cdot\sigma_{o}},
+
+    where :math:`\sigma_{f}` and :math:`\sigma_{o}` represent the standard deviation
+    of the forecast and verification data over the experimental period, respectively.
+    
+    Args:
+
+    """
+    return torch.cov(torch.cat((x.unsqueeze(1),y.unsqueeze(1)), dim=1)) / (torch.std(x,dim=0, unbiased=True)*torch.std(y,dim=0, unbiased=True))
+    
 
 if __name__=="__main__" :
     
@@ -61,8 +79,8 @@ if __name__=="__main__" :
 
     ########################## CONTROL of Data to invert ######################
     parser.add_argument("--dates_file", type=str, default = 'Large_lt_test_labels.csv')
-    parser.add_argument("--date_start", type=str, default = "2021-08-14")
-    parser.add_argument("--date_stop", type=str, default = "2021-08-15")
+    parser.add_argument("--date_start", type=str, default = "2021-10-02")
+    parser.add_argument("--date_stop", type=str, default = "2021-10-03")
     parser.add_argument("--leadtimes", type=utils.str2intlist, default=[3,6,9,12,15,18,21,24,27,30,33,36,39,42,44])
     
     parser.add_argument("--seed", type=int, default=42)
@@ -114,6 +132,7 @@ if __name__=="__main__" :
     # Distance between two members look into : https://climpred.readthedocs.io/en/stable/metrics.html
     # https://confluence.ecmwf.int/display/FUG/Section+6.2.2+Anomaly+Correlation+Coefficient
     #################### main loop ##################
+    
     for date_ in list_dates:
         print(date_)
         datename = date_.strftime('%Y-%m-%d')
@@ -149,12 +168,13 @@ if __name__=="__main__" :
 
             nb_member, _, _ ,_ = Ens_r.shape
             nb_gen_member, _, _ ,_ = Ens_gen.shape
-            nb_gen_member = 16*2
+
             dist_l2 = np.zeros((nb_member+nb_gen_member, nb_member+nb_gen_member))
             dist_l1 = np.zeros((nb_member+nb_gen_member, nb_member+nb_gen_member))
             dist_vgg = np.zeros((nb_member+nb_gen_member, nb_member+nb_gen_member))
             dist_ssim = np.zeros((nb_member+nb_gen_member, nb_member+nb_gen_member))
             pearson = np.ones((nb_member+nb_gen_member, nb_member+nb_gen_member))
+            anomaly_correlation_coefficient = np.ones((nb_member+nb_gen_member, nb_member+nb_gen_member))
             
             for i in range(nb_member+nb_gen_member):
                 for j in range(i, nb_member+nb_gen_member):
@@ -186,6 +206,11 @@ if __name__=="__main__" :
                             pearson[i][j]=scipy.stats.pearsonr((Ens_r[i].flatten().cpu()+1)/2, (Ens_r[j].flatten().cpu()+1)/2).statistic
                             pearson[j][i]=pearson[i][j]
 
+                            #ACC
+                            # anomaly_correlation_coefficient[i][j]=calc_anomaly_correlation_coefficient((Ens_r[i].flatten().cpu()+1)/2, (Ens_r[j].flatten().cpu()+1)/2)
+                            # anomaly_correlation_coefficient[i][j]=climpred.metrics._pearson_r((Ens_r[i].flatten().cpu().numpy()+1)/2, (Ens_r[j].flatten().cpu().numpy()+1)/2)
+                            # anomaly_correlation_coefficient[j][i]=anomaly_correlation_coefficient[i][j]
+
                         elif i < nb_member and j >=  nb_member :
                             # Distance between AROME and Generated samples
 
@@ -211,6 +236,10 @@ if __name__=="__main__" :
                             #Pearson correlation coef
                             pearson[i][j]=scipy.stats.pearsonr((Ens_r[i].flatten().cpu()+1)/2, (Ens_gen[j-nb_member].flatten().cpu()+1)/2).statistic
                             pearson[j][i]=pearson[i][j]
+                            #ACC
+                            # anomaly_correlation_coefficient[i][j]=calc_anomaly_correlation_coefficient((Ens_r[i].flatten().cpu()+1)/2, (Ens_gen[j-nb_member].flatten().cpu()+1)/2)
+                            # # anomaly_correlation_coefficient[i][j]=climpred.metrics._pearson_r((Ens_r[i].flatten().cpu().numpy()+1)/2, (Ens_gen[j-nb_member].flatten().cpu().numpy()+1)/2)
+                            # # anomaly_correlation_coefficient[j][i]=anomaly_correlation_coefficient[i][j]
 
                         elif i >= nb_member and j >= nb_member :
                             # Distance of Generated members with themselves
@@ -237,12 +266,15 @@ if __name__=="__main__" :
                             #Pearson correlation coef
                             pearson[i][j]=scipy.stats.pearsonr((Ens_gen[i-nb_member].flatten().cpu()+1)/2, (Ens_gen[j-nb_member].flatten().cpu()+1)/2).statistic
                             pearson[j][i]=pearson[i][j]
+                            #ACC
+                            # anomaly_correlation_coefficient[i][j]=calc_anomaly_correlation_coefficient((Ens_gen[i-nb_member].flatten().cpu()+1)/2, (Ens_gen[j-nb_member].flatten().cpu()+1)/2)
+                            # # anomaly_correlation_coefficient[i][j]=climpred.metrics._pearson_r((Ens_gen[j-nb_member].flatten().cpu().numpy()+1)/2, (Ens_gen[j-nb_member].flatten().cpu().numpy()+1)/2)
+                            # # anomaly_correlation_coefficient[j][i]=anomaly_correlation_coefficient[i][j]
 
             dist_l2 = (dist_l2-dist_l2.min())/(dist_l2.max()-dist_l2.min())
             dist_l1 = (dist_l1-dist_l1.min())/(dist_l1.max()-dist_l1.min())
             dist_vgg = (dist_vgg-dist_vgg.min())/(dist_vgg.max()-dist_vgg.min())
             dist_ssim = (dist_ssim-dist_ssim.min())/(dist_ssim.max()-dist_ssim.min())
-            pearson = (pearson-pearson.min())/(pearson.max()-pearson.min())
 
             fig, ax = plt.subplots(nrows=1, ncols=5, figsize=(16,5))
             im=ax[0].matshow(dist_l2, cmap='plasma')
@@ -270,6 +302,11 @@ if __name__=="__main__" :
             ax[4].set_yticks([])
             ax[4].set_title('Pearson Correlation')
             fig.colorbar(im, ax=ax[4], shrink=0.5)
+            # im=ax[5].matshow(anomaly_correlation_coefficient, cmap='plasma')
+            # ax[5].set_xticks([])
+            # ax[5].set_yticks([])
+            # ax[5].set_title('Anomaly Correlation Coefficient')
+            # fig.colorbar(im, ax=ax[5], shrink=0.5)
 
             fig.tight_layout()
-            fig.savefig(params.output_dir+f'distance_between_member_{datename}_{lt}.png')
+            fig.savefig(params.output_dir+f'distance_between_member_{datename}_{lt}_{nb_gen_member}.png')

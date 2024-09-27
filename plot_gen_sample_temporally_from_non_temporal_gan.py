@@ -107,13 +107,12 @@ if __name__=="__main__" :
         for lt in params.leadtimes :
             try :
                 path_to_sample = params.gen_sample_dir + f"genFsemble_{date_}_{lt}_{params.invstep}_16{label_perturbation}.npy"    
-                Ens_gen.append(np.load(path_to_sample)[10:27])
+                Ens_gen.append(np.load(path_to_sample)[list(range(2,112,7))])
             except :
                 print(f"File 'genFsemble_{date_}_{lt}_{params.invstep}_16{label_perturbation}.npy' Not Found")
         Ens_gen = np.array(Ens_gen)
         Ens_gen = utils.rescale(Ens_gen, Means, Maxs, 1/0.95)
         
-
         Nb_member=16
         if display_AROME:
             fig0, ax0 = plt.subplots(nrows=Nb_member, ncols=14, figsize=(200,200))
