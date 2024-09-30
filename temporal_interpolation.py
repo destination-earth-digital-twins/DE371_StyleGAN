@@ -5,6 +5,8 @@ from collections import OrderedDict
 
 from gan.model.stylegan2 import Generator
 
+import perturbation.utils as utils
+
 def load_network(params):
     ################ loading network #################
     G = Generator(params.Shape[1], 512,n_mlp=8, nb_var=params.Shape[0])
@@ -61,31 +63,47 @@ if __name__=="__main__" :
     parser = argparse.ArgumentParser()
 
     parser.add_argument("--Shape", type=tuple, default=(3,256,256), help='size of the samples')
+    parser.add_argument('--device', type=str, default='cuda')
     parser.add_argument('--ckpt_dir', type = str, 
                             default ='/project/scratch/p200177/DE_371/victorsanchez/models/trained_generator/000024.pt')
-    parser.add_argument('--device', type=str, default='cuda')
+    parser.add_argument('--latent_vectors_dir', type = str, 
+                        default='/project/home/p200177/DE_371/experiments_WP1/inversion_process_analysis/inversion/exp34/inversion')
+    parser.add_argument('--output_dir',type = str, 
+                        default ='/project/scratch/p200177/DE_371/temporal_downscaling_experiments/u101834/2021-07-16')
+    parser.add_argument("--date", type=str, default = "2021-07-16")
+    parser.add_argument("--input_leadtimes", type=utils.str2intlist, default=[3,9,15,21,27,33,39])
+    parser.add_argument("--ref_leadtimes", type=utils.str2intlist, default=[6,12,18,24,30,33])
+    parser.add_argument("--invstep", type=int, default=2000, help="optimize iterations")
     params = parser.parse_args()
 
-
     G = load_network(params)
-    latent_vector_3h = np.load("/project/scratch/p200177/DE_371/temporal_downscaling_experiments/u101834/latent_vectors/w_2021-07-16_3_2000.npy")
-    latent_vector_3h = torch.from_numpy(latent_vector_3h)
+    input_latent_vectors = []
 
-    latent_vector_6h = np.load("/project/scratch/p200177/DE_371/temporal_downscaling_experiments/u101834/latent_vectors/w_2021-07-16_6_2000.npy")
-    latent_vector_6h = torch.from_numpy(latent_vector_6h)
-
-    latent_vector_9h = np.load("/project/scratch/p200177/DE_371/temporal_downscaling_experiments/u101834/latent_vectors/w_2021-07-16_9_2000.npy")
-    latent_vector_9h = torch.from_numpy(latent_vector_9h)
-
-    interpolated_latent_vector = (latent_vector_3h + latent_vector_9h) / 2
-
-    img_generated_3h = generate_image_from_latent(latent_vector_3h, G, params.device)
-    img_generated_6h = generate_image_from_latent(latent_vector_6h, G, params.device)
-    img_generated_9h = generate_image_from_latent(latent_vector_9h, G, params.device)
-    img_generated_6h_interpolated = generate_image_from_latent(interpolated_latent_vector, G, params.device)
-
-    np.save("/project/scratch/p200177/DE_371/temporal_downscaling_experiments/u101834/2021-07-16_3.npy", img_generated_3h.cpu().detach().numpy())
-    np.save("/project/scratch/p200177/DE_371/temporal_downscaling_experiments/u101834/2021-07-16_6.npy", img_generated_6h.cpu().detach().numpy())
-    np.save("/project/scratch/p200177/DE_371/temporal_downscaling_experiments/u101834/2021-07-16_9.npy", img_generated_9h.cpu().detach().numpy())
-    np.save("/project/scratch/p200177/DE_371/temporal_downscaling_experiments/u101834/2021-07-16_6_interpolated.npy", img_generated_6h.cpu().detach().numpy())
+    for input_leadtime in params.input_leadtimes:
+        latent_vector = np.load(f"{params.latent_vectors_dir}/w_{params.date}_{input_leadtime}_{params.invstep}.npy")
+        latent_vector = torch.from_numpy(latent_vector)
+        input_latent_vectors.append(latent_vector)
+        img_generated = generate_image_from_latent(latent_vector, G, params.device)
+        np.save(
+            f"{params.output_dir}/inv_{params.date}_{input_leadtime}_{params.invstep}.npy", 
+            img_generated.cpu().detach().numpy()
+            )
     
+    for ref_leadtime in params.ref_leadtimes:
+        latent_vector = np.load(f"{params.latent_vectors_dir}/w_{params.date}_{ref_leadtime}_{params.invstep}.npy")
+        latent_vector = torch.from_numpy(latent_vector)
+        img_generated = generate_image_from_latent(latent_vector, G, params.device)
+        np.save(
+            f"{params.output_dir}/inv_{params.date}_{ref_leadtime}_{params.invstep}.npy", 
+            img_generated.cpu().detach().numpy()
+            )
+
+    for i, ref_leadtime in zip(range(len(input_latent_vectors)), params.ref_leadtimes):
+        if i == len(input_latent_vectors) - 1:
+            break
+        intepolated_vector = (input_latent_vectors[i] + input_latent_vectors[i + 1]) / 2
+        img_generated = generate_image_from_latent(intepolated_vector, G, params.device)
+        np.save(
+            f"{params.output_dir}/interpolated_{params.date}_{ref_leadtime}_{params.invstep}.npy", 
+            img_generated.cpu().detach().numpy()
+            )
