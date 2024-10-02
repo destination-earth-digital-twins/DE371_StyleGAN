@@ -72,7 +72,7 @@ if __name__=="__main__" :
                         default ='/project/scratch/p200177/DE_371/temporal_downscaling_experiments/u101834/2021-07-16')
     parser.add_argument("--date", type=str, default = "2021-07-16")
     parser.add_argument("--input_leadtimes", type=utils.str2intlist, default=[3,9,15,21,27,33,39])
-    parser.add_argument("--ref_leadtimes", type=utils.str2intlist, default=[6,12,18,24,30,33])
+    parser.add_argument("--ref_leadtimes", type=utils.str2intlist, default=[6,12,18,24,30,36])
     parser.add_argument("--invstep", type=int, default=2000, help="optimize iterations")
     params = parser.parse_args()
 

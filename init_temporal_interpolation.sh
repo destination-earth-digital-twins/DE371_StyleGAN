@@ -23,6 +23,6 @@ apptainer exec --nv /project/scratch/p200177/DE_371/resources/apptainer_containe
         --output_dir='/project/scratch/p200177/DE_371/temporal_downscaling_experiments/u101834/2021-07-16' \
         --date=2021-07-16 \
         --input_leadtimes='[3,9,15,21,27,33,39]' \
-        --ref_leadtimes='[6,12,18,24,30,33]' \
+        --ref_leadtimes='[6,12,18,24,30,36]' \
         --invstep=2000 \
 
