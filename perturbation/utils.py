@@ -205,7 +205,7 @@ def collate_gen_ensemble(data_dir, members, lead_time , var_indices, inv_step, a
         dataloaded = np.load(data_dir + f'genFsemble_{lead_time}_875.npy', mmap_mode='r').astype(np.float32)
     elif os.path.exists(data_dir + f'genFsemble_0_{lead_time}_{inv_step}.npy') :
         dataloaded=[]
-        for i in range(0, 300):
+        for i in range(0, 50):
             dataloaded.append(np.load(data_dir + f'genFsemble_{i}_{lead_time}_{inv_step}.npy', mmap_mode='r').astype(np.float32)) 
         dataloaded = np.vstack(dataloaded).astype(np.float32)
     else :

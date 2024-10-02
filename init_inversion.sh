@@ -21,21 +21,22 @@ module load Apptainer/1.2.4-GCCcore-12.3.0
 apptainer exec --nv /project/scratch/p200177/DE_371/resources/apptainer_container/container.sif python3 main_inversion.py \
         --ckpt_dir='/project/scratch/p200177/DE_371/victorsanchez/models/trained_generator/000024.pt' \
         --real_data_dir='/project/home/p200177/DE_371/datasets/dataset_Meteo_France/IS_1_1.0_0_0_0_0_0_256_large_lt_done/' \
-        --output_dir='/project/home/p200177/DE_371/experiments_WP1/inversion_process_analysis/final_inversion_on_test_set/test_to_delete/' \
-        --pack_dir='/project/home/p200177/DE_371/experiments_WP1/inversion_process_analysis/final_inversion_on_test_set/pack_meanmax/' \
+        --output_dir='/project/scratch/p200177/DE_371/victorsanchez/results/member_inversion/test_patch_inversion_split_factor=8/' \
+        --pack_dir='' \
         --device='cuda' \
         --lambda_pixel=0 \
-        --lambda_vgg=1e5 \
+        --lambda_vgg=1 \
         --lambda_ms_ssim=0 \
         --vgg_computation='sol2' \
-        --lambda_noise=0 \
+        --lambda_noise=1e5 \
         --noise_optimize \
-        --invstep=1 \
-        --resize_vgg_input=0 \
-        --inv_checkpoints='[2000]' \
+        --invstep=1000 \
+        --inv_checkpoints='[250,500,750,1000]' \
         --vgg_feature_layers='[0,1,2,3]' \
-        --date_start=2021-0 \
+        --date_start=2021-07-01 \
         --date_stop=2021-07-02 \
-        --leadtimes='[3,6,9,12,15,18,21,24,27,30,33,36,39,42]' \
+        --leadtimes='[3]' \
         --vgg_state_dict_path='/project/scratch/p200177/DE_371/resources/vgg_weights/vgg16-random.pth' \
         --plot_checkpoint
+
+

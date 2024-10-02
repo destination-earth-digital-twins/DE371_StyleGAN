@@ -92,20 +92,20 @@ def main():
     parser.add_argument(
         "--sample",
         type=int,
-        default=64,
+        default=256,
         help="number of samples to be generated per batch",
     )
     
     parser.add_argument(
-        "--n_batches", type=int, default=256, help="number of batches to be generated"
+        "--n_batches", type=int, default=64, help="number of batches to be generated"
     )
     
     parser.add_argument(
-        "--list_steps", type=str2list, default=[68000,102000,136000], help="list of training steps to be used as checkpoints"
+        "--list_steps", type=str2list, default=[206000], help="list of training steps to be used as checkpoints"
     )
 
     parser.add_argument(
-        "--training_dir", type=str, default="/project/scratch/p200177/DE_371/victorsanchez/results/gan_training/exp11bis_seq_GAN_exp_train_sequential_every_6h_20000_u_v_t2m_channel_multiplier=6/" # change with your path
+        "--training_dir", type=str, default="/project/scratch/p200177/DE_371/victorsanchez/results/gan_training/exp5/" # change with your path
     )
 
     parser.add_argument("--truncation", type=float, default=1, help="truncation ratio")
@@ -119,14 +119,14 @@ def main():
     parser.add_argument(
         "--channel_multiplier",
         type=int,
-        default=6,
+        default=2,
         help="channel multiplier of the generator. config-f = 2, else = 1",
     )
 
     parser.add_argument('--multi_timestep_mode', action='store_true')
-    parser.add_argument('--nb_timesteps', type=int, default=24)
-    parser.add_argument('--g_channels', type=int, default=3)
-    parser.add_argument('--timestep_period', type=int, default=1)
+    parser.add_argument('--nb_timesteps', type=int, default=15)
+    parser.add_argument('--g_channels', type=int, default=45)
+    parser.add_argument('--timestep_period', type=int, default=3)
     parser.add_argument('--var_names', type=str2list, default=['u','v','t2m'])#, 'orog'])
     parser.add_argument('--device', type=str, default='cuda:0')#, 'orog'])
 

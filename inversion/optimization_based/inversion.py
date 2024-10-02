@@ -9,6 +9,7 @@ import numpy as np
 import pickle
 from tqdm import tqdm
 from inversion.vgg_perceptual_loss import VGGPerceptualLoss
+from inversion.patch_vgg_perceptual_loss import PatchVGGPerceptualLoss
 from inversion.plotter import online_inv_plot_2, online_inv_plot
 import inversion.PerceptualSimilarity.lpips as lpips
 from inversion.ssim import ssim, ms_ssim, SSIM, MS_SSIM
@@ -184,12 +185,21 @@ def optimize(Ens_r, g_ema, latent_mean, device, params):
     if params.hd_vgg :
         VGG_loss = VGG16ConvLoss().to(device).requires_grad_(False)
     else :
-        if params.lambda_vgg>0 :
+        if params.lambda_vgg>0 and not params.patch_mode:
             VGG_loss = VGGPerceptualLoss(
                             state_dict_path=params.vgg_state_dict_path,
                             init_layer=True if params.vgg_computation=='sol4' else False,
                             vgg_single_channel_input=True if params.vgg_computation=='sol5' else False
             ).to(device)
+
+        elif params.lambda_vgg>0 and params.patch_mode:
+            VGG_loss = PatchVGGPerceptualLoss(
+                            state_dict_path=params.vgg_state_dict_path,
+                            init_layer=True if params.vgg_computation=='sol4' else False,
+                            vgg_single_channel_input=True if params.vgg_computation=='sol5' else False,
+                            split_factor=params.split_factor
+            ).to(device)
+
     if params.lambda_lpips>0:
         LPIPS_loss = lpips.LPIPS(
             net=params.lpips_pnet, 

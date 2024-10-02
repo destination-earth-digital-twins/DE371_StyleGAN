@@ -244,17 +244,17 @@ class Trainer():
             self.optim_G.load_state_dict(load_optim["g_optim"])
             self.optim_D.load_state_dict(load_optim["d_optim"])
 
-        if self.config.lrD_sched != "None":
+        if self.config.pretrained_model <= 0 and self.config.lrD_sched != "None":
             self.scheduler_D = AllocScheduler(self.config.lrD_sched, self.optim_D, self.config.lrD_gamma, "Discriminator", base_lr=self.config.lr_D * d_reg_ratio)
-        elif self.config.pretrained_model > 0:
+        elif self.config.pretrained_model > 0 and self.config.lrD_sched != "None" :
             print("Loading scheduler from pretrained stage for Discriminator...")   
             self.scheduler_D.load_state_dict(torch.load(f"{self.config.output_dir}/models/SchedDisc_{self.config.pretrained_model}"))
         else :
             print(f"Schedulers for Discriminator set to None")
         
-        if self.config.lrG_sched != "None":
+        if self.config.pretrained_model <= 0 and self.config.lrG_sched != "None":
             self.scheduler_G = AllocScheduler(self.config.lrG_sched, self.optim_G, self.config.lrG_gamma, "Generator", base_lr=self.config.lr_G * g_reg_ratio)
-        elif self.config.pretrained_model > 0:
+        elif self.config.pretrained_model > 0 and self.config.lrD_sched != "None" :
             print("Loading scheduler from pretrained stage for Generator...")   
             self.scheduler_G.load_state_dict(torch.load(f"{self.config.output_dir}/models/SchedGen_{self.config.pretrained_model}"))
         else :

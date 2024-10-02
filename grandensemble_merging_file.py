@@ -27,6 +27,7 @@ members = list(range(params.num_member))
 for lt in tqdm(params.leadtimes) :
     if not os.path.isfile(params.output_dir + f'Pack/Rsemble_{lt}_875.npy'):
         # Loading Original samples
+        print('Merging Rsemble files')
         Ens_r=utils.collate_R_ensemble(
             data_dir=params.pack_dir,
             members=members,
@@ -37,6 +38,7 @@ for lt in tqdm(params.leadtimes) :
 
     if not os.path.isfile(params.output_dir + f'Inversion/invertFsemble_{lt}_875.npy'):
         # Loading Inverted samples
+        print('Merging invertFsemble files')
         inv_ens=utils.collate_inv_ensemble(
             data_dir=params.inv_data_dir,
             members=members,
@@ -44,14 +46,16 @@ for lt in tqdm(params.leadtimes) :
             var_indices=params.var_indices,
             inv_step=params.inv_step
         )
-        np.save(params.output_dir + f'Inversion/invertFsemble_{lt}_875.npy', inv_ens)
+        np.save(params.output_dir + f'Inversion/genFsemble__{lt}_875.npy', inv_ens)
 
-    # # Loading Generated samples
-    # gen_ens = utils.collate_gen_ensemble(
-    #     data_dir=params.gen_data_dir,
-    #     members=members,
-    #     lead_time=lt,
-    #     var_indices=params.var_indices,
-    #     inv_step=params.inv_step
-    # )
-    # np.save(params.output_dir + f'Gen/genFsemble_{lt}_{params.inv_step}_875.npy', gen_ens)
+    if not os.path.isfile(params.output_dir + f'Gen/genFsemble_{lt}_875.npy'):
+        # Loading Generated samples
+        print('Merging genFsemble files')
+        gen_ens = utils.collate_gen_ensemble(
+            data_dir=params.gen_data_dir,
+            members=members,
+            lead_time=lt,
+            var_indices=params.var_indices,
+            inv_step=params.inv_step
+        )
+        np.save(params.output_dir + f'Gen/genFsemble_{lt}_875.npy', gen_ens)

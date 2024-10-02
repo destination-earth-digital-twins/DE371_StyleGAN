@@ -118,6 +118,9 @@ if __name__=="__main__" :
     parser.add_argument("--vgg_alpha_feature", type=float, default=1.0, help="weight of the feature/content loss")
     parser.add_argument("--vgg_alpha_style", type=float, default=0.01, help="weight of the style loss")
     parser.add_argument("--vgg_loss_after_step", type=float, default=0, help="compute the vgg loss only after a given number of steps")
+    parser.add_argument("--patch_mode", action='store_true')
+    parser.add_argument("--split_factor", type=int, default=2, help="splitting factor for patching")
+    
 
     parser.add_argument("--invstep", type=int, default=2000, help="optimize iterations")
     parser.add_argument("--inv_checkpoints", type=utils.str2intlist, default=[10,50,100,250,500,1000,1500,2000])
