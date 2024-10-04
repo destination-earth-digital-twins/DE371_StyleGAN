@@ -63,15 +63,21 @@ def sm_pca(
         Whitening=None,
         Coloring=None,
         w0=None,
-        renorm=False
+        renorm=False,
+        import_perturbation=False,
+        save_perturbation=False,
+        path_perturbation=''
     ):
     
     N, R, D = Ens_w.shape
     per_cond = int(ceil(N_samples / N_seeds))
     
-    Ens_final = np.zeros((N * per_cond,3,256,256), dtype = 'float32')
-    w_final = np.zeros((N * per_cond, R, D))
-    
+    Ens_perturbated = np.zeros((N * per_cond,3,256,256), dtype = 'float32')
+    w_perturbated = np.zeros((N * per_cond, R, D))
+    if save_perturbation and not import_perturbation :
+        perturbation = np.zeros((N * per_cond, R, D))
+    if save_perturbation and import_perturbation :
+        raise NotImplementedError
     sm_ind_np = np.array(sm_ind).astype(np.bool_)
 
     w_extract = Ens_w[:,sm_ind_np,:].to(device)
@@ -85,8 +91,12 @@ def sm_pca(
         assert w0 is not None
         if verbose: print(f"scale {scale}")
         if n_styles_pert>0:
-            Cov, w_avg = pca.computeReducedCovarianceW(w_extract,cut=N-1,
-                                                verbose=verbose,renorm=renorm)
+            Cov, w_avg = pca.computeReducedCovarianceW(
+                                                        w_extract,
+                                                        cut=N-1,
+                                                        verbose=verbose,
+                                                        renorm=renorm
+            )
         else:
             Cov, w_avg = None, None
     else:
@@ -103,28 +113,50 @@ def sm_pca(
         for k in range(N_seeds) : # generating a common multiple of each conditioning sample
             if verbose: print(f"member {k} is fixed")
             if sample_rule=='stochastic':
+                # Interpolation between mean inverted w and w samples
+                w_start = interp.view(1,14,1) * Ens_w1.mean(dim=0) + (1.0 - interp).view(1,14,1) * Ens_w1[k]
+                # TODO : Why not only Ens_w1[k] - Ens_w1.mean?
+
+                # Using Whitening matrix to *** 
                 if n_styles_pert:
                     z = torch.empty((per_cond,D)).normal_().contiguous().to(device)
                     with torch.no_grad():
                         w = G.style(z)
-                    diff = torch.bmm(Whitening.to(device).unsqueeze(0).repeat(per_cond,1,1), 
-                                     (w - w.mean(dim=0)).unsqueeze(-1)) # diff of shape N_samples  x D
+                    diff = torch.bmm(
+                        Whitening.to(device).unsqueeze(0).repeat(per_cond,1,1), 
+                        (w - w.mean(dim=0)).unsqueeze(-1)
+                    ) # diff of shape N_samples  x D
+
                     new_w = torch.einsum('abc, dc-> dab',Cov, diff.squeeze(dim=-1))
 
-                w_start = interp.view(1,14,1) * Ens_w1.mean(dim=0) + (1.0 - interp).view(1,14,1) * Ens_w1[k]
-                if (R - n_styles_pert)>0:
-                    z = torch.empty((per_cond,512)).normal_().to(device)
-                    with torch.no_grad():
-                        w_nopca = G.style(z)
-                    if n_styles_pert>0:
-                        w_pert = torch.cat([new_w, (w_nopca - w_nopca.mean(dim=0)).unsqueeze(1).repeat(1,(R-n_styles_pert),1)],dim=1)
+                
+                if import_perturbation :
+                    if path_perturbation :
+                        w_pert = np.load(path_perturbation)[k * per_cond : (k + 1) * per_cond]
+                        w_pert = torch.from_numpy(w_pert).to(device)
+                    else :
+                        print('Specify a path for the perturbation')
+                        raise FileNotFoundError
+                else :
+                    if (R - n_styles_pert)>0:
+                        z = torch.empty((per_cond,512)).normal_().to(device)
+                        with torch.no_grad():
+                            w_nopca = G.style(z)
+                        if n_styles_pert>0:
+                            w_pert = torch.cat([new_w, (w_nopca - w_nopca.mean(dim=0)).unsqueeze(1).repeat(1,(R-n_styles_pert),1)],dim=1)
+                        else:
+                            w_pert = (w_nopca - w_nopca.mean(dim=0)).unsqueeze(1).repeat(1,(R-n_styles_pert),1)
                     else:
-                        w_pert = (w_nopca - w_nopca.mean(dim=0)).unsqueeze(1).repeat(1,(R-n_styles_pert),1)
-                else:
-                    w_pert = new_w
-                w_new = w_start + scale.view(1,14,1) * w_pert
+                        w_pert = new_w
+                # w_new = w_inv' + perturbation
+                if import_perturbation :
+                    w_new = w_start + w_pert.type(w_start.type())
+                else :
+                    w_new = w_start + scale.view(1,14,1) * w_pert
                 
             elif sample_rule == 'extrapolation' :
+                if save_perturbation or import_perturbation:
+                    raise NotImplementedError
                 w_interm = []
                 for kk in range(k, N_seeds) :
                     if k != kk:
@@ -134,7 +166,7 @@ def sm_pca(
 
                 if k==(N_seeds-1) :
 
-                    return Ens_final[:N_samples], w_final
+                    return Ens_perturbated[:N_samples], w_perturbated
 
                 else :
 
@@ -145,12 +177,16 @@ def sm_pca(
 
             assert torch.isfinite(w_new).all()
             if verbose : print('wnew', w_new.shape)
-            w = w_new
-            sample, _, _  = G([w.to(device)],input_is_latent = True)
-            Ens_final[k * per_cond : (k + 1) * per_cond] = sample.detach().cpu().numpy()
-            w_final[k * per_cond : (k + 1) * per_cond] = w.detach().cpu().numpy()
-    
-    return Ens_final[:N_samples], w_final
+            sample, _, _  = G([w_new.to(device)],input_is_latent = True)
+            Ens_perturbated[k * per_cond : (k + 1) * per_cond] = sample.detach().cpu().numpy()
+            w_perturbated[k * per_cond : (k + 1) * per_cond] = w_new.detach().cpu().numpy()
+            if save_perturbation and not import_perturbation :
+                perturbation[k * per_cond : (k + 1) * per_cond] = (scale.view(1,14,1) * w_pert).detach().cpu().numpy()
+
+    if save_perturbation and not import_perturbation :
+        return Ens_perturbated[:N_samples], (w_perturbated, perturbation)
+    else :
+        return Ens_perturbated[:N_samples], w_perturbated
 
 def fast_style_mixing(interp, scale, batch_w, Cov, w_avg, w0, n_samples, G, Whitening, device='cpu', scale_rule='linear'):
     """

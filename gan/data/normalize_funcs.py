@@ -82,3 +82,19 @@ class MultiOptionNormalize(object):
         elif self.dataset_handler_yaml["normalization"]["type"] == "minmax" or self.dataset_handler_yaml["normalization"]["type"] == "quant":
             sample = -1 + 2 * ((sample - self.mins) / (self.maxs - self.mins))
         return sample
+    
+    def denorm(self, sample):
+        if not isinstance(sample, Tensor):
+            raise TypeError(f"Input sample should be a torch tensor. Got {type(sample)}.")
+        if sample.ndim < 3:
+            raise ValueError(f"Expected sample to be a tensor image of size (..., C, H, W). Got tensor.size() = {sample.size()}.")
+        if self.gaussian_std != 0:
+            #TODO : to test 
+            print('Warning : This denorm setting was not tested')
+            mask_no_rr = (sample[0].numpy() <= self.gaussian_std)
+            sample[0] = sample[0] - from_numpy(self.gaussian_noise * mask_no_rr)
+        if self.dataset_handler_yaml["normalization"]["type"] == "mean":
+            sample =  self.stds*sample + self.means
+        elif self.dataset_handler_yaml["normalization"]["type"] == "minmax" or self.dataset_handler_yaml["normalization"]["type"] == "quant":
+            sample = (self.maxs - self.mins)*(sample + 1)/2 + self.mins 
+        return sample

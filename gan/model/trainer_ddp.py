@@ -6,10 +6,8 @@ Created on Wed Jun 18 11:11:24 2023
 @authors: brochetc rabaultj
 """
 
-from os import cpu_count
 from tqdm import tqdm
 import time
-from torch.utils.data import DataLoader, DistributedSampler
 import yaml
 
 ########## NN libs ############################################################
@@ -21,7 +19,6 @@ from time import perf_counter
 from functools import wraps
 
 ########## MP libs ############################################################
-import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
 from gan.distributed import (
     get_rank,
@@ -34,7 +31,7 @@ from gan.distributed import (
 import gan.metrics4arome as METR
 import gan.plot.plotting_functions as plotFunc
 import gan.data.dataset_handler_ddp as DSH
-
+import gan.plot.plotting_functions as plf
 import gan.model.GAN_logic as GAN
 
 
@@ -43,7 +40,7 @@ import gan.model.GAN_logic as GAN
 
 ###################### Scheduler choice function ##############################
 
-def AllocScheduler(sched, optimizer, gamma, network):
+def AllocScheduler(sched, optimizer, gamma, network, base_lr=0.1):
     if sched == "exp":
         if is_main_gpu(): print(f"{network} scheduler set to exponential scheduler")
         return optim.lr_scheduler.ExponentialLR(optimizer, gamma=gamma)
@@ -51,6 +48,9 @@ def AllocScheduler(sched, optimizer, gamma, network):
         if is_main_gpu(): print(f"{network} scheduler set to linear scheduler")
         lambda0 = lambda epoch: 1.0 / (1.0 + gamma * epoch)
         return optim.lr_scheduler.LambdaLR(optimizer, lambda0)
+    elif sched == "cyclic":
+        if is_main_gpu(): print(f"{network} scheduler set to cyclic scheduler")
+        return torch.optim.lr_scheduler.CyclicLR(optimizer, base_lr=base_lr, max_lr=4*base_lr, cycle_momentum=False)
     else:
         if is_main_gpu(): print(f"{network} scheduler set to None")
         return None
@@ -191,7 +191,6 @@ class Trainer():
         self.scheduler_G = None
         self.config = config
         self.instance_flag = False
-        self.device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
         # self.test_metrics = []
         # for name in test_metrics:
         #    print("name ", name)
@@ -245,20 +244,22 @@ class Trainer():
             self.optim_G.load_state_dict(load_optim["g_optim"])
             self.optim_D.load_state_dict(load_optim["d_optim"])
 
-        if self.config.scheduler_config != "None":
-            print(f"Scheduler: {self.config.config_dir}{self.config.scheduler_config}")
-            with open(f"{self.config.config_dir}{self.config.scheduler_config}", "r") as sched_config_file:
-                sched_yaml = yaml.safe_load(sched_config_file)
-            self.scheduler_G = AllocScheduler(sched_yaml["G_sched"], self.optim_G, sched_yaml["lrG_gamma"], "Generator")
-            self.scheduler_D = AllocScheduler(sched_yaml["D_sched"], self.optim_D, sched_yaml["lrD_gamma"], "Discriminator")
-        else:
-            print(f"No scheduler_config file provided, shedulers set to None")
-            if self.config.scheduler_config != "" and self.config.pretrained_model > 0:
-                print("Loading scheduler...")
-                self.scheduler_G.load_state_dict(torch.load(f"{self.config.output_dir}/models/SchedGen_{self.config.pretrained_model}"))
-                    
-                self.scheduler_D.load_state_dict(torch.load(f"{self.config.output_dir}/models/SchedDisc_{self.config.pretrained_model}"))
-
+        if self.config.pretrained_model <= 0 and self.config.lrD_sched != "None":
+            self.scheduler_D = AllocScheduler(self.config.lrD_sched, self.optim_D, self.config.lrD_gamma, "Discriminator", base_lr=self.config.lr_D * d_reg_ratio)
+        elif self.config.pretrained_model > 0 and self.config.lrD_sched != "None" :
+            print("Loading scheduler from pretrained stage for Discriminator...")   
+            self.scheduler_D.load_state_dict(torch.load(f"{self.config.output_dir}/models/SchedDisc_{self.config.pretrained_model}"))
+        else :
+            print(f"Schedulers for Discriminator set to None")
+        
+        if self.config.pretrained_model <= 0 and self.config.lrG_sched != "None":
+            self.scheduler_G = AllocScheduler(self.config.lrG_sched, self.optim_G, self.config.lrG_gamma, "Generator", base_lr=self.config.lr_G * g_reg_ratio)
+        elif self.config.pretrained_model > 0 and self.config.lrD_sched != "None" :
+            print("Loading scheduler from pretrained stage for Generator...")   
+            self.scheduler_G.load_state_dict(torch.load(f"{self.config.output_dir}/models/SchedGen_{self.config.pretrained_model}"))
+        else :
+            print(f"Schedulers for Generator set to None")
+        
         return torch.cuda.memory_allocated()
 
     def prepare_data_pipeline(self):
@@ -410,7 +411,10 @@ class Trainer():
 
         batch = torch.cat((batch, samples[:self.config.plot_samples // 4, :, :, :]), dim=0)
 
-        plotFunc.online_sample_plot(self.config, batch, Step)
+        if not self.config.multi_timestep_mode:
+            plotFunc.online_sample_plot(self.config, batch, Step)
+        else :
+            plotFunc.online_temporal_sample_plot(self.config, batch, Step)
 
     def save_models(self, Step, modelG, modelD, modelG_ema=None):
         print("Saving Models")
@@ -441,8 +445,8 @@ class Trainer():
         # Moving back and forth the model to cpu and cuda is absolutely NOT optimal but seems a 
         # good solution to prevent cuda running out of memory
         # modelG.cpu()
-        for i in range(16):
-            z = torch.empty(number, self.config.latent_dim).normal_().cuda()
+        for i in range(number):
+            z = torch.empty(16, self.config.latent_dim).normal_().cuda()
             # z = torch.empty(number,self.config.latent_dim).normal_().cpu()
             with torch.no_grad():
                 out = modelG([z])[0].cpu().numpy()
@@ -459,7 +463,7 @@ class Trainer():
         requires_grad(modelD, True)
 
         samples = samples.cuda()
-
+        # print('Discrim Update, samples has size',samples.size())
         loss_0 = self.D_backward(samples, modelD, modelG,
                                  self.config.latent_dim,
                                  mixing=self.config.mixing,
@@ -578,7 +582,7 @@ class Trainer():
     def fit_(self, modelG, modelD, modelG_ema=None):
 
         assert self.instance_flag  # security flag avoiding meddling with uncomplete init
-
+        
         samples_z = torch.empty(3 * (self.config.plot_samples // 4), self.config.latent_dim).normal_().cuda()
 
         ### generator EMA will be evaluated on samples_z for plotting
@@ -708,6 +712,7 @@ class Trainer():
             if self.config.log_epoch > 0 and (
                     epoch % self.config.log_epoch == 0 or epoch == self.config.epochs_num - 1) and is_main_gpu():
                 self.log(true_epoch)
+                # plf.plot_metrics_from_csv(self.config.output_dir + '/log/', 'metrics.csv')
 
             ############### plotting distribution at plot epoch ############
             if self.plot_epoch > 0 and (
