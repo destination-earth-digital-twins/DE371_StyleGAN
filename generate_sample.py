@@ -105,7 +105,7 @@ def main():
     )
 
     parser.add_argument(
-        "--training_dir", type=str, default="/project/scratch/p200177/DE_371/victorsanchez/results/gan_training/exp5/" # change with your path
+        "--training_dir", type=str, default="/project/home/p200177/DE_371/experiments_WP1/gan_training/exp5/" # change with your path
     )
 
     parser.add_argument("--truncation", type=float, default=1, help="truncation ratio")
@@ -144,7 +144,7 @@ def main():
     mem_g = torch.cuda.memory_allocated(device=device)-mem_cuda
     print('memory_allocated for Generator {}'.format(humanbytes(mem_g)))
     for step in args.list_steps :
-        checkpoint = torch.load(args.training_dir+f'/models/{str(step).zfill(6)}.pt')["g_ema"]
+        checkpoint = torch.load(args.training_dir+f'models/{str(step).zfill(6)}.pt')["g_ema"]
         if 'module' in list(checkpoint.items())[0][0]: # juglling with Pytorch versioning and different module packaging
             ckpt_adapt = OrderedDict()
             for k in checkpoint.keys():

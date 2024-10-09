@@ -212,9 +212,9 @@ def collate_gen_ensemble(data_dir, members, lead_time , var_indices, inv_step, a
         raise FileNotFoundError
 
     if not all_data:
-        dataloaded[members]
+        return dataloaded[members]
     else :
-        dataloaded
+        return dataloaded
 
 def correct_lt(lt):
     if lt<=24:

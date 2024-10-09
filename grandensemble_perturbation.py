@@ -124,12 +124,12 @@ if __name__=="__main__" :
     parser.add_argument('--ckpt_dir', type = str, 
                         default ='/project/scratch/p200177/DE_371/victorsanchez/models/trained_generator/000024.pt')
     parser.add_argument('--real_data_dir', type = str, default ='/project/home/p200177/DE_371/datasets/dataset_Meteo_France/grandEnsemble/AROME/')
-    parser.add_argument('--inv_data_dir', type=str, default='/project/scratch/p200177/DE_371/victorsanchez/results/Grand_Ensemble/Inversion/')
+    parser.add_argument('--inv_data_dir', type=str, default='/project/home/p200177/DE_371/experiments_WP1/Grand_Ensemble/Inversion/')
     parser.add_argument('--output_dir',type = str, 
                         default ='/scratch/work/brochetc/Exp_StyleGAN/Perturbation_GE/')
     parser.add_argument('--eigendir',type = str, 
                         default ='/project/home/p200177/DE_371/datasets/dataset_Meteo_France/eigenvalues_gan_training/')
-    parser.add_argument("--pack_dir", type=str, default = '/project/scratch/p200177/DE_371/victorsanchez/results/Grand_Ensemble/Pack/') # storing "packed" (normalized) real data
+    parser.add_argument("--pack_dir", type=str, default = '/project/home/p200177/DE_371/experiments_WP1/Grand_Ensemble/Pack/') # storing "packed" (normalized) real data
     
     parser.add_argument('--mean_file', type=str, default='Mean_4_var.npy')
     parser.add_argument('--max_file', type=str, default='MaxNew_4_var.npy')

@@ -138,7 +138,7 @@ def get_expe_parameters():
     parser.add_argument('--id_file', type=str, default="Large_lt_train_labels_1.csv")
     parser.add_argument('--pretrained_model', type=int, default=-1)
 
-    parser.add_argument('--output_dir', type=str, default='/project/scratch/p200177/DE_371/victorsanchez/results/gan_training/exp2/')
+    parser.add_argument('--output_dir', type=str, default='/project/home/p200177/DE_371/experiments_WP1/gan_training/exp2/')
     #parser.add_argument('--output_dir', type=str, default='/scratch/mrmn/sanchezv/project/results/gan_trained/')
 
 

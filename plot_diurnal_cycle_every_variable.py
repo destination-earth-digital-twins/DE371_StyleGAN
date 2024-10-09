@@ -13,7 +13,7 @@ import numpy as np
 from main_gan import str2list, str2bool, str2intlist, str2inttuple
 import matplotlib.pyplot as plt
 import scipy
-from tqdm import trange
+from tqdm import tqdm
 
 
 if __name__=="__main__" :
@@ -27,8 +27,8 @@ if __name__=="__main__" :
     parser.add_argument('--min_file', type=str, default=None )
     parser.add_argument('--id_file', type=str, default="Large_lt_train_labels_1.csv")
     parser.add_argument('--pretrained_model', type=int, default=-1)
-    parser.add_argument('--training_dir', type=str, default='/project/scratch/p200177/DE_371/victorsanchez/results/gan_training/exp1bis_seq_GAN_exp_train_sequential_every_3h_channel_multiplier_2/scores/plots/diurnal_cycle/')
-    parser.add_argument('--training_step', type=int, default=68000)
+    parser.add_argument('--training_dir', type=str, default='/project/home/p200177/DE_371/experiments_WP1/gan_training/exp1bis_seq_GAN_exp_train_sequential_every_3h_channel_multiplier_2/scores/plots/diurnal_cycle/')
+    parser.add_argument('--training_step', type=int, default=[106000,206000])
     # Model architecture hyper-parameters
     
     parser.add_argument('--model', type=str, default='stylegan2', \
@@ -40,8 +40,8 @@ if __name__=="__main__" :
     #architectural choices
     
     parser.add_argument('--latent_dim', type=int, default=512)
-    parser.add_argument('--g_channels', type=int, default=3)
-    parser.add_argument('--d_channels', type=int, default=3)
+    parser.add_argument('--g_channels', type=int, default=45)
+    parser.add_argument('--d_channels', type=int, default=45)
     parser.add_argument('--n_mlp', type=int, default=8, help="depth of the z->w mlp")
     parser.add_argument("--channel_multiplier",type=int, default=2,
         help="channel multiplier factor for the stylegan/swagan model. config-f = 2, else = 1",
@@ -156,7 +156,7 @@ if __name__=="__main__" :
     parser.add_argument('--test_step', type=int, default=2000)# if very_small_exp else (1000 if small_exp else 3000)) #set to 0 if not needed
 
     # parser.add_argument('--confi/home/mrmn/sanchezv/project/code/styleganpnria/gan/configs/Set_UseNoiseFalseg_dir', type=str, default="/home/users/u101833/project/DE371_StyleGAN/gan/configs/Set_UseNoiseFalse/", help="The config files absolute path")
-    parser.add_argument('--config_dir', type=str, default="/project/scratch/p200177/DE_371/victorsanchez/results/gan_training/Set_UseNoiseFalse/", help="The config files absolute path")
+    parser.add_argument('--config_dir', type=str, default="/project/home/p200177/DE_371/experiments_WP1/gan_training/Set_UseNoiseFalse/", help="The config files absolute path")
     parser.add_argument('--dataset_handler_config', type=str, default="dataset_handler_config.yaml", help="The dataset_handler config file")
     parser.add_argument('--scheduler_config', type=str, default="scheduler_config.yaml", help="The scheduler config file")
     print("instantiating dataset")
@@ -178,13 +178,13 @@ if __name__=="__main__" :
 
     print('pixel_coordinate:', pixel_coordinate_dict)
 
-    real_only = False
+    generators = []
+    for training_step in config.training_step:
 
-    if not real_only:
-        print("instantiating generator")
+        print(f"instantiating generator")
         G = Generator(256, 512, n_mlp=8, nb_var=config.g_channels, channel_multiplier=config.channel_multiplier)
         
-        ckpt = torch.load(config.training_dir+f'models/0{config.training_step}.pt', map_location='cpu')['g_ema']
+        ckpt = torch.load(config.training_dir+f'models/{training_step}.pt', map_location='cpu')['g_ema']
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
         print("using device:", device)
 
@@ -199,154 +199,94 @@ if __name__=="__main__" :
 
         G.eval()
         G = G.to(device)
+        generators.append(G)
 
-    output_dir = config.training_dir+'scores/diurnal_cycle/'
-    for key in pixel_coordinate_dict:
-        pixel_coordinate=pixel_coordinate_dict[key]
-        print('computing diurnal cycle on zone :', key)
-        nb_sample_total = 230
-        value_at_given_pixel_per_variable_real_sample_t2m = []
-        value_at_given_pixel_per_variable_generated_sample_t2m = []
-        if 'u' in config.var_names:
-            value_at_given_pixel_per_variable_real_sample_wind = []
-            value_at_given_pixel_per_variable_generated_sample_wind = []
+    output_dir = config.training_dir+'scores/plots/diurnal_cycle/'
+    nb_sample_total = 320
+    
+    values = np.zeros((len(generators)+1, len(pixel_coordinate_dict), 2, config.nb_timesteps, nb_sample_total*16))
+    
+    # Dataset loading
+    Dl_train = DSH.ISData_Loader("Train", config)
+
+    dataset = DSH.ISDataset(
+        config, 
+        Dl_train.dataset_handler_yaml, 
+        'coords', 
+        variable_indices=[1,2,3], 
+        transform=Dl_train.transform(), 
+        detransform=Dl_train.detransform()
+    )
+
+    train_dataloader = DataLoader(dataset = dataset,
+                        batch_size = 16,
+                        shuffle = False,
+                        drop_last = True,
+                        num_workers=1
+    )
+
+    loop = enumerate(train_dataloader)
+    cursor = 0
+    
+    for i, batch in loop:
+        if i > nb_sample_total-1 : 
+            break
+        # Computing diurnal cycle for original samples
+        img, _, _ = batch
+        print(np.shape(img))
+        sample = img.numpy()
         
-        # Dataset loading
-        Dl_train = DSH.ISData_Loader("Train", config)
+        for key_id, key in enumerate(pixel_coordinate_dict):
+            pixel_coordinate=pixel_coordinate_dict[key]
+            for member_id in range(len(img)):
+                # print(f'member_id {member_id}, cursor {cursor}')
+                for t in range(len(img[0])):
+                    _sample = dataset.detransform(sample[member_id][t].transpose((1,2,0))).numpy()
+                    u = _sample[0][pixel_coordinate[0]][pixel_coordinate[1]]
+                    v = _sample[1][pixel_coordinate[0]][pixel_coordinate[1]]
+                    t2m = _sample[2][pixel_coordinate[0]][pixel_coordinate[1]]
+                    values[0, key_id, 0, t, cursor+member_id] = np.sqrt(u**2+v**2)
+                    values[0, key_id, 1, t, cursor+member_id] = t2m
+                    
+                    
+                for checkpoint_id in range(1, len(config.training_step)+1):
+                    z = torch.empty(1, 512).normal_().to(device)
 
-        dataset = DSH.ISDataset(
-            config, 
-            Dl_train.dataset_handler_yaml, 
-            'coords', 
-            variable_indices=[1,2,3], 
-            transform=Dl_train.transform(), 
-            detransform=Dl_train.detransform()
-        )
+                    with torch.no_grad():
+                        gen_sample, _, _ = generators[checkpoint_id-1]([z])
+                        gen_sample = gen_sample.cpu().numpy()
+                        gen_sample = gen_sample.reshape((1,config.nb_timesteps, len(config.var_names), np.shape(sample)[-2], np.shape(sample)[-1]))
+                    
+                    for t in range(len(img[0])):
+                        _sample = dataset.detransform(gen_sample[0][t].transpose((1,2,0))).numpy() # denormalized 
 
-        train_dataloader = DataLoader(dataset = dataset,
-                            batch_size = 16,
-                            shuffle = False,
-                            drop_last = True,
-                            num_workers=1)
-
-        loop = enumerate(train_dataloader)
-
-        for i, batch in loop:
-            if i > nb_sample_total : 
-                break
-            # Computing diurnal cycle for original samples
-            img, _, _ = batch
-            sample = img.numpy()
-
-            if not real_only:    
-                # Computing diurnal cycle for generated samples
-                z = torch.empty(16, 512).normal_().to(device)
-
-                with torch.no_grad():
-                    gen_sample, _, _ = G([z])
-                    gen_sample = gen_sample.cpu().numpy()
-                    gen_sample = gen_sample.reshape((16,config.nb_timesteps, len(config.var_names), np.shape(sample)[-2], np.shape(sample)[-1]))
-            # for var_id in range(len(config.var_names)):
-            value_at_given_pixel_real_sample_t2m=[]
-            if not real_only:
-                value_at_given_pixel_generated_sample_t2m=[]
-            if 'u' in config.var_names:
-                value_at_given_pixel_real_sample_wind=[]
-                if not real_only:
-                    value_at_given_pixel_generated_sample_wind=[]
-            for t in range(len(img[0])):
-                value_at_t_real_sample_t2m = []
-                if not real_only:
-                    value_at_t_generated_sample_t2m = []
-                if 'u' in config.var_names:
-                    value_at_t_real_sample_wind = []
-                    if not real_only:
-                        value_at_t_generated_sample_wind = []
-                for member_id in range(len(img)):
-                    # denorm original sample
-                    # _sample = sample[member_id][t] # normalized 
-                    # print('sample stat u',np.min(_sample[0]), np.mean(_sample[0]), np.max(_sample[0]))
-                    # print('sample stat v',np.min(_sample[1]), np.mean(_sample[1]), np.max(_sample[1]))
-                    # print('sample stat t2m',np.min(_sample[2]), np.mean(_sample[2]), np.max(_sample[2]))
-                    _sample = dataset.detransform(sample[member_id][t].transpose((1,2,0))).numpy() # denormalized 
-                    # print('shape real',np.shape(_sample))
-                    if 'u' in config.var_names: 
-                        value_at_t_real_sample_t2m.append(_sample[2][pixel_coordinate[0]][pixel_coordinate[1]])
                         u = _sample[0][pixel_coordinate[0]][pixel_coordinate[1]]
                         v = _sample[1][pixel_coordinate[0]][pixel_coordinate[1]]
-                        value_at_t_real_sample_wind.append(np.sqrt(u**2+v**2))
-                    else :
-                        value_at_t_real_sample_t2m.append(_sample[2][pixel_coordinate[0]][pixel_coordinate[1]])
-                    if not real_only:
-                        # denorm gen sample
-                        # _sample = gen_sample[member_id][t] # normalized 
-                        # print('gen sample stat u',np.min(_sample[0]), np.mean(_sample[0]), np.max(_sample[0]))
-                        # print('gen sample stat v',np.min(_sample[1]), np.mean(_sample[1]), np.max(_sample[1]))
-                        # print('gen sample stat t2m',np.min(_sample[2]), np.mean(_sample[2]), np.max(_sample[2]))
-                        _sample = dataset.detransform(gen_sample[member_id][t].transpose((1,2,0))).numpy() # denormalized 
-                        # print('shape gen',np.shape(_sample))
-                        if 'u' in config.var_names: 
-                            value_at_t_generated_sample_t2m.append(_sample[2][pixel_coordinate[0]][pixel_coordinate[1]])
-                            u = _sample[0][pixel_coordinate[0]][pixel_coordinate[1]]
-                            v = _sample[1][pixel_coordinate[0]][pixel_coordinate[1]]
-                            value_at_t_generated_sample_wind.append(np.sqrt(u**2+v**2))
-                        else :
-                            value_at_t_generated_sample_t2m.append(_sample[0][pixel_coordinate[0]][pixel_coordinate[1]])
+                        values[checkpoint_id, key_id, 0, t, cursor+member_id] = np.sqrt(u**2+v**2)
+                        values[checkpoint_id, key_id, 1, t, cursor+member_id] = _sample[2][pixel_coordinate[0]][pixel_coordinate[1]]
+        
+        cursor+=16
+        
 
-                value_at_given_pixel_real_sample_t2m.append(np.mean(value_at_t_real_sample_t2m))
-                if not real_only:
-                    value_at_given_pixel_generated_sample_t2m.append(np.mean(value_at_t_generated_sample_t2m))
-                if 'u' in config.var_names: 
-                    value_at_given_pixel_real_sample_wind.append(np.mean(value_at_t_real_sample_wind))
-                    if not real_only:
-                        value_at_given_pixel_generated_sample_wind.append(np.mean(value_at_t_generated_sample_wind))
+    values = np.mean(values, axis=-1)
 
-            value_at_given_pixel_per_variable_real_sample_t2m.append(value_at_given_pixel_real_sample_t2m)
-            if not real_only:
-                value_at_given_pixel_per_variable_generated_sample_t2m.append(value_at_given_pixel_generated_sample_t2m)
-            if 'u' in config.var_names: 
-                value_at_given_pixel_per_variable_real_sample_wind.append(value_at_given_pixel_real_sample_wind)
-                if not real_only:
-                    value_at_given_pixel_per_variable_generated_sample_wind.append(value_at_given_pixel_generated_sample_wind)
 
-            
+    print('Plotting...')
+    for key_id, key in enumerate(pixel_coordinate_dict):
+        fig, ax = plt.subplots(nrows=2, ncols=1, figsize=(16,16))
+        ax[0].plot(range(config.nb_timesteps),  values[0,key_id,0,:], linewidth=6, color='k', label='AROME')
+        ax[0].set_ylabel('Wind speed (m/s)', size = 30)
+        
+        ax[1].plot(range(config.nb_timesteps), values[0,key_id,1,:], linewidth=6, color='k', label='AROME')
+        ax[1].set_ylabel('Temperature at 2m (K)', size = 30)
 
-        # Computing averages
-        # print(np.shape(value_at_given_pixel_per_variable_real_sample_t2m))
-        value_at_given_pixel_per_variable_real_sample_t2m = np.mean(value_at_given_pixel_per_variable_real_sample_t2m, axis=0)
-        # print(np.shape(value_at_given_pixel_per_variable_real_sample_t2m))
-        if not real_only:
-            value_at_given_pixel_per_variable_generated_sample_t2m = np.mean(value_at_given_pixel_per_variable_generated_sample_t2m, axis=0)
-        if 'u' in config.var_names: 
-            value_at_given_pixel_per_variable_real_sample_wind = np.mean(value_at_given_pixel_per_variable_real_sample_wind, axis=0)
-            if not real_only:
-                value_at_given_pixel_per_variable_generated_sample_wind = np.mean(value_at_given_pixel_per_variable_generated_sample_wind, axis=0)
-
-        if 'u' in config.var_names: 
-            fig, ax = plt.subplots(nrows=2, ncols=1, figsize=(16,16))
-            ax[0].plot(range(config.nb_timesteps), value_at_given_pixel_per_variable_real_sample_t2m, linewidth=6, color='k', label='AROME')
-            ax[0].set_ylabel('Temperature at 2m (K)', size = 30)
-            if not real_only:
-                ax[0].plot(range(config.nb_timesteps), value_at_given_pixel_per_variable_generated_sample_t2m, linewidth=6, color='tab:orange', label='Generated')
+        for checkpoint_id in range(1, len(config.training_step)+1):
+            ax[0].plot(range(config.nb_timesteps), values[checkpoint_id,key_id,0,:], linewidth=6, label=f'Generated - {config.training_step[checkpoint_id-1]}')
             ax[0].legend(prop={'size':20})
-            ax[1].plot(range(config.nb_timesteps), value_at_given_pixel_per_variable_real_sample_wind, linewidth=6, color='k', label='AROME')
-            ax[1].set_ylabel('Wind speed (m/s)', size = 30)
-            if not real_only:
-                ax[1].plot(range(config.nb_timesteps), value_at_given_pixel_per_variable_generated_sample_wind, linewidth=6, color='tab:orange', label='Generated')
+            ax[1].plot(range(config.nb_timesteps), values[checkpoint_id,key_id,1,:], linewidth=6, label=f'Generated - {config.training_step[checkpoint_id-1]}')
             ax[1].legend(prop={'size':20})
-            fig.suptitle(f'Diurnal Cycle on pixel {key}', size=30)
-            if not os.path.exists(output_dir):
-                os.makedirs(output_dir)
-            fig.savefig(output_dir+f'Diurne_Cycle_over_{nb_sample_total*16}_samples_{config.nb_timesteps}_nb_var_{len(config.var_names)}_{key}.png')
 
-        else :
-            fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(8,8))
-            ax.plot(range(config.nb_timesteps), value_at_given_pixel_per_variable_real_sample_t2m, linewidth=6, color='k', label='AROME')
-            ax.set_ylabel('Temperature at 2m (K)', size=30)
-            if not real_only:
-                ax.plot(range(config.nb_timesteps), value_at_given_pixel_per_variable_generated_sample_t2m, linewidth=6, color='tab:orange', label='Generated')
-            ax.legend(prop={'size':20})
-            fig.suptitle(f'Diurnal Cycle on pixel {key}', size=30)
-            if not os.path.exists(output_dir):
-                os.makedirs(output_dir)
-            fig.savefig(output_dir+f'Diurne_Cycle_over_{nb_sample_total*16}_samples_{config.nb_timesteps}_nb_var_{len(config.var_names)}_{key}.png')
+        fig.suptitle(f'Diurnal Cycle on pixel {key}', size=30)
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+        fig.savefig(output_dir+f'Diurne_Cycle_over_{nb_sample_total*16}_samples_{config.nb_timesteps}_nb_var_{len(config.var_names)}_{key}.png')

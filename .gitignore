@@ -25,3 +25,7 @@ init_*.sh
 !init_training_temporal.sh
 inversion/PerceptualSimilarity
 test_
+gan/model/3d_stylegan2-ada.py
+gan/model/3d_stylegan2.py
+gan/model/mocogan.py
+gan/model/op_3d

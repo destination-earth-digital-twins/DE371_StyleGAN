@@ -25,20 +25,22 @@ module load Apptainer/1.2.4-GCCcore-12.3.0
 apptainer exec --nv /project/scratch/p200177/DE_371/resources/apptainer_container/container.sif torchrun --nproc_per_node=4 main_gan.py \
         --data_dir='/project/home/p200177/DE_371/datasets/dataset_Meteo_France/IS_1_1.0_0_0_0_0_0_256_large_lt_done/' \
         --id_file="Large_lt_train_labels_1.csv" \
-        --output_dir='/project/scratch/p200177/DE_371/victorsanchez/results/gan_training/exp20' \
+        --output_dir='/project/home/p200177/DE_371/experiments_WP1/gan_training/exp16' \
         --batch_size=8 \
         --g_channels=45 \
         --d_channels=45 \
-        --epochs_num=40000 \
+        --epochs_num=30000 \
         --var_names=['u','v','t2m'] \
-        --config_dir='/project/scratch/p200177/DE_371/victorsanchez/results/gan_training/Set_UseNoiseFalse/' \
+        --config_dir='/project/home/p200177/DE_371/experiments_WP1/gan_training/Set_UseNoiseFalse/' \
         --use_noise=True \
         --multi_timestep_mode \
         --nb_timesteps=15 \
         --timestep_period=3 \
         --stack_sample_along_time_and_variable \
         --channel_multiplier=10 \
-        --pretrained_model=-1 \
+        --pretrained_model=66000 \
         --sample_num=5 \
         --plot_samples=5 \
-        --cutoff_dataset_leadtimes
+        --cutoff_dataset_leadtimes \
+        --lrD_sched='cyclic' \
+        --lrG_sched='cyclic' \

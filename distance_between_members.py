@@ -9,8 +9,6 @@ import numpy as np
 import yaml
 import pandas as pd
 import torch.nn.functional as F
-print('Importing Generator')
-print('Importing perturbation utils')
 import perturbation.utils as utils
 import matplotlib.pyplot as plt
 from inversion.vgg_perceptual_loss import VGGPerceptualLoss
@@ -19,23 +17,31 @@ import scipy
 torch.manual_seed(42) #reproducibility of runs
 
 def calc_anomaly_correlation_coefficient(x,y):
-    r"""Pearson product-moment correlation coefficient.
+    # r"""Pearson product-moment correlation coefficient.
 
-    A measure of the linear association between the forecast and verification data that
-    is independent of the mean and variance of the individual distributions. This is
-    also known as the Anomaly Correlation Coefficient (ACC) when correlating anomalies.
+    # A measure of the linear association between the forecast and verification data that
+    # is independent of the mean and variance of the individual distributions. This is
+    # also known as the Anomaly Correlation Coefficient (ACC) when correlating anomalies.
 
-    .. math::
-        corr = \frac{cov(f, o)}{\sigma_{f}\cdot\sigma_{o}},
+    # .. math::
+    #     corr = \frac{cov(f, o)}{\sigma_{f}\cdot\sigma_{o}},
 
-    where :math:`\sigma_{f}` and :math:`\sigma_{o}` represent the standard deviation
-    of the forecast and verification data over the experimental period, respectively.
+    # where :math:`\sigma_{f}` and :math:`\sigma_{o}` represent the standard deviation
+    # of the forecast and verification data over the experimental period, respectively.
     
-    Args:
+    # Args:
 
-    """
-    return torch.cov(torch.cat((x.unsqueeze(1),y.unsqueeze(1)), dim=1)) / (torch.std(x,dim=0, unbiased=True)*torch.std(y,dim=0, unbiased=True))
+    # """
+    #return torch.cov(torch.cat((x.unsqueeze(1),y.unsqueeze(1)), dim=1)) / (torch.std(x,dim=0, unbiased=True)*torch.std(y,dim=0, unbiased=True))
     
+    #ACC computation without m
+    # https://confluence.ecmwf.int/display/FUG/Section+12.A+Statistical+Concepts+-+Deterministic+Data
+    num = (x*y).mean()
+    square_denom = (x**2).mean()*(y**2).mean()
+    # averageing on batch samples
+    res = torch.mean(num / torch.sqrt(square_denom), dim=0)
+    return res
+
 
 if __name__=="__main__" :
     
@@ -48,9 +54,12 @@ if __name__=="__main__" :
     # Real Data Directory - PATH to samples of the dataset
     parser.add_argument('--real_data_dir', type = str, 
                         default='/project/home/p200177/DE_371/datasets/dataset_Meteo_France/IS_1_1.0_0_0_0_0_0_256_large_lt_done/')
+    
+    
     # Output Directory - PATH where the output of the inversion will be saved
     parser.add_argument('--output_dir',type = str, 
                         default ='/project/scratch/p200177/DE_371/victorsanchez/results/member_distance/')
+    
     parser.add_argument('--gen_sample_dir',type = str, default ="/project/home/p200177/DE_371/experiments_WP1/inversion_process_analysis/final_inversion_on_test_set/perceptual_exp45/perturbation/stochastic_['1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '0', '0', '0', '0']_False_-1_16_/samples/")
 
     parser.add_argument("--var_indices", type=utils.str2intlist, default=[1,2,3])
@@ -168,6 +177,7 @@ if __name__=="__main__" :
 
             nb_member, _, _ ,_ = Ens_r.shape
             nb_gen_member, _, _ ,_ = Ens_gen.shape
+            nb_gen_member=16
 
             dist_l2 = np.zeros((nb_member+nb_gen_member, nb_member+nb_gen_member))
             dist_l1 = np.zeros((nb_member+nb_gen_member, nb_member+nb_gen_member))
@@ -207,9 +217,9 @@ if __name__=="__main__" :
                             pearson[j][i]=pearson[i][j]
 
                             #ACC
-                            # anomaly_correlation_coefficient[i][j]=calc_anomaly_correlation_coefficient((Ens_r[i].flatten().cpu()+1)/2, (Ens_r[j].flatten().cpu()+1)/2)
+                            anomaly_correlation_coefficient[i][j]=calc_anomaly_correlation_coefficient((Ens_r[i].flatten().cpu()+1)/2, (Ens_r[j].flatten().cpu()+1)/2)
                             # anomaly_correlation_coefficient[i][j]=climpred.metrics._pearson_r((Ens_r[i].flatten().cpu().numpy()+1)/2, (Ens_r[j].flatten().cpu().numpy()+1)/2)
-                            # anomaly_correlation_coefficient[j][i]=anomaly_correlation_coefficient[i][j]
+                            anomaly_correlation_coefficient[j][i]=anomaly_correlation_coefficient[i][j]
 
                         elif i < nb_member and j >=  nb_member :
                             # Distance between AROME and Generated samples
@@ -237,9 +247,9 @@ if __name__=="__main__" :
                             pearson[i][j]=scipy.stats.pearsonr((Ens_r[i].flatten().cpu()+1)/2, (Ens_gen[j-nb_member].flatten().cpu()+1)/2).statistic
                             pearson[j][i]=pearson[i][j]
                             #ACC
-                            # anomaly_correlation_coefficient[i][j]=calc_anomaly_correlation_coefficient((Ens_r[i].flatten().cpu()+1)/2, (Ens_gen[j-nb_member].flatten().cpu()+1)/2)
+                            anomaly_correlation_coefficient[i][j]=calc_anomaly_correlation_coefficient((Ens_r[i].flatten().cpu()+1)/2, (Ens_gen[j-nb_member].flatten().cpu()+1)/2)
                             # # anomaly_correlation_coefficient[i][j]=climpred.metrics._pearson_r((Ens_r[i].flatten().cpu().numpy()+1)/2, (Ens_gen[j-nb_member].flatten().cpu().numpy()+1)/2)
-                            # # anomaly_correlation_coefficient[j][i]=anomaly_correlation_coefficient[i][j]
+                            anomaly_correlation_coefficient[j][i]=anomaly_correlation_coefficient[i][j]
 
                         elif i >= nb_member and j >= nb_member :
                             # Distance of Generated members with themselves
@@ -267,16 +277,16 @@ if __name__=="__main__" :
                             pearson[i][j]=scipy.stats.pearsonr((Ens_gen[i-nb_member].flatten().cpu()+1)/2, (Ens_gen[j-nb_member].flatten().cpu()+1)/2).statistic
                             pearson[j][i]=pearson[i][j]
                             #ACC
-                            # anomaly_correlation_coefficient[i][j]=calc_anomaly_correlation_coefficient((Ens_gen[i-nb_member].flatten().cpu()+1)/2, (Ens_gen[j-nb_member].flatten().cpu()+1)/2)
+                            anomaly_correlation_coefficient[i][j]=calc_anomaly_correlation_coefficient((Ens_gen[i-nb_member].flatten().cpu()+1)/2, (Ens_gen[j-nb_member].flatten().cpu()+1)/2)
                             # # anomaly_correlation_coefficient[i][j]=climpred.metrics._pearson_r((Ens_gen[j-nb_member].flatten().cpu().numpy()+1)/2, (Ens_gen[j-nb_member].flatten().cpu().numpy()+1)/2)
-                            # # anomaly_correlation_coefficient[j][i]=anomaly_correlation_coefficient[i][j]
+                            anomaly_correlation_coefficient[j][i]=anomaly_correlation_coefficient[i][j]
 
             dist_l2 = (dist_l2-dist_l2.min())/(dist_l2.max()-dist_l2.min())
             dist_l1 = (dist_l1-dist_l1.min())/(dist_l1.max()-dist_l1.min())
             dist_vgg = (dist_vgg-dist_vgg.min())/(dist_vgg.max()-dist_vgg.min())
             dist_ssim = (dist_ssim-dist_ssim.min())/(dist_ssim.max()-dist_ssim.min())
 
-            fig, ax = plt.subplots(nrows=1, ncols=5, figsize=(16,5))
+            fig, ax = plt.subplots(nrows=1, ncols=6, figsize=(25,6))
             im=ax[0].matshow(dist_l2, cmap='plasma')
             ax[0].set_xticks([])
             ax[0].set_yticks([])
@@ -302,11 +312,11 @@ if __name__=="__main__" :
             ax[4].set_yticks([])
             ax[4].set_title('Pearson Correlation')
             fig.colorbar(im, ax=ax[4], shrink=0.5)
-            # im=ax[5].matshow(anomaly_correlation_coefficient, cmap='plasma')
-            # ax[5].set_xticks([])
-            # ax[5].set_yticks([])
-            # ax[5].set_title('Anomaly Correlation Coefficient')
-            # fig.colorbar(im, ax=ax[5], shrink=0.5)
+            im=ax[5].matshow(anomaly_correlation_coefficient, cmap='plasma')
+            ax[5].set_xticks([])
+            ax[5].set_yticks([])
+            ax[5].set_title('Anomaly Correlation Coefficient')
+            fig.colorbar(im, ax=ax[5], shrink=0.5)
 
             fig.tight_layout()
             fig.savefig(params.output_dir+f'distance_between_member_{datename}_{lt}_{nb_gen_member}.png')
