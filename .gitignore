@@ -25,7 +25,11 @@ init_*.sh
 !init_training_temporal.sh
 inversion/PerceptualSimilarity
 test_
-gan/model/3d_stylegan2-ada.py
-gan/model/3d_stylegan2.py
+gan/model/2d_stylegan2-ada_nvidia.py
+gan/model/3d_stylegan2-ada_nvidia.py
 gan/model/mocogan.py
+gan/model/ops
+gan/model/ops_3d
 gan/model/op_3d
+gan/model/stylegan2_3d_kernel.py
+gan/model/stylegan2_t_conditionned.py

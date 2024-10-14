@@ -205,7 +205,7 @@ def Generator_Regularize(path_batch_size,
     #    (weighted_path_loss + 0 * fake_img[0, 0, 0, 0]).backward()
     
     modelG.zero_grad(set_to_none = True)
-    
+
     (weighted_path_loss + 0 * fake_img[0,0,0,0]).backward()
     
     

@@ -108,40 +108,40 @@ lon = 3.75
 #Nantes 47.3°N,1.35°W 
 #HPE 44.2N 3.75E
 
-###GRIB ID
-###GRIB2 help : http://intra.cnrm.meteo.fr/gws/wtg/ --> Concept --> enter name and copy dict to clipboard
-GribID = {}
-GribID["rr"] = {'parameterNumber': 65}   #RAIN GRIB2
-GribID["neige"] = {'parameterNumber': 66}
-GribID["refl"] = {"discipline":0, "parameterCategory": 16, "parameterNumber": 193, "tablesVersion" : 15, "typeOfFirstFixedSurface" : 1, "scaledValueOfFirstFixedSurface" : 0}   #REFLMAX GRIB2
-GribID["tpw850"] = {"discipline":0,"parameterCategory":0,"parameterNumber":3,"tablesVersion":15,"level":850}
-GribID["t2m"] = {"discipline" : 0,"parameterCategory": 0 , "parameterNumber" : 0, "level":2,"scaledValueOfFirstFixedSurface": 2,"typeOfFirstFixedSurface": 103,"productDefinitionTemplateNumber":1}
-GribID["u"]={"discipline": 0, "parameterCategory" : 2, "parameterNumber" : 2, "scaledValueOfFirstFixedSurface" : 10, "typeOfFirstFixedSurface" :103,  "level":10, "productDefinitionTemplateNumber" : 1}
-GribID["v"]={"discipline" : 0 , "parameterCategory" : 2, "parameterNumber": 3, "scaledValueOfFirstFixedSurface" : 10, "typeOfFirstFixedSurface" : 103, "level":10, "productDefinitionTemplateNumber" : 1}
-GribID["ISP"]={"indicatorOfParameter" : 1, "indicatorOfTypeOfLevel": 100, "level":108}
+# ###GRIB ID
+# ###GRIB2 help : http://intra.cnrm.meteo.fr/gws/wtg/ --> Concept --> enter name and copy dict to clipboard
+# GribID = {}
+# GribID["rr"] = {'parameterNumber': 65}   #RAIN GRIB2
+# GribID["neige"] = {'parameterNumber': 66}
+# GribID["refl"] = {"discipline":0, "parameterCategory": 16, "parameterNumber": 193, "tablesVersion" : 15, "typeOfFirstFixedSurface" : 1, "scaledValueOfFirstFixedSurface" : 0}   #REFLMAX GRIB2
+# GribID["tpw850"] = {"discipline":0,"parameterCategory":0,"parameterNumber":3,"tablesVersion":15,"level":850}
+# GribID["t2m"] = {"discipline" : 0,"parameterCategory": 0 , "parameterNumber" : 0, "level":2,"scaledValueOfFirstFixedSurface": 2,"typeOfFirstFixedSurface": 103,"productDefinitionTemplateNumber":1}
+# GribID["u"]={"discipline": 0, "parameterCategory" : 2, "parameterNumber" : 2, "scaledValueOfFirstFixedSurface" : 10, "typeOfFirstFixedSurface" :103,  "level":10, "productDefinitionTemplateNumber" : 1}
+# GribID["v"]={"discipline" : 0 , "parameterCategory" : 2, "parameterNumber": 3, "scaledValueOfFirstFixedSurface" : 10, "typeOfFirstFixedSurface" : 103, "level":10, "productDefinitionTemplateNumber" : 1}
+# GribID["ISP"]={"indicatorOfParameter" : 1, "indicatorOfTypeOfLevel": 100, "level":108}
 
-##Colormaps
+# ##Colormaps
 
-epygram.colormapping.register_colormap_from_json('/home/gmap/mrmn/brochetc/exploiting_ge/raf2.json')
-myraf = epygram.colormapping.ColormapHelper("raf", explicit_colorbounds=[0,20,30,40,50,60,80,100,120,140,160,180,200], normalize=True)
-epygram.colormapping.register_colormap_from_json('/home/gmap/mrmn/brochetc/exploiting_ge/t2.json')
-myt2 = epygram.colormapping.ColormapHelper("t2", explicit_colorbounds=[0,4,8,10,12,14,16,18,20,22,24,26,28], normalize=True)
+# epygram.colormapping.register_colormap_from_json('/home/gmap/mrmn/brochetc/exploiting_ge/raf2.json')
+# myraf = epygram.colormapping.ColormapHelper("raf", explicit_colorbounds=[0,20,30,40,50,60,80,100,120,140,160,180,200], normalize=True)
+# epygram.colormapping.register_colormap_from_json('/home/gmap/mrmn/brochetc/exploiting_ge/t2.json')
+# myt2 = epygram.colormapping.ColormapHelper("t2", explicit_colorbounds=[0,4,8,10,12,14,16,18,20,22,24,26,28], normalize=True)
 
-Colormaps = {}
-Colormaps['rr'] = 'rr24h'
-Colormaps['neige'] = 'rr24h'
-Colormaps['refl'] = 'rr24h'
-Colormaps['tpw850'] = 'viridis'
-Colormaps['t2m'] = None
-Colormaps['ff'] = None
-Colormaps['ISP'] = 'viridis'
-diffcolormap = 'bwr'
-my_cmh = None
+# Colormaps = {}
+# Colormaps['rr'] = 'rr24h'
+# Colormaps['neige'] = 'rr24h'
+# Colormaps['refl'] = 'rr24h'
+# Colormaps['tpw850'] = 'viridis'
+# Colormaps['t2m'] = None
+# Colormaps['ff'] = None
+# Colormaps['ISP'] = 'viridis'
+# diffcolormap = 'bwr'
+# my_cmh = None
 
-if param=='ff':
-    my_cmh=myraf
-elif param=='t2m':
-    my_cmh=myt2
+# if param=='ff':
+#     my_cmh=myraf
+# elif param=='t2m':
+#     my_cmh=myt2
 
 # Initialisation projection
 crs=None
@@ -178,95 +178,10 @@ if lrandinit:
         mb[:,r] = initsmall(lstlbc,lstic,Nsmall,Nlbc)
     np.save(out_dir + '/' + 'nbrandinit_MBs',mb,allow_pickle=True)
 
-if lBigEns:
-    for reseau in reseaux:
-        print("chargement depuis hendrix")
-        tab=[]
-        for mb in members:
-            resource = vtx.get_resources(experiment=suite, date=reseau, term=45,\
-                    getmode='epygram',model='arome',origin='hst',\
-                    kind='gridpoint',block='forecast', cutoff=cutoff,\
-                    vapp='arome', vconf=vconf,geometry='eurw1s40',\
-                    namespace='vortex.archive.fr', nativefmt = 'grib',\
-                    member=mb,uselocalcache=False, shouldfly=False)
-
-            resource[0].listfields()
-            if mb==100:
-                GribID["t2m"] = {"discipline" : 0,"parameterCategory": 0 , "parameterNumber" : 0, "level":2,"scaledValueOfFirstFixedSurface": 2,"typeOfFirstFixedSurface": 103,"productDefinitionTemplateNumber":0}
-                GribID["u"]={"discipline": 0, "parameterCategory" : 2, "parameterNumber" : 2, "scaledValueOfFirstFixedSurface" : 10, "typeOfFirstFixedSurface" :103,  "level":10, "productDefinitionTemplateNumber" : 0}
-                GribID["v"]={"discipline" : 0 , "parameterCategory" : 2, "parameterNumber": 3, "scaledValueOfFirstFixedSurface" : 10, "typeOfFirstFixedSurface" : 103, "level":10, "productDefinitionTemplateNumber" : 0}
-
-            if lwind:
-                fu = resource[0].readfield(GribID["u"])
-                fv = resource[0].readfield(GribID["v"])
-                vectwind = epygram.fields.make_vector_field(fu,fv)
-                field = 3.6*vectwind.to_module()
-            else:
-                field = resource[0].readfield(GribID[param])
-                if param=='t2m':
-                    field = field - 273.15
-
-
-            #data=field.getdata()
-            #fieldcrop=data[198:326,595:723] GAN dom indices
-            if lcrop:
-                #field=field.resample_on_regularll(borders=dict(lonmin=DomID[dom]["lonO"],latmin=DomID[dom]["latS"],lonmax=DomID[dom]["lonE"],latmax=DomID[dom]["latN"]),resolution_in_degrees=0.025)
-                field = field.extract_zoom(dict(lonmin=DomID[dom]["lonO"],latmin=DomID[dom]["latS"],lonmax=DomID[dom]["lonE"],latmax=DomID[dom]["latN"]))
-            #print(np.shape(field.getdata()))
-            #fieldextract=field.getdata()
-            #print(np.min(fieldextract-fieldcrop),np.max(fieldextract-fieldcrop))
-            resource[0].container.clear()
-            resource[0].close()
-
-            if lag >0:
-                resource = vtx.get_resources(experiment=suite, date=reseau, term=ech-lag,\
-                                        getmode='epygram',model='arome',origin='hst',\
-                                        kind='gridpoint',block='forecast', cutoff=cutoff,\
-                                        vapp='arome', vconf=vconf,geometry='eurw1s40',\
-                                        namespace='vortex.archive.fr', nativefmt = 'grib',\
-                                        member=mb, uselocalcache=False, shouldfly=False)
-                fieldlag = resource[0].readfield(GribID[param])
-                if lcrop:
-                    #fieldlag=fieldlag.resample_on_regularll(borders=dict(lonmin=DomID[dom]["lonO"],latmin=DomID[dom]["latS"],lonmax=DomID[dom]["lonE"],latmax=DomID[dom]["latN"]),resolution_in_degrees=0.025)
-                    fieldlag = fieldlag.extract_zoom(dict(lonmin=DomID[dom]["lonO"],latmin=DomID[dom]["latS"],lonmax=DomID[dom]["lonE"],latmax=DomID[dom]["latN"]))
-                field = field-fieldlag
-
-                resource[0].container.clear()
-                resource[0].close()
-
-            if mb==1:
-                crs = field.geometry.default_cartopy_CRS()
-
-            tab.append(field.getdata())
-            print(np.shape(tab))
-            #print field.stats()
-            # Trace le champ
-            # colormap_helper
-            if (lstamp):
-                print("Plotting field")
-                fig, ax = field.cartoplot(projection=crs,colormap = Colormaps[param], colormap_helper = my_cmh,epygram_departments=True,plot_method='contourf')
-                fig.savefig(out_dir + "/" + "MapOf_" + param + str(lag) + "_dom" + dom + "_" + suite + "_mb" +str(mb) +"_"+ str(reseau) + "+" + str(ech) + "h.png", dpi = 150, bbox_inches='tight')
-                plt.close()
-
-        if lsavePE:
-            print("Saving loaded data")
-            if lcrop:
-                np.save(base_dir+"/"+'AllMB_domain_'+ str(dom) + '_' + param + str(lag)  + "_" + suite + "_"+ str(reseau) + "+"  + str(ech) + "h", tab, allow_pickle=True)
-            else:
-                np.save(base_dir+"/"+'AllMB_'+param + str(lag)  + "_" + suite + "_"+ str(reseau) + "+"  + str(ech) + "h", tab, allow_pickle=True)
-if lfindpdg:
-            print("get ensemble maximum lat/lon")
-            tab=np.load(base_dir+"/"+'AllMB_'+param + str(lag)  + "_" + suite + "_"+ str(reseau) + "+"  + str(ech) + "h.npy", allow_pickle=True)
-            tabref=np.load(base_dir+"/"+'AllMB_'+param + str(lag)  + "_" + suite_ref + "_"+ str(reseau) + "+"  + str(ech) + "h.npy", allow_pickle=True)
-            q100=np.percentile(tab,100,interpolation='nearest',axis=0)
-            field.setdata(q100)
-            lookval=field.getvalue_ll(lon,lat)
-            loc=np.where(q100==lookval)
-            print(lookval,loc)
-            np.save(base_dir+"/"+'AllMB_localpdg_' + str(lat) + '_' + str(lon)+ '_' +param + str(lag)  + "_" + suite + "_"+ str(reseau) + "+"  + str(ech) + "h", tab[:,loc[0],loc[1]], allow_pickle=True)
-
+reseau= reseaux[0]
 if lpercentilebig:
     print("computing percentiles of the real ensemble")
+    tab=np.load(base_dir+"/"+'AllMB_'+param + str(lag)  + "_" + suite + "_"+ str(reseau) + "+"  + str(ech) + "h.npy", allow_pickle=True)
     q0 = np.percentile(tab,0.0,interpolation='nearest',axis=0)
     q05 = np.percentile(tab,0.5,interpolation='nearest',axis=0)
     q1 = np.percentile(tab,1,interpolation='nearest',axis=0)
@@ -280,32 +195,10 @@ if lpercentilebig:
     q99 = np.percentile(tab,99,interpolation='nearest',axis=0)
     q995 = np.percentile(tab,99.5,interpolation='nearest',axis=0)
     q100 = np.percentile(tab,100,interpolation='nearest',axis=0)
-if lplotq:
-    print("plotting quantiles of real ensemble")
 
-    ### I think this sequence of plots is inefficient
-    ### we should rewrite a cartoplot function to avoid costly op's be repeated (e.g departments)
-
-    data_list = [q0,q05, q1, q5, q10, q25, q50, q75, q90, q95, q99, q995, q100]
-
-    prefix = out_dir + "/" + "MapOf_" + param + str(lag) + "_dom" + dom + '_' + suite
-    suffix =  "_"+ str(reseau) + "+" + str(ech) + "h.png"
-    denom = ["_Q0","_Q05", "_Q1", "_Q5", "_Q10","_Q25","_Q50","_Q75","_Q90","_Q95", "_Q99", "_Q995", "_Q100"]
-
-    names = [prefix + d + suffix for d in denom]
-
-    field.plot_sequence(
-        data_list,names,
-        projection=crs,colormap = Colormaps[param], colormap_helper = my_cmh,epygram_departments=True,plot_method='contourf'
-        )
-    plt.close()
-with open('exemple_field.p', 'wb') as f:
-    pickle.dump(field, f)
 
 if lGAN:
     reseau = reseaux[0]
-    with open('exemple_field.p','rb') as f:
-        field = pickle.load(f)
     if ldiffq:
         #load bigens.
         print("loading big real ensemble")
@@ -342,18 +235,6 @@ if lGAN:
         prefix = out_dir + "/" + "MapOf_RefQuantile" + param + str(lag) + "_dom" + dom + "_" + suite
         suffix =  "_"+ str(reseau) + "+" + str(ech) + "h.png"
         denom = ["_Q0","_Q05", "_Q1", "_Q5", "_Q10","_Q25","_Q50","_Q75","_Q90","_Q95", "_Q99", "_Q995", "_Q100", "_Sdev"]
-
-        names = [prefix + d + suffix for d in denom]
-
-        field.plot_sequence(
-                   data_ref_list[:-1],names[:-1],
-                   projection=crs,colormap = Colormaps[param], colormap_helper = my_cmh,epygram_departments=True,plot_method='contourf')
-        plt.close()
-        field.plot_sequence(
-                [data_ref_list[-1]],[names[-1]],
-                projection=crs,colormap = 'viridis', minmax=minmax, epygram_departments=True,plot_method='contourf')
-
-        plt.close()
 
         print("Keeping track of quantiles spatial means")
         print(np.size(quant))
@@ -438,17 +319,6 @@ if lGAN:
 
                 names = [prefix + d + suffix for d in denom]
 
-                field.plot_sequence(
-                    data_list[:-1],names[:-1],
-                    projection=crs,colormap = Colormaps[param], colormap_helper = my_cmh,epygram_departments=True,plot_method='contourf')
-
-                plt.close()
-
-                field.plot_sequence(
-                    [data_list[-1]],[names[-1]],
-                    projection=crs,colormap = 'viridis', minmax=minmax, epygram_departments=True,plot_method='contourf')
-
-                plt.close()
 
             if ldiffq:
 
@@ -456,18 +326,6 @@ if lGAN:
 
                 data_diff_list = [q - qref for (q,qref) in zip(data_list, data_ref_list)]
                 np.save(f"{out_dir}/median_quantiles_diffsmall_{ech}_{param}.npy",np.array(data_list))
-
-                prefix = out_dir + "/" + "MapOf_diff_" + param + str(lag) + "_dom" + dom + "_" + "Small"
-                suffix =  "_"+ str(reseau) + "+" + str(ech) + "h.png"
-                denom = ["_Q0","_Q05", "_Q1", "_Q5", "_Q10","_Q25","_Q50","_Q75","_Q90","_Q95", "_Q99", "_Q995", "_Q100", "_Sdev"]
-
-                names = [prefix + d + suffix for d in denom]
-
-                field.plot_sequence(
-                    data_diff_list,names,
-                    projection=crs,colormap = diffcolormap,minmax=[-6,6], contourf_kw ={'extend':'both'}, epygram_departments=True,plot_method='contourf')
-
-                plt.close()
 
     for k in range(nbGANs):
         qavg=pd.DataFrame(columns=['Ech','Quantiles','Init','Diff'+GANnameout[k], 'DiffRel'+GANnameout[k]])
@@ -494,8 +352,7 @@ if lGAN:
 
             if lvisuGAN:
                 print("plotting the 100th (random) GAN member")
-                field.setdata(gan[99,:,:])
-                fig, ax = field.cartoplot(projection=crs,colormap = Colormaps[param], colormap_helper = my_cmh,epygram_departments=True,plot_method='contourf')
+                
                 fig.savefig(out_dir + "/" + "MapOf_" + param  + "_dom" + dom + "_" + GANnameout[k] + "_mb100_init_"+ str(i)  +"_"+ str(reseau) + "+" + str(ech) + "h.png", dpi = 150, bbox_inches='tight')
 
             if unbias:
@@ -531,18 +388,6 @@ if lGAN:
 
             names = [prefix + d + suffix for d in denom]
 
-            field.plot_sequence(
-                    data_list,names,
-                    projection=crs,colormap = Colormaps[param], colormap_helper = my_cmh,epygram_departments=True,plot_method='contourf')
-
-            plt.close()
-
-            field.plot_sequence(
-                    [data_list[-1]],[names[-1]],
-                    projection=crs, colormap = 'viridis', minmax=minmax,epygram_departments=True,plot_method='contourf')
-
-            plt.close()
-
             ###############################################
             print("Plotting stddev of GAN quantiles")
 
@@ -574,11 +419,7 @@ if lGAN:
 
             names = [prefix + d + suffix for d in denom]
 
-            field.plot_sequence(
-                    data_diffgan_list,names,
-                    projection=crs,colormap = diffcolormap,minmax=[-6,6],contourf_kw ={'extend':'both'},epygram_departments=True,plot_method='contourf')
-
-            plt.close()
+           
 
 
         if lsaveq:

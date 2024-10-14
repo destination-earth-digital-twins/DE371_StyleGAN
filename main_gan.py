@@ -138,7 +138,7 @@ def get_expe_parameters():
     # Model architecture hyper-parameters
     
     parser.add_argument('--model', type=str, default='stylegan2', \
-                        choices=['stylegan2', 'stylegan2_fp16'])
+                        choices=['stylegan2', 'stylegan2_fp16', 'stylegan2_3d'])
     
     # choices of loss function and initialization
     parser.add_argument('--train_type', type=str, default='stylegan',\
@@ -303,6 +303,9 @@ if __name__=="__main__" :
     elif config.model=='stylegan2_fp16':
         import gan.model.stylegan2_fp16 as RN
 
+    elif config.model=='stylegan2_3d':
+        import gan.model.stylegan2_3d as RN
+
     else:
         raise ValueError('Model unknown')
 
@@ -339,7 +342,29 @@ if __name__=="__main__" :
                                     var_rr=('rr' in config.var_names),
                                     tanh_output=config.tanh_output,
                                     use_noise=config.use_noise)
-                
+            
+            elif config.model=='stylegan2_3d':
+                # TODO : Add parameter to choose if we want the variable first or the timesteps
+                modelG = modelG_n(config.crop_size[0], config.latent_dim, config.n_mlp,
+                                    channel_multiplier=config.channel_multiplier, 
+                                    nb_var=config.nb_timesteps,# if not config.mean_pert else len(config.var_names)*2,
+                                    nb_frames=config.g_channels,
+                                    var_rr=('rr' in config.var_names),
+                                    tanh_output=config.tanh_output,
+                                    use_noise=config.use_noise)
+
+                modelD = modelD_n(config.crop_size[0],
+                                channel_multiplier=config.channel_multiplier, 
+                                    nb_var=config.nb_timesteps)# if not config.mean_pert else len(config.var_names)*2)
+
+                modelG_ema = modelG_n(config.crop_size[0], config.latent_dim, config.n_mlp,
+                                    channel_multiplier=config.channel_multiplier, 
+                                    nb_var=config.nb_timesteps,# if not config.mean_pert else len(config.var_names)*2,
+                                    nb_frames=config.g_channels,
+                                    var_rr=('rr' in config.var_names),
+                                    tanh_output=config.tanh_output,
+                                    use_noise=config.use_noise)
+                 
             elif config.model=='stylegan2_fp16':
 
                 modelG = modelG_n(config.crop_size[0], config.latent_dim, config.n_mlp,

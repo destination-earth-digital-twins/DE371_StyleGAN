@@ -10,7 +10,7 @@ from  op import FusedLeakyReLU, fused_leaky_relu, upfirdn2d, conv2d_gradfix
 
 library = {'stylegan2_fp16' : {'G' :  'Generator', 'D' : 'Discriminator'}}
 
-
+raise NotImplementedError
 class PixelNorm(nn.Module):
     def __init__(self):
         super().__init__()

@@ -240,7 +240,7 @@ class ISDataset(Dataset):
 
              
         
-
+        # print('shape of sample :', np.shape(sample))
         self.cache.cache(idx, sample, importance, position)
         return sample, importance, position
 
