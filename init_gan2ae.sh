@@ -17,13 +17,15 @@ export APPTAINER_BINDPATH="/project/home/p200177/DE_371/datasets:/project/home/p
 module load Apptainer/1.2.4-GCCcore-12.3.0
 
 
-apptainer exec --nv /project/scratch/p200177/DE_371/resources/apptainer_container/container.sif python3 plotting_precip.py \
-        # --pixel_loss_type='mul_pixel_loss_mse'\
-        # --invstep=1500\
-        # --date_start="2021-06-18"\
-        # --date_stop="2021-11-10"\
-        # --device='cuda:3'
 
-        # --output_dir='/project/scratch/p200177/DE_371/angeliquebonamy/results/dates/mae/inversion/'\
-        # --pack_dir='/project/scratch/p200177/DE_371/angeliquebonamy/results/dates/mae/pack/'\
+apptainer exec --nv /project/scratch/p200177/DE_371/resources/apptainer_container/container_gan2ae.sif python3 /home/users/u101957/DE371_StyleGAN/gan_2_ae/main_predict_latent_space_PEARO_GAN.py \
+               0\
+               0\
+               4\
+               --skip_pre_processing\
 
+            #apptainer exec --nv /project/scratch/p200177/DE_371/resources/apptainer_container/containegan2aer.sif python3 /home/users/u101957/DE371_StyleGAN/gan_2_ae/on_belenos/pre_proc_for_AE.py \
+            #    0\
+            #    0\
+            #    4\
+            #    --skip_pre_processing\

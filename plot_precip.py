@@ -7,8 +7,8 @@ import os
 
 cmapRR = colors.ListedColormap(["white","mediumpurple","blue","dodgerblue","darkseagreen","seagreen","greenyellow","yellow", "navajowhite","sandybrown","darkorange","red","darkred","black"], name='from_list', N=None)
 
-folder = ('/project/scratch/p200177/DE_371/angeliquebonamy/results/scenarios/1_batch_test_nuage')
-list_dir = os.listdir(folder)
+folder = ('/project/scratch/p200177/DE_371/angeliquebonamy/results/scenarios/')
+list_dir = ['amse','mse','wamse','mae'] #os.listdir(folder)
 for n,dir in enumerate(list_dir):
     path_inv_files = os.path.join(folder,dir,'inversion')
     path_pack_files = os.path.join(folder,dir,'pack')
@@ -25,7 +25,8 @@ for n,dir in enumerate(list_dir):
             # # Trouver la position de "1500" dans la chaîne
             data2plot_origin = np.load(path_file_pack).astype(np.float32)[:,np.newaxis,:,:]
             data2plot = np.load(path_file_inv).astype(np.float32)[:,np.newaxis,:,:]#samples_precip/EP_weights_tests/AMSE/inversion/invertFsemble_Rsemble_Rien signif_2.npy_.npy').astype(np.float32)[:,np.newaxis,:,:]
-# 
+#   
+            print('la')
             for j in range(16):
                 fig, axes = plt.subplots(2, 4, figsize=(20, 10))
 

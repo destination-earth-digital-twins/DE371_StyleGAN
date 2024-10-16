@@ -16,24 +16,19 @@ export CC=gcc  #the compiler to access the good cpp standard
 export APPTAINER_BINDPATH="/project/home/p200177/DE_371/datasets:/project/home/p200177/DE_371/datasets/,/project/scratch/p200177/DE_371:/project/scratch/p200177/DE_371/"
 module load Apptainer/1.2.4-GCCcore-12.3.0
 
-# apptainer exec --nv /project/scratch/p200177/DE_371/resources/apptainer_container/container.sif python3 main_inversion.py \
-#         --invstep=2000\
-#         --device='cuda:0'\
-#         --normalization='minmax'
-#         # --output_dir='/project/scratch/p200177/DE_371/angeliquebonamy/results/scenarios/BON/VGG_random/sol5/inversion/'\
-#         # --pack_dir='/project/scratch/p200177/DE_371/angeliquebonamy/results/scenarios/BON/VGG_random/sol5/pack/'\
-#         # --optimize_features_computation\
-#         # --vgg_computation='sol5'\
-#         # --noise_optimize
+
 
 apptainer exec --nv /project/scratch/p200177/DE_371/resources/apptainer_container/container.sif python3 main_inversion_precip_scenarios.py \
-        --pixel_loss_type='mse'\
-        --vgg_computation='sol5'\
-        --invstep=1500\
-        --device='cuda:0'\
-        --output_dir='/project/scratch/p200177/DE_371/angeliquebonamy/results/scenarios/BONS/VGG/tr/sol5/mse/inversion/'\
-        --pack_dir='/project/scratch/p200177/DE_371/angeliquebonamy/results/scenarios/BONS/VGG/tr/sol5/mse/pack/'\
-        --optimize_features_computation\
+        --lambda_pixel=0\
+        --invstep=2000\
+        --vgg_computation='sol2'\
+        --device='cuda:1'\
+        --output_dir='./plot_gan_imgs'\ 
+        --pack_dir='./'\ 
+
+# --pixel_rr_vgg_others 
+        # --optimize_features_computation\
+
 
 # ['mse', 'mae','wmse','amse','wamse','sum_pixel_loss','sum_pixel_loss_mae','mul_pixel_loss_mae','mul_pixel_loss_mse']
       #  --noise_optimize\

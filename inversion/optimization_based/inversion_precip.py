@@ -15,7 +15,7 @@ import pickle
 from tqdm import tqdm
 import os 
 from inversion.lpips import VGGPerceptualLoss
-from inversion.plotter import online_inv_plot_2, online_inv_plot
+#from inversion.plotter import online_inv_plot_2, online_inv_plot
 import time
 
 def noise_regularize(noises):
@@ -78,14 +78,25 @@ def compute_perceptual_features(img, VGG_loss, device, params):
                     styles.append(style)
 
         elif params.vgg_computation in ['sol2', 'sol4', 'sol5']:
-            for i_var in range(img.shape[1]):
-                feature, style = VGG_loss.forward_single_img(
-                                                    (img[:, i_var, :, :]+1)/2,
-                                                    feature_layers = params.vgg_feature_layers,
-                                                    style_layers = params.vgg_style_layers
-                        )
-                features.append(feature)
-                styles.append(style)
+            if params.pixel_rr_vgg_others:
+            
+                for i_var in range(1,4):
+                    feature, style = VGG_loss.forward_single_img(
+                                                        (img[:, i_var, :, :]+1)/2,
+                                                        feature_layers = params.vgg_feature_layers,
+                                                        style_layers = params.vgg_style_layers
+                            )
+                    features.append(feature)
+                    styles.append(style)
+            else:
+                for i_var in range(img.shape[1]):
+                    feature, style = VGG_loss.forward_single_img(
+                                                        (img[:, i_var, :, :]+1)/2,
+                                                        feature_layers = params.vgg_feature_layers,
+                                                        style_layers = params.vgg_style_layers
+                            )
+                    features.append(feature)
+                    styles.append(style)
 
         elif params.vgg_computation == 'sol3':
             features, styles = VGG_loss.forward_single_img(
@@ -249,23 +260,43 @@ def optimize(batch_dir,Ens_r,batch_idx, g_ema, latent_mean, device, params,scena
                         perceptual_loss /= img_gen.shape[0]*img_gen.shape[1]
                     elif params.vgg_computation in ['sol2', 'sol4', 'sol5']:
                         perceptual_loss = torch.tensor(0.).to(device)
-                        for i_var in range(img_gen.shape[1]):
-                            if params.lambda_vgg>0. :
-                                perceptual_loss += VGG_loss( (img_gen[:, i_var, :, :]+1)/2,
-                                                                (Ens_r[:, i_var, :, :]+1)/2,
-                                                                feature_layers = params.vgg_feature_layers,
-                                                                style_layers = params.vgg_style_layers,
-                                                                alpha_feature = params.vgg_alpha_feature,
-                                                                alpha_style = params.vgg_alpha_style
-                                    )
-                            elif params.lambda_lpips>0. :
-                                gen = img_gen[:, i_var, :, :].unsqueeze(1).repeat(1, 3, 1, 1)
-                                original = Ens_r[:, i_var, :, :].unsqueeze(1).repeat(1, 3, 1, 1)
-                                perceptual_loss += torch.sum(torch.abs(LPIPS_loss.forward(gen,original)))
-                            else:
-                                raise NotImplementedError
+                        if params.pixel_rr_vgg_others:
                             
-                        perceptual_loss /= img_gen.shape[1]
+                            for i_var in range(1,4):
+                                if params.lambda_vgg>0. :
+                                    perceptual_loss += VGG_loss( (img_gen[:, i_var, :, :]+1)/2,
+                                                                    (Ens_r[:, i_var, :, :]+1)/2,
+                                                                    feature_layers = params.vgg_feature_layers,
+                                                                    style_layers = params.vgg_style_layers,
+                                                                    alpha_feature = params.vgg_alpha_feature,
+                                                                    alpha_style = params.vgg_alpha_style
+                                        )
+                                elif params.lambda_lpips>0. :
+                                    gen = img_gen[:, i_var, :, :].unsqueeze(1).repeat(1, 3, 1, 1)
+                                    original = Ens_r[:, i_var, :, :].unsqueeze(1).repeat(1, 3, 1, 1)
+                                    perceptual_loss += torch.sum(torch.abs(LPIPS_loss.forward(gen,original)))
+                                else:
+                                    raise NotImplementedError
+                                
+                            perceptual_loss /= 3
+                        else:
+                            for i_var in range(img_gen.shape[1]):
+                                if params.lambda_vgg>0. :
+                                    perceptual_loss += VGG_loss( (img_gen[:, i_var, :, :]+1)/2,
+                                                                    (Ens_r[:, i_var, :, :]+1)/2,
+                                                                    feature_layers = params.vgg_feature_layers,
+                                                                    style_layers = params.vgg_style_layers,
+                                                                    alpha_feature = params.vgg_alpha_feature,
+                                                                    alpha_style = params.vgg_alpha_style
+                                        )
+                                elif params.lambda_lpips>0. :
+                                    gen = img_gen[:, i_var, :, :].unsqueeze(1).repeat(1, 3, 1, 1)
+                                    original = Ens_r[:, i_var, :, :].unsqueeze(1).repeat(1, 3, 1, 1)
+                                    perceptual_loss += torch.sum(torch.abs(LPIPS_loss.forward(gen,original)))
+                                else:
+                                    raise NotImplementedError
+                                
+                            perceptual_loss /= img_gen.shape[1]
 
                     elif params.vgg_computation == 'sol3':
                         if params.lambda_vgg>0. :
@@ -304,31 +335,50 @@ def optimize(batch_dir,Ens_r,batch_idx, g_ema, latent_mean, device, params,scena
                                 
                         perceptual_loss /= img_gen.shape[0]*img_gen.shape[1]
                     elif params.vgg_computation in ['sol2', 'sol4', 'sol5']:
-                        for i_var in range(img_gen.shape[1]):
-                            features_input_img=Ens_r_features[i_var]
-                            if params.vgg_style_layers:
-                                styles_input_img=Ens_r_styles[i_var]
-                            else :
-                                styles_input_img=None
-                            perceptual_loss += VGG_loss.forward_given_features(
-                                target_img=(img_gen[:, i_var, :, :]+1)/2,
-                                features_input_img=features_input_img, 
-                                styles_input_img=styles_input_img,
+                        if params.pixel_rr_vgg_others:
+                            for i_var in range(1,4):
+                                features_input_img=Ens_r_features[i_var]
+                                if params.vgg_style_layers:
+                                    styles_input_img=Ens_r_styles[i_var]
+                                else :
+                                    styles_input_img=None
+                                perceptual_loss += VGG_loss.forward_given_features(
+                                    target_img=(img_gen[:, i_var, :, :]+1)/2,
+                                    features_input_img=features_input_img, 
+                                    styles_input_img=styles_input_img,
+                                    feature_layers = params.vgg_feature_layers,
+                                    style_layers = params.vgg_style_layers,
+                                    alpha_feature = params.vgg_alpha_feature,
+                                    alpha_style = params.vgg_alpha_style
+                                )
+                            perceptual_loss /= 3
+                        else:
+                            for i_var in range(img_gen.shape[1]):
+                                features_input_img=Ens_r_features[i_var]
+                                if params.vgg_style_layers:
+                                    styles_input_img=Ens_r_styles[i_var]
+                                else :
+                                    styles_input_img=None
+                                perceptual_loss += VGG_loss.forward_given_features(
+                                    target_img=(img_gen[:, i_var, :, :]+1)/2,
+                                    features_input_img=features_input_img, 
+                                    styles_input_img=styles_input_img,
+                                    feature_layers = params.vgg_feature_layers,
+                                    style_layers = params.vgg_style_layers,
+                                    alpha_feature = params.vgg_alpha_feature,
+                                    alpha_style = params.vgg_alpha_style
+                                )
+                            perceptual_loss /= img_gen.shape[1]
+                            
+                    else :
+                        perceptual_loss += VGG_loss.forward_given_features(
+                                target_img=(img_gen+1)/2,
+                                features_input_img=Ens_r_features, 
+                                styles_input_img=Ens_r_styles,
                                 feature_layers = params.vgg_feature_layers,
                                 style_layers = params.vgg_style_layers,
                                 alpha_feature = params.vgg_alpha_feature,
                                 alpha_style = params.vgg_alpha_style
-                            )
-                        perceptual_loss /= img_gen.shape[1]
-                    else :
-                        perceptual_loss += VGG_loss.forward_given_features(
-                            target_img=(img_gen+1)/2,
-                            features_input_img=Ens_r_features, 
-                            styles_input_img=Ens_r_styles,
-                            feature_layers = params.vgg_feature_layers,
-                            style_layers = params.vgg_style_layers,
-                            alpha_feature = params.vgg_alpha_feature,
-                            alpha_style = params.vgg_alpha_style
                         )
 
                 list_time_to_compute_vgg_loss.append(time.time()-t0)
@@ -341,60 +391,92 @@ def optimize(batch_dir,Ens_r,batch_idx, g_ema, latent_mean, device, params,scena
         #n_loss = noise_regularize(noises)
         # with torch.no_grad():
         #     mse_loss = F.mse_loss(img_gen, Ens_r)
-        if params.pixel_loss_type=='mse' :
-        
-            pixel_loss = F.mse_loss(img_gen, Ens_r)
+        if params.pixel_rr_vgg_others:
+            if params.pixel_loss_type=='mse' :
             
-        elif params.pixel_loss_type=='mae' :
-            
-            pixel_loss = F.l1_loss(img_gen, Ens_r)
+                pixel_loss = F.mse_loss(img_gen[:,0,:,:], Ens_r[:,0,:,:])
+                
+            elif params.pixel_loss_type=='mae' :
+                
+                pixel_loss = F.l1_loss(img_gen[:,0,:,:], Ens_r[:,0,:,:])
 
-        elif params.pixel_loss_type=='mae_std' :
+
             
-            pixel_loss = F.l1_loss(img_gen, Ens_r) + F.l1_loss(img_gen.std(dim=0), Ens_r.std(dim=0)) 
-        elif params.pixel_loss_type=='wmse':
-            
-            pixel_loss = (F.mse_loss(img_gen, Ens_r)*torch.min(Ens_r+1,torch.tensor(20))).mean()
-        
-        elif params.pixel_loss_type=='amse':
-            
-            pixel_loss = F.mse_loss(img_gen, Ens_r) + torch.max(torch.min(Ens_r,torch.tensor(20))-img_gen,torch.tensor(0)).mean()
-            
-        elif params.pixel_loss_type=='wamse':
-            
-            pixel_loss = F.mse_loss(img_gen, Ens_r) + torch.max(torch.min(Ens_r,torch.tensor(20))-img_gen,torch.tensor(0)).mean()*torch.min(Ens_r+1,torch.tensor(20)).mean()
-            
-        elif params.pixel_loss_type=='sum_pixel_loss':
-            x = Ens_r.contiguous()
-            y = img_gen.contiguous()
-            pixel_loss = torch.abs((x-y).sum())
-            
-        elif params.pixel_loss_type =='sum_pixel_loss_mae':
-            if i <995:
-                pixel_loss = F.l1_loss(img_gen, Ens_r)
+            elif params.pixel_loss_type=='amse':
+                # version avec b=20
+                pixel_loss = F.mse_loss(img_gen[:,0,:,:], Ens_r[:,0,:,:]) + torch.max(torch.min(Ens_r[:,0,:,:],torch.tensor(20))-img_gen[:,0,:,:],torch.tensor(0)).mean()
+
+
+            elif params.pixel_loss_type=='wamse':
+                
+                pixel_loss = F.mse_loss(img_gen[:,0,:,:], Ens_r[:,0,:,:]) + torch.max(torch.min(Ens_r[:,0,:,:],torch.tensor(20))-img_gen[:,0,:,:],torch.tensor(0)).mean()*torch.min(Ens_r[:,0,:,:]+1,torch.tensor(20)).mean()
+
+                
             else:
+                raise ValueError(f"unknown pixel_loss_type: {params.pixel_loss_type}")
+        else:
+            
+            if params.pixel_loss_type=='mse' :
+            
+                pixel_loss = F.mse_loss(img_gen, Ens_r)
+                
+            elif params.pixel_loss_type=='mae' :
+                
+                pixel_loss = F.l1_loss(img_gen, Ens_r)
+
+            elif params.pixel_loss_type=='mae_std' :
+                
+                pixel_loss = F.l1_loss(img_gen, Ens_r) + F.l1_loss(img_gen.std(dim=0), Ens_r.std(dim=0)) 
+            elif params.pixel_loss_type=='wmse':
+                
+                pixel_loss = (F.mse_loss(img_gen, Ens_r)*torch.min(Ens_r+1,torch.tensor(20))).mean()
+            
+            elif params.pixel_loss_type=='amse':
+                # version avec b=20
+                pixel_loss = F.mse_loss(img_gen, Ens_r) + torch.max(torch.min(Ens_r,torch.tensor(20))-img_gen,torch.tensor(0)).mean()
+                #version avec b = target 
+                # pixel_loss = F.mse_loss(img_gen, Ens_r) + torch.max(Ens_r-img_gen,torch.tensor(0)).mean()
+                # Avec b=15
+                # pixel_loss = F.mse_loss(img_gen, Ens_r) + torch.max(torch.min(Ens_r,torch.tensor(15))-img_gen,torch.tensor(0)).mean()
+                # b = 40
+                # pixel_loss = F.mse_loss(img_gen, Ens_r) + torch.max(torch.min(Ens_r,torch.tensor(40))-img_gen,torch.tensor(0)).mean()
+
+
+            elif params.pixel_loss_type=='wamse':
+                
+                pixel_loss = F.mse_loss(img_gen, Ens_r) + torch.max(torch.min(Ens_r,torch.tensor(20))-img_gen,torch.tensor(0)).mean()*torch.min(Ens_r+1,torch.tensor(20)).mean()
+                
+            elif params.pixel_loss_type=='sum_pixel_loss':
                 x = Ens_r.contiguous()
                 y = img_gen.contiguous()
                 pixel_loss = torch.abs((x-y).sum())
-                    
-        elif params.pixel_loss_type =='mul_pixel_loss_mae':
+                
+            elif params.pixel_loss_type =='sum_pixel_loss_mae':
+                if i <995:
+                    pixel_loss = F.l1_loss(img_gen, Ens_r)
+                else:
+                    x = Ens_r.contiguous()
+                    y = img_gen.contiguous()
+                    pixel_loss = torch.abs((x-y).sum())
+                        
+            elif params.pixel_loss_type =='mul_pixel_loss_mae':
 
-            pixel_loss_mse = F.l1_loss(img_gen, Ens_r)
-            x = Ens_r.contiguous()
-            y = img_gen.contiguous()
-            pixel_loss_sum = torch.abs((x-y).sum())
-            pixel_loss = params.lambda_pixel * pixel_loss_mse + 0.00002* pixel_loss_sum
-            
-        elif params.pixel_loss_type =='mul_pixel_loss_mse':
+                pixel_loss_mse = F.l1_loss(img_gen, Ens_r)
+                x = Ens_r.contiguous()
+                y = img_gen.contiguous()
+                pixel_loss_sum = torch.abs((x-y).sum())
+                pixel_loss = params.lambda_pixel * pixel_loss_mse + 0.00002* pixel_loss_sum
+                
+            elif params.pixel_loss_type =='mul_pixel_loss_mse':
 
-            pixel_loss_mse = F.mse_loss(img_gen, Ens_r)
-            x = Ens_r.contiguous()
-            y = img_gen.contiguous()
-            pixel_loss_sum = torch.abs((x-y).sum())
-            pixel_loss = params.lambda_pixel * pixel_loss_mse + 0.00002* pixel_loss_sum
-            
-        else:
-            raise ValueError(f"unknown pixel_loss_type: {params.pixel_loss_type}")
+                pixel_loss_mse = F.mse_loss(img_gen, Ens_r)
+                x = Ens_r.contiguous()
+                y = img_gen.contiguous()
+                pixel_loss_sum = torch.abs((x-y).sum())
+                pixel_loss = params.lambda_pixel * pixel_loss_mse + 0.00002* pixel_loss_sum
+                
+            else:
+                raise ValueError(f"unknown pixel_loss_type: {params.pixel_loss_type}")
     
             
 

@@ -26,8 +26,16 @@ import pandas as pd
 from datetime import date, timedelta, datetime
 import perturbation.utils as utils
 import pickle
+import matplotlib.pyplot as plt
+
 
 torch.manual_seed(42) #reproducibility of runs
+
+
+
+
+# Appel de la fonction avec les paramètres appropriés
+# generate_images(params, 'nom_du_dossier', num_images=10)
 
 if __name__=="__main__" :
     
@@ -40,8 +48,8 @@ if __name__=="__main__" :
     parser.add_argument('--real_data_dir', type = str, 
                         default ='/project/scratch/p200177/DE_371/angeliquebonamy/data_basile_inv/samples_AROME_for_AE_1/batchs/')
     parser.add_argument('--output_dir',type = str, 
-                        default ='/project/scratch/p200177/DE_371/angeliquebonamy/results/scenarios/batchs/inversion/')
-    parser.add_argument("--pack_dir", type=str, default = '/project/scratch/p200177/DE_371/angeliquebonamy/results/scenarios/batchs/pack/') # storing "packed" (normalized) real data
+                        default ='/project/scratch/p200177/DE_371/angeliquebonamy/results/scenarios/VGG/rdm/TEST/sol5_noise/VGG_seul/inversion/')
+    parser.add_argument("--pack_dir", type=str, default = '/project/scratch/p200177/DE_371/angeliquebonamy/results/scenarios/VGG/rdm/TEST/sol5_noise/VGG_seul/pack/') # storing "packed" (normalized) real data
     parser.add_argument("--stat_dir", type=str, default = '/project/scratch/p200177/DE_371/angeliquebonamy/data_basile_inv/samples_AROME_for_AE_1/stat/stat_file/')
     parser.add_argument('--min_file', type=str, default='min_rr_log.npy')
     parser.add_argument('--max_file', type=str, default='max_rr_log.npy')
@@ -71,7 +79,7 @@ if __name__=="__main__" :
     # In case noise_optimize=0, the lambda_noise is not taken into account in the loss computation
     parser.add_argument("--fixed_noise", action='store_true', help="Fixing the noise during optimization")
     # Parameter related to pixel loss 
-    parser.add_argument('--pixel_loss_type', type=str, default='mse', choices = ['mse', 'mae','wmse','amse','wamse','sum_pixel_loss','sum_pixel_loss_mae','mul_pixel_loss_mae','mul_pixel_loss_mse'])
+    parser.add_argument('--pixel_loss_type', type=str, default='mse', choices = ['NON','mse', 'mae','wmse','amse','wamse','sum_pixel_loss','sum_pixel_loss_mae','mul_pixel_loss_mae','mul_pixel_loss_mse'])
     parser.add_argument("--lambda_pixel", type=float, default=10.0, help="weight of the (mae/mse/wmse) pixel loss")
     
     # Parameter related to perceptual loss 
@@ -91,7 +99,7 @@ if __name__=="__main__" :
                         help="Either we compute layer by layer and member per member but we have to triple th einput to make it rgb or all in one (naive)")
     # not pre-trained: '/project/scratch/p200177/DE_371/resources/vgg_weights/vgg16-random.pth'
     # pre_trained: /project/scratch/p200177/DE_371/resources/vgg_weights/vgg16-397923af.pth
-    parser.add_argument("--vgg_state_dict_path", type=str, default='/project/scratch/p200177/DE_371/resources/vgg_weights/vgg16-397923af.pth', help="Insert a path")
+    parser.add_argument("--vgg_state_dict_path", type=str, default='/project/scratch/p200177/DE_371/resources/vgg_weights/vgg16-random.pth', help="Insert a path")
     parser.add_argument("--vgg_style_layers", type=int, nargs='+', default=[], help="style layers to include in vgg loss computation")
     parser.add_argument("--vgg_feature_layers", type=int, nargs='+', default=[0,1,2,3], help="feature layers to include in vgg computation")
     parser.add_argument("--vgg_alpha_feature", type=float, default=1.0, help="weight of the feature/content loss")
@@ -101,6 +109,8 @@ if __name__=="__main__" :
     parser.add_argument("--invstep", type=int, default=1000, help="optimize iterations")
     parser.add_argument("--inv_checkpoints", type=utils.str2intlist, default=[250,500,1000,1500,2000])
 
+
+    parser.add_argument("--pixel_rr_vgg_others", action='store_true', help="Compute the pixel loss for rr var and vgg for u,v,t2M")
 
     parser.add_argument(
         "--noise", type=float, default=0.005, help="strength of the noise level"
@@ -156,6 +166,7 @@ if __name__=="__main__" :
         device = params.device if torch.cuda.is_available() else 'cpu'
 
         G = Generator(params.Shape[1], 512,n_mlp=8,nb_var=params.Shape[0])
+        print('JE SUIS PARAMS',params.Shape[1],params.Shape[0],params.ckpt_dir )
 
         #print('###########################################"##################################################################################################################')
         ckpt = torch.load(params.ckpt_dir, map_location='cpu')['g_ema']
@@ -172,20 +183,22 @@ if __name__=="__main__" :
             G.load_state_dict(ckpt_dic)
         G.eval()
         G = G.to(device)
+        
+        #PLOT GENERATOR :
+
             # create output and pack directories
         if not os.path.exists(os.path.join(params.output_dir,batch_dir)):
             os.makedirs(os.path.join(params.output_dir,batch_dir))
         # if not os.path.exists(os.path.join(params.pack_dir,str('latent'),batch_dir)):
         #     os.makedirs(os.path.join(params.pack_dir,str('latent'),batch_dir))
+        
         ################### producing latent mean #######
-        print('DIRECT',os.path.join(params.output_dir,batch_dir))
         latent = 'latent'
         if not os.path.exists(f'{os.path.join(params.output_dir,batch_dir)}/latent_mean.npy'):
 
             latent_z = torch.empty(10000, 512).normal_().to(device)
             with torch.no_grad():
                 w = G.style(latent_z)
-
             latent_mean = w.mean(dim=0).detach().cpu()
             
             np.save(f'{os.path.join(params.output_dir,batch_dir)}/latent_mean.npy',latent_mean.numpy())
@@ -194,6 +207,52 @@ if __name__=="__main__" :
             lm = np.load(f'{os.path.join(params.output_dir,batch_dir)}/latent_mean.npy').astype(np.float32)
             latent_mean = torch.tensor(lm, dtype = torch.float32)
 
+# PLOT GENERATOR ::
+        nber_imgs = 10
+        latent_z = torch.empty(nber_imgs, 512).normal_().to(device)  # Single latent vector
+        
+        with torch.no_grad():
+            styles = G.style(latent_z)  # Get styles
+            print("Shape of latent_z:", latent_z.shape)
+            print("Shape of styles:", styles.shape)
+            generated_image = G([styles])  # Generate image
+        print(f"Length of generated_image tuple: {len(generated_image)}")
+        for i, img in enumerate(generated_image):
+            print(f"Element {i} type: {type(img)}")
+            if isinstance(img, torch.Tensor):
+                print(f"Element {i} shape: {img.shape}")
+    # Extract the image tensor from the tuple
+
+        image_tensor = generated_image[0]
+        print(f"Shape of image_tensor: {image_tensor.shape}")
+
+
+        # Remove the batch dimension
+        image_tensor = image_tensor.squeeze(0)  # Shape is now [4, 256, 256]
+
+        # Convert the tensor to numpy for plotting
+        image_np = image_tensor.detach().cpu().numpy()
+
+        # Set up the figure with 4 subplots (one for each variable)
+        fig, axs = plt.subplots(1, 4, figsize=(20, 5))  # 1 row, 4 columns
+
+        # Loop over the 4 channels and plot each one
+        for j in range(nber_imgs):
+            for i in range(4):
+                if i==3:
+                    axs[i].imshow(image_np[j][i], cmap='coolwarm',origin='lower')  # Plot in grayscale (assuming each variable is grayscale)
+                    axs[i].axis('off')  # Turn off the axis
+                    axs[i].set_title(f'Variable {i+1}')  # Set title for each variable
+                    fig.savefig(f'{os.path.join(params.output_dir, batch_dir)}/generated_image_{j}.png')
+                else:
+                    
+                    axs[i].imshow(image_np[j][i], cmap='viridis',origin='lower')  # Plot in grayscale (assuming each variable is grayscale)
+                    axs[i].axis('off')  # Turn off the axis
+                    axs[i].set_title(f'Variable {i+1}')  # Set title for each variable
+                    fig.savefig(f'{os.path.join(params.output_dir, batch_dir)}/generated_image_{j}.png')
+
+
+## End plots generator 
 
         #################### main loop ##################
 

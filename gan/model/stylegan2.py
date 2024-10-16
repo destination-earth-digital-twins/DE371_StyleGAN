@@ -546,9 +546,13 @@ class Generator(nn.Module):
         randomize_noise=True,
         return_rgb=False,
     ):
-        if not input_is_latent:
-            styles = [self.style(s) for s in styles]
+        
+        print("Expected shape of styles:", len(styles))
 
+        if not input_is_latent:
+            
+
+            styles = [self.style(s) for s in styles]
         if noise is None:
             if randomize_noise:
                 noise = [None] * self.num_layers
