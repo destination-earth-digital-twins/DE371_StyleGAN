@@ -30,6 +30,9 @@ gan/model/3d_stylegan2-ada_nvidia.py
 gan/model/mocogan.py
 gan/model/ops
 gan/model/ops_3d
-gan/model/op_3d
+gan/model/op_3d/*
+!gan/model/op_3d/upfirdn3d.py
+!gan/model/op_3d/conv3d_gradfix.py
 gan/model/stylegan2_3d_kernel.py
 gan/model/stylegan2_t_conditionned.py
+gan/model/test_stylegan2_3d.py

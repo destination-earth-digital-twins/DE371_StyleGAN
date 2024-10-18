@@ -134,6 +134,8 @@ def main():
 
     parser.add_argument('--multi_timestep_mode', action='store_true')
     parser.add_argument('--mode_3d', action='store_true')
+    parser.add_argument('--variable_first', action='store_true')
+    
     parser.add_argument('--stack_sample_along_time_and_variable', action='store_true')
     
     parser.add_argument('--nb_timesteps', type=int, default=15)
@@ -155,9 +157,14 @@ def main():
                     args.size, args.latent, args.n_mlp, channel_multiplier=args.channel_multiplier, nb_var=args.g_channels
                 ).to(device)
         else :
-            g_ema = Generator3D(
-                    args.size, args.latent, args.n_mlp, channel_multiplier=args.channel_multiplier, nb_var=len(args.var_names), nb_frames=args.nb_timesteps
-                ).to(device)
+            if args.variable_first :
+                g_ema = Generator3D(
+                        args.size, args.latent, args.n_mlp, channel_multiplier=args.channel_multiplier, nb_var=len(args.var_names), nb_frames=args.nb_timesteps
+                    ).to(device)
+            else :
+                g_ema = Generator3D(
+                        args.size, args.latent, args.n_mlp, channel_multiplier=args.channel_multiplier, nb_var=args.nb_timesteps, nb_frames=len(args.var_names)
+                    ).to(device)
     else :
         g_ema = Generator(
                     args.size, args.latent, args.n_mlp, channel_multiplier=args.channel_multiplier, nb_var=len(args.var_names)

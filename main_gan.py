@@ -224,6 +224,8 @@ def get_expe_parameters():
     parser.add_argument('--nb_timesteps', type=int, default=15)
     parser.add_argument('--timestep_period', type=int, default=3)
     parser.add_argument('--stack_sample_along_time_and_variable', action='store_true')
+    parser.add_argument('--timestep_labelling', action='store_true')
+    parser.add_argument('--variable_first', action='store_true')
     parser.add_argument('--cutoff_dataset_leadtimes', action='store_true', help='To only consider [t+dt, t+2*dt...] and not the leadtime between t and dt')
     
     # Training settings -schedulers
@@ -344,26 +346,49 @@ if __name__=="__main__" :
                                     use_noise=config.use_noise)
             
             elif config.model=='stylegan2_3d':
-                # TODO : Add parameter to choose if we want the variable first or the timesteps
-                modelG = modelG_n(config.crop_size[0], config.latent_dim, config.n_mlp,
-                                    channel_multiplier=config.channel_multiplier, 
-                                    nb_var=config.nb_timesteps,# if not config.mean_pert else len(config.var_names)*2,
-                                    nb_frames=config.g_channels,
-                                    var_rr=('rr' in config.var_names),
-                                    tanh_output=config.tanh_output,
-                                    use_noise=config.use_noise)
+                
+                
+                
+                if not config.variable_first :
+                    modelG = modelG_n(config.crop_size[0], config.latent_dim, config.n_mlp,
+                                        channel_multiplier=config.channel_multiplier, 
+                                        nb_var=config.nb_timesteps,# if not config.mean_pert else len(config.var_names)*2,
+                                        nb_frames=config.g_channels,
+                                        var_rr=('rr' in config.var_names),
+                                        tanh_output=config.tanh_output,
+                                        use_noise=config.use_noise)
 
-                modelD = modelD_n(config.crop_size[0],
+                    modelD = modelD_n(config.crop_size[0],
                                 channel_multiplier=config.channel_multiplier, 
-                                    nb_var=config.nb_timesteps)# if not config.mean_pert else len(config.var_names)*2)
+                                    nb_var=config.nb_timesteps)
 
-                modelG_ema = modelG_n(config.crop_size[0], config.latent_dim, config.n_mlp,
-                                    channel_multiplier=config.channel_multiplier, 
-                                    nb_var=config.nb_timesteps,# if not config.mean_pert else len(config.var_names)*2,
-                                    nb_frames=config.g_channels,
-                                    var_rr=('rr' in config.var_names),
-                                    tanh_output=config.tanh_output,
-                                    use_noise=config.use_noise)
+                    modelG_ema = modelG_n(config.crop_size[0], config.latent_dim, config.n_mlp,
+                                        channel_multiplier=config.channel_multiplier, 
+                                        nb_var=config.nb_timesteps, # Channel
+                                        nb_frames=config.g_channels, # Depth
+                                        var_rr=('rr' in config.var_names),
+                                        tanh_output=config.tanh_output,
+                                        use_noise=config.use_noise)
+                else :
+                    modelG = modelG_n(config.crop_size[0], config.latent_dim, config.n_mlp,
+                                        channel_multiplier=config.channel_multiplier, 
+                                        nb_var=config.g_channels, # Channel
+                                        nb_frames=config.nb_timesteps, # Depth
+                                        var_rr=('rr' in config.var_names),
+                                        tanh_output=config.tanh_output,
+                                        use_noise=config.use_noise)
+                    
+                    modelD = modelD_n(config.crop_size[0],
+                                channel_multiplier=config.channel_multiplier, 
+                                    nb_var=config.g_channels)
+
+                    modelG_ema = modelG_n(config.crop_size[0], config.latent_dim, config.n_mlp,
+                                        channel_multiplier=config.channel_multiplier, 
+                                        nb_var=config.g_channels, # Channel
+                                        nb_frames=config.nb_timesteps, # Depth
+                                        var_rr=('rr' in config.var_names),
+                                        tanh_output=config.tanh_output,
+                                        use_noise=config.use_noise)
                  
             elif config.model=='stylegan2_fp16':
 

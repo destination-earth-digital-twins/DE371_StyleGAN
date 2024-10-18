@@ -168,19 +168,31 @@ def upfirdn2d(input, kernel, up=1, down=1, pad=(0, 0)):
 def upfirdn2d_native(
     input, kernel, up_x, up_y, down_x, down_y, pad_x0, pad_x1, pad_y0, pad_y1
 ):
+    # Unpack input shape (batch size is ignored here with _)
     _, channel, in_h, in_w = input.shape
+    
+    # Reshape input to add an extra dimension for later operations
     input = input.reshape(-1, in_h, in_w, 1)
 
-    _, in_h, in_w, minor = input.shape
-    kernel_h, kernel_w = kernel.shape
+    # Get new shape after the reshaping (we unpack again for convenience)
+    _, in_h, in_w, minor = input.shape  # `minor` is effectively the number of channels now
+    kernel_h, kernel_w = kernel.shape  # Get dimensions of the kernel
 
+    # Reshape input to prepare for upsampling along x and y axes
     out = input.view(-1, in_h, 1, in_w, 1, minor)
+    
+    # Apply padding to simulate upsampling by inserting zeros between pixels
     out = F.pad(out, [0, 0, 0, up_x - 1, 0, 0, 0, up_y - 1])
+    
+    # Reshape the output after upsampling (by padding) to merge the padded dimensions
     out = out.view(-1, in_h * up_y, in_w * up_x, minor)
 
+    # Apply padding to the upsampled image (padding for the edges)
     out = F.pad(
         out, [0, 0, max(pad_x0, 0), max(pad_x1, 0), max(pad_y0, 0), max(pad_y1, 0)]
     )
+
+    # Remove any extra padding beyond the boundaries (negative padding handling)
     out = out[
         :,
         max(-pad_y0, 0) : out.shape[1] - max(-pad_y1, 0),
@@ -188,22 +200,39 @@ def upfirdn2d_native(
         :,
     ]
 
+    # Permute the dimensions to get the channels back in the second position
     out = out.permute(0, 3, 1, 2)
+    
+    # Reshape the output to prepare it for convolution (grouping the spatial dimensions)
     out = out.reshape(
         [-1, 1, in_h * up_y + pad_y0 + pad_y1, in_w * up_x + pad_x0 + pad_x1]
     )
+    
+    # Flip the kernel horizontally and vertically (as done in convolution) 
+    # and reshape it for applying 2D convolution
     w = torch.flip(kernel, [0, 1]).view(1, 1, kernel_h, kernel_w)
+    
+    # Apply 2D convolution with the flipped kernel on the padded and upsampled input
     out = F.conv2d(out, w)
+    
+    # Reshape the output after convolution to match the expected height/width
     out = out.reshape(
         -1,
         minor,
         in_h * up_y + pad_y0 + pad_y1 - kernel_h + 1,
         in_w * up_x + pad_x0 + pad_x1 - kernel_w + 1,
     )
+
+    # Permute the output again to return it to (batch, height, width, channels) format
     out = out.permute(0, 2, 3, 1)
+    
+    # Downsample by taking every `down_x`th and `down_y`th pixel along the x and y axes
     out = out[:, ::down_y, ::down_x, :]
 
+    # Calculate output height and width based on upsampling, padding, and downsampling
     out_h = (in_h * up_y + pad_y0 + pad_y1 - kernel_h + down_y) // down_y
     out_w = (in_w * up_x + pad_x0 + pad_x1 - kernel_w + down_x) // down_x
 
+    # Reshape the final output to have the original channel count
     return out.view(-1, channel, out_h, out_w)
+

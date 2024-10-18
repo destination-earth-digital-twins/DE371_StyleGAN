@@ -189,9 +189,10 @@ def Generator_Regularize(path_batch_size,
     
     
     noise = mixing_noise(path_batch_size, latent_dim, mixing)
-    
+
     
     fake_img, latents, _ = modelG(noise, return_latents=True)
+
 
     path_loss, mean_path_length, path_lengths = g_path_regularize(
         fake_img, latents, mean_path_length
@@ -205,9 +206,12 @@ def Generator_Regularize(path_batch_size,
     #    (weighted_path_loss + 0 * fake_img[0, 0, 0, 0]).backward()
     
     modelG.zero_grad(set_to_none = True)
-
-    (weighted_path_loss + 0 * fake_img[0,0,0,0]).backward()
-    
+    if len(fake_img.shape)==4:
+        (weighted_path_loss + 0 * fake_img[0,0,0,0]).backward()
+    elif len(fake_img.shape)==5:
+        (weighted_path_loss + 0 * fake_img[0,0,0,0,0]).backward()
+    else :
+        raise NotImplementedError
     
     loss_dict["path"] = path_loss
     loss_dict["path_length"] = path_lengths.mean()

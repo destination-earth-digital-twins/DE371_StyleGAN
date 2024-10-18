@@ -25,28 +25,45 @@ from math import log2
 import copy
 
 def get_descriptors_for_minibatch(minibatch, nhood_size, nhoods_per_image):
-    S = minibatch.shape # (minibatch, channel, height, width)
-    assert len(S) == 4
-    N = nhoods_per_image * S[0]
-    H = nhood_size // 2
-    nhood, chan, x, y = np.ogrid[0:N, 0:S[1], -H:H+1, -H:H+1]
-    img = nhood // nhoods_per_image
-    x = x + np.random.randint(H, S[3] - H, size=(N, 1, 1, 1))
-    y = y + np.random.randint(H, S[2] - H, size=(N, 1, 1, 1))
-    idx = ((img * S[1] + chan) * S[2] + y) * S[3] + x
-    return minibatch.flat[idx]
-
+    S = minibatch.shape # (minibatch, channel, height, width) or (minibatch, channel, depth, height, width)
+    if len(S) == 4 :
+        N = nhoods_per_image * S[0]
+        H = nhood_size // 2
+        nhood, chan, x, y = np.ogrid[0:N, 0:S[1], -H:H+1, -H:H+1]
+        img = nhood // nhoods_per_image
+        x = x + np.random.randint(H, S[3] - H, size=(N, 1, 1, 1))
+        y = y + np.random.randint(H, S[2] - H, size=(N, 1, 1, 1))
+        idx = ((img * S[1] + chan) * S[2] + y) * S[3] + x
+        return minibatch.flat[idx]
+    elif len(S) == 5:
+        N = nhoods_per_image * S[0]
+        H = nhood_size // 2
+        nhood, chan, t, x, y = np.ogrid[0:N, 0:S[1], 0:S[2], -H:H+1, -H:H+1]
+        img = nhood // nhoods_per_image
+        x = x + np.random.randint(H, S[4] - H, size=(N, 1, 1, 1, 1))
+        y = y + np.random.randint(H, S[3] - H, size=(N, 1, 1, 1, 1))
+        # t = t + np.random.randint(H, S[2] - H, size=(N, 1, 1, 1, 1))
+        idx = (((img * S[1] + chan) * S[2] + t) * S[3] + y) * S[4] + x
+        return minibatch.flat[idx]
+    else :
+        raise NotImplementedError
 #----------------------------------------------------------------------------
 
 def finalize_descriptors(desc):
     if isinstance(desc, list):
         desc = np.concatenate(desc, axis=0)
-    assert desc.ndim == 4 # (neighborhood, channel, height, width)
-    desc -= np.mean(desc, axis=(0, 2, 3), keepdims=True) # normalizing on each channel
-    desc /= np.std(desc, axis=(0, 2, 3), keepdims=True)  # similar to batch+instance norm
-                                                         # actually this is weird and not quite justified ?
-    desc = desc.reshape(desc.shape[0], -1) #reshaping
-    return desc
+    if desc.ndim == 4 : # (neighborhood, channel, height, width)
+        desc -= np.mean(desc, axis=(0, 2, 3), keepdims=True) # normalizing on each channel
+        desc /= np.std(desc, axis=(0, 2, 3), keepdims=True)  # similar to batch+instance norm
+                                                            # actually this is weird and not quite justified ?
+        desc = desc.reshape(desc.shape[0], -1) #reshaping
+        return desc
+    elif desc.ndim == 5 : # (neighborhood, channel, depth, height, width)
+        desc -= np.mean(desc, axis=(0, 2, 3, 4), keepdims=True) # normalizing on each channel
+        desc /= np.std(desc, axis=(0, 2, 3, 4), keepdims=True)  # similar to batch+instance norm
+                                                            # actually this is weird and not quite justified ?
+        desc = desc.reshape(desc.shape[0], -1) #reshaping
+        return desc
 
 #----------------------------------------------------------------------------
 
@@ -70,10 +87,18 @@ def sliced_wasserstein(A, B, dir_repeats, dirs_per_repeat):
 def downscale_minibatch(minibatch, lod):
     if lod == 0:
         return minibatch
-    t = minibatch.astype(np.float32)
-    for i in range(lod):
-        t = (t[:, :, 0::2, 0::2] + t[:, :, 0::2, 1::2] + t[:, :, 1::2, 0::2] + t[:, :, 1::2, 1::2]) * 0.25
-    return t
+    if minibatch.ndim == 4:
+        t = minibatch.astype(np.float32)
+        for i in range(lod):
+            t = (t[:, :, 0::2, 0::2] + t[:, :, 0::2, 1::2] + t[:, :, 1::2, 0::2] + t[:, :, 1::2, 1::2]) * 0.25
+        return t
+    elif minibatch.ndim == 5:
+        t = minibatch.astype(np.float32)
+        for i in range(lod):
+            t = (t[:, :, :, 0::2, 0::2] + t[:, :, :, 0::2, 1::2] + t[:, :, :, 1::2, 0::2] + t[:, :, :, 1::2, 1::2]) * 0.25
+        return t
+    else :
+        raise NotImplementedError
 
 #----------------------------------------------------------------------------
 
@@ -85,18 +110,32 @@ gaussian_filter = np.float32([
     [1, 4,  6,  4,  1]]) / 256.0
 
 def pyr_down(minibatch): # matches cv2.pyrDown()
-    assert minibatch.ndim == 4
-    return scipy.ndimage.convolve(minibatch, gaussian_filter[np.newaxis, np.newaxis, :, :], mode='mirror')[:, :, ::2, ::2]
+    if minibatch.ndim == 4:
+        return scipy.ndimage.convolve(minibatch, gaussian_filter[np.newaxis, np.newaxis, :, :], mode='mirror')[:, :, ::2, ::2]
+    elif minibatch.ndim == 5:
+        return scipy.ndimage.convolve(minibatch, gaussian_filter[np.newaxis, np.newaxis, np.newaxis, :, :], mode='mirror')[:, :, :, ::2, ::2]
+    else :
+        raise NotImplementedError
 
 def pyr_up(minibatch): # matches cv2.pyrUp()
-    assert minibatch.ndim == 4
-    S = minibatch.shape
-    if log2(S[2])-round(log2(S[2])) !=0:
-        res = np.zeros((S[0], S[1], S[2] * 2 - 1, S[3] * 2 - 1), minibatch.dtype)
+    if minibatch.ndim == 4:
+        S = minibatch.shape
+        if log2(S[2])-round(log2(S[2])) !=0:
+            res = np.zeros((S[0], S[1], S[2] * 2 - 1, S[3] * 2 - 1), minibatch.dtype)
+        else:
+            res = np.zeros((S[0], S[1], S[2] * 2, S[3] * 2), minibatch.dtype)
+        res[:, :, ::2, ::2] = minibatch
+        return scipy.ndimage.convolve(res, gaussian_filter[np.newaxis, np.newaxis, :, :] * 4.0, mode='mirror')
+    elif minibatch.ndim == 5:
+        S = minibatch.shape
+        if log2(S[3])-round(log2(S[3])) !=0:
+            res = np.zeros((S[0], S[1], S[2], S[3] * 2 - 1, S[4] * 2 - 1), minibatch.dtype)
+        else:
+            res = np.zeros((S[0], S[1], S[2], S[3] * 2, S[4] * 2), minibatch.dtype)
+        res[:, :, :, ::2, ::2] = minibatch
+        return scipy.ndimage.convolve(res, gaussian_filter[np.newaxis, np.newaxis, np.newaxis, :, :] * 4.0, mode='mirror')
     else:
-        res = np.zeros((S[0], S[1], S[2] * 2, S[3] * 2), minibatch.dtype)
-    res[:, :, ::2, ::2] = minibatch
-    return scipy.ndimage.convolve(res, gaussian_filter[np.newaxis, np.newaxis, :, :] * 4.0, mode='mirror')
+        raise NotImplementedError
 
 def generate_laplacian_pyramid(minibatch, num_levels):
     if type(minibatch)==np.ndarray:

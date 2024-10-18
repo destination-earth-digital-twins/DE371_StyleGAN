@@ -6,6 +6,8 @@ from torch import nn
 from torch.nn import functional as F
 import numpy as np
 
+from gan.model.op_3d import upfirdn3d, conv3d_gradfix
+
 
 library = {'stylegan2_3d' : {'G' :  'Generator3D', 'D' : 'Discriminator3D'}}
 
@@ -18,6 +20,124 @@ class PixelNorm(nn.Module):
         # # print("####### PIXEL NORM #######")
         return input * torch.rsqrt(torch.mean(input ** 2, dim=1, keepdim=True) + 1e-8)
 
+
+def make_kernel(k):
+    k = torch.tensor(k, dtype=torch.float32)
+
+    if k.ndim == 1:
+        k = k[None, :] * k[:, None]
+
+    k /= k.sum()
+
+    return k.unsqueeze(0)
+
+
+class Upsample(nn.Module):
+    def __init__(self, kernel, factor=2):
+        super().__init__()
+
+        self.factor = factor
+        kernel = make_kernel(kernel) * (factor ** 2)
+        self.register_buffer("kernel", kernel)
+
+        p = kernel.shape[1] - factor
+        # print('p for Upsample class', p)
+        pad0 = (p + 1) // 2 + factor - 1 # width padding
+        pad1 = p // 2 # heigt padding
+        pad2 = 0 # depth padding 
+        
+
+        self.pad = (pad0, pad1, pad2) # 
+
+
+
+    def forward(self, input):
+        # print('Upsample class')
+        out = upfirdn3d(input, self.kernel, up=(self.factor,self.factor, 1), down=1, pad=self.pad)
+
+        return out
+
+
+class Downsample(nn.Module):
+    def __init__(self, kernel, factor=2):
+        super().__init__()
+
+        self.factor = factor
+        kernel = make_kernel(kernel)
+        self.register_buffer("kernel", kernel)
+
+        p = kernel.shape[1] - factor
+        # print('p for Downsample class', p)
+        pad0 = (p + 1) // 2 # heigt padding
+        pad1 = p // 2 # width padding
+        pad2 = 0 # depth padding 
+
+        self.pad = (pad0, pad1, pad2)
+
+    def forward(self, input):
+        out = upfirdn3d(input, self.kernel, up=1, down=(1,self.factor,self.factor), pad=self.pad)
+
+        return out
+
+
+class Blur(nn.Module):
+    def __init__(self, kernel, pad, upsample_factor=1):
+        super().__init__()
+
+        kernel = make_kernel(kernel)
+
+        if upsample_factor > 1:
+            kernel = kernel * (upsample_factor ** 2)
+            # # print('kernel upsampled ', kernel)
+        self.register_buffer("kernel", kernel)
+
+        self.pad = pad
+
+    def forward(self, input):
+        # print("#### BLUR ####")
+        
+        # print("Before Bluring", input.shape)
+        out = upfirdn3d(input, self.kernel, pad=self.pad)
+        # print("After Bluring", out.shape)
+
+        return out
+
+class EqualConv3d(nn.Module):
+    def __init__(
+        self, in_channel, out_channel, kernel_size, stride=1, padding=0, bias=True
+    ):
+        super().__init__()
+
+        self.weight = nn.Parameter(
+            torch.randn(out_channel, in_channel, *kernel_size)
+        )
+        self.scale = 1 / math.sqrt(in_channel * kernel_size[-1] ** 2)
+
+        self.stride = stride
+        self.padding = padding
+
+        if bias:
+            self.bias = nn.Parameter(torch.zeros(out_channel))
+
+        else:
+            self.bias = None
+
+    def forward(self, input):
+        out = conv3d_gradfix.conv3d(
+            input,
+            self.weight * self.scale,
+            bias=self.bias,
+            stride=self.stride,
+            padding=self.padding,
+        )
+
+        return out
+
+    def __repr__(self):
+        return (
+            f"{self.__class__.__name__}({self.weight.shape[1]}, {self.weight.shape[0]},"
+            f" {self.weight.shape[2]}, stride={self.stride}, padding={self.padding})"
+        )
 
 class EqualLinear(nn.Module):
     def __init__(
@@ -53,30 +173,6 @@ class EqualLinear(nn.Module):
             f"{self.__class__.__name__}({self.weight.shape[1]}, {self.weight.shape[0]})"
         )
 
-class Interpolate(nn.Module):
-    def __init__(self, scale=1, size=None):
-        super(Interpolate, self).__init__()
-        if scale is None and size is None:
-            raise ValueError
-        else :
-            self.scale=scale
-            self.size=size
-            
-    def forward(self, x, scale=None, size=None):
-        # print("####### INTERPOLATE BLUR #######")
-        # print("Before Bluring", x.shape)
-        self.scale = scale
-        self.size = size
-
-        if self.scale is None and size is not None:
-            x = F.interpolate(x, size=self.size)
-        elif self.scale is not None and size is None:
-            x = F.interpolate(x, scale_factor=self.scale)
-        else:
-            x = F.interpolate(x, scale_factor=1)
-        # print("After Bluring", x.shape)
-        return x
-
 class ModulatedConv3d(nn.Module):
     def __init__(
         self,
@@ -87,6 +183,7 @@ class ModulatedConv3d(nn.Module):
         demodulate=True,
         upsample=False,
         downsample=False,
+        blur_kernel=[1, 3, 3, 1],
         fused=True,
     ):
         super().__init__()
@@ -98,17 +195,30 @@ class ModulatedConv3d(nn.Module):
         self.upsample = upsample
         self.downsample = downsample
 
+        if isinstance(kernel_size, tuple):
+            kernel = kernel_size[-1]
+
         if upsample:
             factor = 2
-            self.blur = Interpolate(factor)
+            p = (len(blur_kernel) - factor) - (kernel - 1)
+            # print('p for upsample', p)
+            pad0 = (p + 1) // 2 + factor - 1 # heigt padding 
+            pad1 = p // 2 + 1 # width padding
+            pad2 = 0 # depth padding
+
+            self.blur = Blur(blur_kernel, pad=(pad0, pad1, pad2), upsample_factor=factor)
 
         if downsample:
             factor = 2
-            self.blur = Interpolate(factor)
-        
+            p = (len(blur_kernel) - factor) + (kernel - 1)
+            # print('p for downsample', p)
+            pad0 = (p + 1) // 2 # heigt padding
+            pad1 = p // 2 # width padding
+            pad2 = 0 # depth padding 
 
+            self.blur = Blur(blur_kernel, pad=(pad0, pad1, pad2))
 
-        if type(kernel_size)==int:
+        if isinstance(kernel_size, int):
             self.kernel_size = (self.kernel_size, self.kernel_size, self.kernel_size)
 
         fan_in = in_channel * max(list(kernel_size)) ** 2
@@ -137,23 +247,24 @@ class ModulatedConv3d(nn.Module):
             style = self.modulation(style)
 
             if self.demodulate:
-                w = weight.unsqueeze(0) * style.view(batch, 1, in_channel, 1, 1, 1)
+                w = weight.unsqueeze(0) * style.view(batch, 1, in_channel, 1, 1)
                 dcoefs = (w.square().sum((2, 3, 4, 5)) + 1e-8).rsqrt()
 
-            input = input * style.reshape(batch, in_channel, 1, 1, 1)
+            input = input * style.reshape(batch, in_channel, 1, 1)
 
             if self.upsample:
-                # print('Weight shape in Upsample of ModulatedConv3D',np.shape(weight))
-                weight = weight.transpose(0, 1) # Might need to modify that as the weight is now 3D
-                out = F.conv_transpose3d(input, weight, padding=0, stride=2)
-                out = self.blur(out, size=(out.shape[-3:])+1)
+                weight = weight.transpose(0, 1)
+                out = conv3d_gradfix.conv_transpose3d(
+                    input, weight, padding=0, stride=(1,2,2)
+                )
+                out = self.blur(out)
 
             elif self.downsample:
-                input= self.blur(input, size=(out.shape[-3:])-1)
-                out = F.conv3d(input, weight, padding=0, stride=2)
+                input = self.blur(input)
+                out = conv3d_gradfix.conv3d(input, weight, padding=0, stride=(1,2,2))
 
             else:
-                out = F.conv3d(input, weight, padding=self.padding)
+                out = conv3d_gradfix.conv3d(input, weight, padding=self.padding)
 
             if self.demodulate:
                 out = out * dcoefs.view(batch, -1, 1, 1, 1)
@@ -196,8 +307,8 @@ class ModulatedConv3d(nn.Module):
             )
             # print("upsample a11 weight shape", weight.shape)
             # print("upsample a11 input shape", input.shape)
-            out = F.conv_transpose3d(
-                input, weight, padding=(0,0,0), stride=(1,2,2), groups=batch
+            out = conv3d_gradfix.conv_transpose3d(
+                input, weight, padding=0, stride=(1,2,2), groups=batch
             )
             # print("upsample a11 out shape", out.shape)
             # print("upsample a12 weight shape", weight.shape)
@@ -206,20 +317,22 @@ class ModulatedConv3d(nn.Module):
             out = out.view(batch, self.out_channel, depth, height, width)
             # print("upsample a14 weight shape", weight.shape)
             # print("upsample a14 out shape", out.shape)
-            out = self.blur(out, size=(depth, height-1, width-1))
+            out = self.blur(out)
             # print("upsample a15 weight shape", weight.shape)
             # print("upsample a15 out shape", out.shape)
 
         elif self.downsample:
             # print('################ DOWNSAMPLE ################')
             # print("a16 shape before interpolate ", input.shape)
-            input= self.blur(input, scale=2)
+            input= self.blur(input) #, scale=2)
             # print("a17 shape after interpolate ", input.shape)
             _, _, depth, height, width = input.shape
             # print("a18")
             input = input.view(1, batch * in_channel, depth, height, width)
             # print("a19 resize input", input.shape)
-            out = F.conv3d(input, weight, padding=0, stride=2, groups=batch)
+            out = conv3d_gradfix.conv3d(
+                input, weight, padding=0, stride=2, groups=batch
+            )
             # print("a20 out after conv3d", out.shape)
             _, _, depth, height, width = out.shape
             # print("a21")
@@ -231,7 +344,9 @@ class ModulatedConv3d(nn.Module):
             # print("a23 shape before resize ", input.shape)
             input = input.view(1, batch * in_channel, depth, height, width)
             # print("a24 shape after resize ", input.shape,   weight.shape)
-            out = F.conv3d(input, weight, padding=self.padding, groups=batch)
+            out = conv3d_gradfix.conv3d(
+                input, weight, padding=self.padding, groups=batch
+            )
             # print("a25 shape after conv3d ", out.shape)
             _, _, depth, height, width = out.shape
             # print("a26")
@@ -278,6 +393,7 @@ class StyledConv(nn.Module):
         out_channel,
         kernel_size,
         style_dim,
+        blur_kernel=[1, 3, 3, 1],
         upsample=False,
         demodulate=True,
         use_noise=True,
@@ -290,6 +406,7 @@ class StyledConv(nn.Module):
             kernel_size,
             style_dim,
             upsample=upsample,
+            blur_kernel=blur_kernel,
             demodulate=demodulate,
         )
 
@@ -312,11 +429,11 @@ class StyledConv(nn.Module):
 
 
 class ToRGB(nn.Module):
-    def __init__(self, in_channel, style_dim, upsample=True, nb_var=3, nb_frames=15):
+    def __init__(self, in_channel, style_dim, upsample=True, blur_kernel=[1, 3, 3, 1], nb_var=3, nb_frames=15):
         super().__init__()
 
         if upsample:
-            self.upsample = Interpolate()
+            self.upsample = Upsample(blur_kernel)
 
         self.conv = ModulatedConv3d(
                                     in_channel=in_channel,
@@ -338,14 +455,13 @@ class ToRGB(nn.Module):
         # print('Size of ModConv RGB : ', out.shape)
         out = out + self.bias
         input_conved = torch.clone(out)
-        
+        # print('Shape input_conved', input_conved.shape)
 
         if skip is not None:
-            # # print('Shape input_conved', input_conved.shape)
             prev_rgb = torch.clone(skip)
-            # # print('SKIP before Upsampling', prev_rgb.shape)
-            skip = self.upsample(skip, size=(out.shape[-3:]))
-            # # print('SKIP after Upsampling', skip.shape)
+            # print('SKIP before Upsampling', prev_rgb.shape)
+            skip = self.upsample(skip)
+            # print('SKIP after Upsampling', skip.shape)
             out = out + skip
 
         return (out, input_conved, skip, prev_rgb) if skip  is not None else (out, input_conved)
@@ -358,6 +474,7 @@ class Generator3D(nn.Module):
         style_dim,
         n_mlp,
         channel_multiplier=2,
+        blur_kernel=[1, 3, 3, 1],
         lr_mlp=0.01,
         nb_var=3,
         nb_frames=15,
@@ -398,25 +515,26 @@ class Generator3D(nn.Module):
         }
         self.chm = channel_multiplier
 
-        # TODO : Version to progressively increase the depth dimension
-        # self.input = ConstantInput(self.channels[4], nb_frames=nb_frames if not progressive_nb_frames else nb_frames//5)
-
-        self.input = ConstantInput(self.channels[4], nb_frames=nb_frames)
+        if progressive_nb_frames:
+            self.input = ConstantInput(self.channels[4], nb_frames=4)
+        else :
+            self.input = ConstantInput(self.channels[4], nb_frames=nb_frames)
 
         self.conv1 = StyledConv(
             in_channel=self.channels[4],
             out_channel=self.channels[4],
             kernel_size=(1,3,3),
             style_dim=style_dim,
+            blur_kernel=blur_kernel,
             upsample=False,
             demodulate=True,
             use_noise=use_noise,
         )
 
-        # TODO : Version to progressively increase the depth dimension
-        # self.to_rgb1 = ToRGB(self.channels[4], style_dim, upsample=False, nb_var=nb_var, nb_frames=nb_frames if not progressive_nb_frames else nb_frames//5)
-
-        self.to_rgb1 = ToRGB(self.channels[4], style_dim, upsample=False, nb_var=nb_var, nb_frames=nb_frames)
+        if progressive_nb_frames:
+            self.to_rgb1 = ToRGB(self.channels[4], style_dim, upsample=False, nb_var=nb_var, nb_frames=4)
+        else :
+            self.to_rgb1 = ToRGB(self.channels[4], style_dim, upsample=False, nb_var=nb_var, nb_frames=nb_frames)
 
         self.log_size = int(math.log(size, 2))
         self.num_layers = (self.log_size - 2) * 2 + 1
@@ -433,8 +551,10 @@ class Generator3D(nn.Module):
             shape = [1, 1, 2 ** res, 2 ** res, 2 ** res]
             self.noises.register_buffer(f"noise_{layer_idx}", torch.randn(*shape))
 
-        # nb_frames_list = [min(nb_frames, i*nb_frames//5) for i in range(1,(self.log_size+1)-2)]
-        # # print(nb_frames_list)
+        if progressive_nb_frames:
+            nb_frames_list = [int(i) for i in np.linspace(4,nb_frames,(self.log_size+1)-3)]
+            # print(nb_frames_list)
+
         for id, i in enumerate(range(3, self.log_size + 1)):
             
             out_channel = self.channels[2 ** i]
@@ -445,6 +565,7 @@ class Generator3D(nn.Module):
                     out_channel=out_channel,
                     kernel_size=(1,3,3),
                     style_dim=style_dim,
+                    blur_kernel=blur_kernel,
                     upsample=True,
                     use_noise=use_noise
                 )
@@ -456,14 +577,15 @@ class Generator3D(nn.Module):
                     out_channel=out_channel,
                     kernel_size=(1,3,3),
                     style_dim=style_dim,
+                    blur_kernel=blur_kernel,
                     use_noise=use_noise
                 )
             )
 
-            # TODO : Version to progressively increase the depth dimension
-            # self.to_rgbs.append(ToRGB(out_channel, style_dim, nb_var=nb_var, nb_frames=nb_frames if not progressive_nb_frames else nb_frames_list[id]))
-            
-            self.to_rgbs.append(ToRGB(out_channel, style_dim, nb_var=nb_var, nb_frames=nb_frames))
+            if progressive_nb_frames:
+                self.to_rgbs.append(ToRGB(out_channel, style_dim, nb_var=nb_var, nb_frames=nb_frames_list[id]))
+            else :
+                self.to_rgbs.append(ToRGB(out_channel, style_dim, nb_var=nb_var, nb_frames=nb_frames))
 
             in_channel = out_channel
 
@@ -549,7 +671,7 @@ class Generator3D(nn.Module):
 
         skip, input_conved = self.to_rgb1(out, latent[:, 1])
 
-        # print("rgb1 ", skip.shape)
+        # print("From Generator :rgb1", skip.shape)
         if return_rgb:
             rgbs_saved = {}
             rgbs_saved['prev_rgb'] = {}
@@ -566,6 +688,7 @@ class Generator3D(nn.Module):
         for conv1, conv2, noise1, noise2, to_rgb in zip(
             self.convs[::2], self.convs[1::2], noise[1::2], noise[2::2], self.to_rgbs
         ):  
+            # print('From Generator :Next layer conv')
             out = conv1(out, latent[:, i], noise=noise1)
             # print("From Generator :conv1 gen ", out.shape)
             out = conv2(out, latent[:, i + 1], noise=noise2)
@@ -596,7 +719,7 @@ class Generator3D(nn.Module):
                 return image, None, None
 
 
-class ConvLayer(nn.Module):
+class ConvLayer(nn.Sequential):
     r''' Convolutional Layer '''
     def __init__(
         self,
@@ -604,6 +727,7 @@ class ConvLayer(nn.Module):
         out_channel,
         kernel_size,
         downsample=False,
+        blur_kernel=[1, 3, 3, 1],
         bias=True,
         activate=True,
     ):
@@ -611,20 +735,23 @@ class ConvLayer(nn.Module):
         layers = []
 
         if downsample:
-            layers.append(Interpolate())
+            factor = 2
+            p = (len(blur_kernel) - factor) + (kernel_size[-1] - 1)
+            pad0 = (p + 1) // 2
+            pad1 = p // 2
+            pad2 = 0
+
+            layers.append(Blur(blur_kernel, pad=(pad0, pad1, pad2)))
 
             stride = 2
             self.padding = 0
 
         else:
             stride = 1
-            if type(kernel_size)==list or type(kernel_size)==tuple:
-                self.padding = [kernel // 2 for kernel in kernel_size]
-            else :
-                self.padding = kernel_size // 2 
+            self.padding = (0, kernel_size[-2] // 2, kernel_size[-1] // 2) 
 
         layers.append(
-            nn.Conv3d(
+            EqualConv3d(
                 in_channel,
                 out_channel,
                 kernel_size,
@@ -638,26 +765,18 @@ class ConvLayer(nn.Module):
         if activate:
             layers.append(nn.LeakyReLU(0.2, inplace=True))
 
-        self.layers = nn.Sequential(*layers)
-
-    def forward(self, x):
-        # print('#### CONV LAYER IN ####')
-        # print('Input x of shape :', x.shape)
-        out = self.layers(x)
-        # print('Input out of shape :', out.shape)
-        # print('#### CONV LAYER OUT ####')
-        return out
+        super().__init__(*layers)
 
 class ResBlock(nn.Module):
     r''' Residual Block based on ConvLayer'''
-    def __init__(self, in_channel, out_channel):
+    def __init__(self, in_channel, out_channel,  blur_kernel=[1, 3, 3, 1]):
         super().__init__()
 
-        self.conv1 = ConvLayer(in_channel, in_channel, (1,3,3))
-        self.conv2 = ConvLayer(in_channel, out_channel, (1,3,3), downsample=True)
+        self.conv1 = ConvLayer(in_channel, in_channel, (1,3,3),  blur_kernel=blur_kernel)
+        self.conv2 = ConvLayer(in_channel, out_channel, (1,3,3), downsample=True,  blur_kernel=blur_kernel)
 
         self.skip = ConvLayer(
-            in_channel, out_channel, (1,3,3), downsample=True, activate=False, bias=False
+            in_channel, out_channel, (1,3,3), downsample=True, activate=False, bias=False, blur_kernel=blur_kernel
         )
 
     def forward(self, input):
@@ -674,7 +793,7 @@ class ResBlock(nn.Module):
 
 
 class Discriminator3D(nn.Module):
-    def __init__(self, size, channel_multiplier=2, nb_var=3):
+    def __init__(self, size, channel_multiplier=2, nb_var=3, blur_kernel=[1, 3, 3, 1]):
         super().__init__()
 
         channels = {
@@ -689,7 +808,7 @@ class Discriminator3D(nn.Module):
             1024: 16 * channel_multiplier,
         }
 
-        convs = [ConvLayer(nb_var, channels[size], (1,3,3))]
+        convs = [ConvLayer(nb_var, channels[size], (1,3,3), blur_kernel)]
 
         log_size = int(math.log(size, 2))
 
@@ -709,7 +828,7 @@ class Discriminator3D(nn.Module):
 
         self.final_conv = ConvLayer(in_channel + 1, channels[4], (1,3,3))
         self.final_linear = nn.Sequential(
-            EqualLinear(channels[4] * 9, channels[4], activation="fused_lrelu"),
+            EqualLinear(channels[4] * 4, channels[4], activation="fused_lrelu"),
             EqualLinear(channels[4], 1),
         )
         # # print(self.convs, self.final_conv, self.final_linear)

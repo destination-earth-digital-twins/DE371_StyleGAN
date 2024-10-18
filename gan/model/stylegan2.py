@@ -39,7 +39,7 @@ class Upsample(nn.Module):
         kernel = make_kernel(kernel) * (factor ** 2)
         self.register_buffer("kernel", kernel)
 
-        p = kernel.shape[0] - factor
+        p = kernel.shape[0] - factor # 2
 
         pad0 = (p + 1) // 2 + factor - 1
         pad1 = p // 2
@@ -709,11 +709,11 @@ class ResBlock(nn.Module):
     def __init__(self, in_channel, out_channel, blur_kernel=[1, 3, 3, 1]):
         super().__init__()
 
-        self.conv1 = ConvLayer(in_channel, in_channel, 3)
-        self.conv2 = ConvLayer(in_channel, out_channel, 3, downsample=True)
+        self.conv1 = ConvLayer(in_channel, in_channel, 3, blur_kernel=blur_kernel)
+        self.conv2 = ConvLayer(in_channel, out_channel, 3, downsample=True, blur_kernel=blur_kernel)
 
         self.skip = ConvLayer(
-            in_channel, out_channel, 1, downsample=True, activate=False, bias=False
+            in_channel, out_channel, 1, downsample=True, activate=False, bias=False, blur_kernel=blur_kernel
         )
 
     def forward(self, input):

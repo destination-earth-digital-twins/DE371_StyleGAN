@@ -52,14 +52,18 @@ class DatasetCache(object):
             raise AttributeError('Data caching is disabled and get function is unavailable! Check your config.')
         return self._dict[str(key)]
 
-    def cache(self, key, sample, importance, pos):
+    def cache(self, key, sample, importance, pos, label=None):
         # only store if full data in memory is enabled
         if not self.use_cache:
             return
         # only store if not already cached
         if str(key) in self._dict:
             return
-        self._dict[str(key)] = (sample, importance, pos)
+        if label is None :
+            self._dict[str(key)] = (sample, importance, pos)
+        else :
+            self._dict[str(key)] = (sample, importance, pos, label)
+            
 
 
 ################
@@ -74,18 +78,13 @@ class ISDataset(Dataset):
         self.transform = transform
         self.detransform = detransform
         self.labels = pd.read_csv(f"{self.config.data_dir}{self.config.id_file}")
-        # Hardcoding is generally not a good idea
+
+
         # TODO : Add these to the config instead 
         self.nb_leadtime_in_dataset=45
         self.nb_members=16
         ####################
         self.cursor_incomplete_date = 0
-        # if self.config.multi_timestep_mode:
-        #     if self.config.timestep_period not in [i for i in range(1,self.nb_leadtime_in_dataset+1) if 45%i==0]:
-        #         raise NotImplementedError
-        #     if self.config.nb_timesteps * self.config.timestep_period != self.nb_leadtime_in_dataset:
-        #         print(f'Warning : {self.config.nb_timesteps} * {self.config.timestep_period} != 45')
-        #         raise ValueError
 
         
         self.cache = DatasetCache(use_cache=use_cache)
@@ -181,7 +180,8 @@ class ISDataset(Dataset):
                 crop_Y1 = crop_Y0 + self.config.crop_size[1]
                 sample = np.float32(np.load(f"{sample_path}.npy"))[self.VI, crop_X0:crop_X1, crop_Y0:crop_Y1]
                 position = (crop_X0, crop_X1, crop_Y0, crop_Y1)
-           
+            if self.config.timestep_labelling :
+                label = self.labels.iloc[idx]["LeadTime"]
         # importance = self.labels.iloc[idx]["Importance"]
         #### IMPORTANCE_ERROR
         importance = 0
@@ -228,21 +228,26 @@ class ISDataset(Dataset):
             #       v{sample[:,:,:,1].min()} {sample[:,:,:,1].mean()} {sample[:,:,:,1].max()} \n \
             #       t2m{sample[:,:,:,2].min()} {sample[:,:,:,2].mean()} {sample[:,:,:,2].max()} \n \
             #             ')
-            if self.config.stack_sample_along_time_and_variable :
-                # [[U0, V0, T0], [U1, V1, T1], ... ]
-                sample = sample.reshape((self.config.nb_timesteps*len(self.VI), single_sample.shape[-2], single_sample.shape[-1]))
-                
-                # [[U0,U1,U2,...], [V0,V1,V2,...], [T0,T1,T2,...]]
-                # sample = np.array([sample[:,i,:,:] for i in range(len(self.VI))])
+            
+            # By default sample has a shape (T, V, H, W) : [[U0, V0, T0], [U1, V1, T1], ... ]
+            if self.config.variable_first :
+                # We want the samples to have a shape (V, T, H, W) : [[U0,U1,...], [V0,V1,...], [T0,T1,...]]
+                sample = sample.transpose(1, 0, 2, 3)
 
+            if self.config.stack_sample_along_time_and_variable :
+                sample = sample.reshape((self.config.nb_timesteps*len(self.VI), single_sample.shape[-2], single_sample.shape[-1]))
                 # sample = np.vstack(sample)
                 # sample should now be : (Nb_leatime*N_var, H, W)
 
              
         
         # print('shape of sample :', np.shape(sample))
-        self.cache.cache(idx, sample, importance, position)
-        return sample, importance, position
+        if not self.config.timestep_labelling :
+            self.cache.cache(idx, sample, importance, position)
+            return sample, importance, position
+        else :
+            self.cache.cache(idx, sample, importance, position, label)
+            return sample, importance, position, label
 
 
 class ISData_Loader():
