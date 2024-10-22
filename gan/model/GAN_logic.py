@@ -13,6 +13,7 @@ import math
 import random
 from time import perf_counter
 from gan.model.op import conv2d_gradfix
+from gan.model.op_3d import conv3d_gradfix
 
 
 def timer(func):
@@ -56,11 +57,19 @@ def d_logistic_loss(real_pred, fake_pred):
 
 def d_r1_loss(real_pred, real_img):
     
-    with conv2d_gradfix.no_weight_gradients():
-        grad_real, = autograd.grad(
-            outputs=real_pred.sum(), inputs=real_img, create_graph=True
-        )
+    if len(real_img.shape)==4 :
+        with conv2d_gradfix.no_weight_gradients():
+            grad_real, = autograd.grad(
+                outputs=real_pred.sum(), inputs=real_img, create_graph=True
+            )
+    elif len(real_img.shape)==5 :
+        with conv3d_gradfix.no_weight_gradients():
+            grad_real, = autograd.grad(
+                outputs=real_pred.sum(), inputs=real_img, create_graph=True
+            )
+
     grad_penalty = grad_real.pow(2).reshape(grad_real.shape[0], -1).sum(1).mean()
+
 
     return grad_penalty
 
@@ -73,7 +82,7 @@ def g_nonsaturating_loss(fake_pred):
 def g_path_regularize(fake_img, latents, mean_path_length, decay=0.01):
     
     noise = torch.randn_like(fake_img) / math.sqrt(
-        fake_img.shape[2] * fake_img.shape[3]
+        fake_img.shape[-2] * fake_img.shape[-1]
     )
     
     noise = noise.cuda()
@@ -81,7 +90,6 @@ def g_path_regularize(fake_img, latents, mean_path_length, decay=0.01):
 
     grad = autograd.grad(
         outputs=(fake_img * noise).sum(), inputs=latents, create_graph=True, only_inputs = True)[0]
-    
 
     path_lengths = grad.square().sum(2).mean(1).sqrt()
 
@@ -96,7 +104,9 @@ def g_path_regularize(fake_img, latents, mean_path_length, decay=0.01):
 # TODO : augmentation implementation
 # TODO : conditional setup
 
-def Discrim_Step_StyleGAN(samples, modelD, modelG,
+def Discrim_Step_StyleGAN(samples,
+                          modelD,
+                          modelG,
                           latent_dim,
                           mixing = 0,
                          ):
@@ -110,7 +120,7 @@ def Discrim_Step_StyleGAN(samples, modelD, modelG,
             
             fake, _, _ = modelG(noise)
         
-        
+
         fake_pred = modelD(fake)
         real_pred = modelD(samples)
         
@@ -163,14 +173,11 @@ def Generator_Step_StyleGAN(samples,
     
     fake, _, _ = modelG(noise)
 
-
     fake_pred = modelD(fake)
     g_loss = g_nonsaturating_loss(fake_pred)
 
     loss_dict["g"] = g_loss
 
-    
-                
     g_loss.backward()
     
     return loss_dict
@@ -204,7 +211,7 @@ def Generator_Regularize(path_batch_size,
     
     #if path_batch_shrink:
     #    (weighted_path_loss + 0 * fake_img[0, 0, 0, 0]).backward()
-    
+    # print('Generator_Regularize',fake_img.shape)
     modelG.zero_grad(set_to_none = True)
     if len(fake_img.shape)==4:
         (weighted_path_loss + 0 * fake_img[0,0,0,0]).backward()

@@ -219,6 +219,7 @@ def online_temporal_sample_plot(config, batch, Step, mean_pert=False):
                         b = batch_to_print[seq_id,var_id,t].view(img_size, img_size)
                     else :
                         b = batch_to_print[seq_id,t,var_id].view(img_size, img_size)
+
                 im = ax[seq_id][t].imshow(b.cpu().detach().numpy()[::-1,:], cmap=cmap, vmin=limits[0], vmax=limits[1])
 
         fig.subplots_adjust(bottom=0.05,top=0.9, left=0.05, right=0.9)
@@ -314,8 +315,7 @@ def online_sample_plot(config, batch, Step, mean_pert=False):
         for j in range(batch_to_print.shape[0]) :
             b = batch_to_print[j][i].view(IMG_SIZE, IMG_SIZE)
             ax = fig.add_subplot(rows, columns, j+1)
-            im = ax.imshow(b.cpu().detach().numpy()[::-1,:], cmap=cmap, 
-                         vmin=limits[0], vmax=limits[1])
+            im = ax.imshow(b.cpu().detach().numpy()[::-1,:], cmap=cmap, vmin=limits[0], vmax=limits[1])
             
         fig.subplots_adjust(bottom=0.05,top=0.9, left=0.05, right=0.9)
         cbax=fig.add_axes([0.92,0.05,0.02,0.85])

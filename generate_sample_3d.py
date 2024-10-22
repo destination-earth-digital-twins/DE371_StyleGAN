@@ -9,6 +9,8 @@ from numpy import save
 from collections import OrderedDict
 from tqdm import trange
 import numpy as np
+import gan.plot.plotting_functions as plotFunc
+import matplotlib.pyplot as plt
 
 var_dict = {'rr': 0, 'u': 1, 'v': 2, 't2m': 3, 'orog': 4, 'z500': 5, 't850': 6, 'tpw850': 7}
 # python3 generate_sample_3d.py --multi_timestep_mode --training_dir="/project/scratch/p200177/DE_371/victorsanchez/results/gan_training/test_3d/"
@@ -54,16 +56,46 @@ def generate(args, g_ema, mean_latent, step):
     print(f'Generating samples for step : {step}')
     with torch.no_grad():
         g_ema.eval()
-        for t in trange(args.n_batches) :
+        for t_ in trange(args.n_batches) :
             # mem_cuda = torch.cuda.memory_allocated(device='cuda:0')
             sample_z = torch.randn(args.sample, args.latent).to(args.device)
             # print(f'memory allocated for sample z : {humanbytes(mem_cuda - torch.cuda.memory_allocated(device='cuda:0'))}')
             mem_cuda = torch.cuda.memory_allocated(device=args.device)
             # print('memory_allocated {}'.format(humanbytes(mem_cuda)))
-            print(np.shape(mean_latent))
             x_sample, w_sample, _ = g_ema([sample_z], return_latents=True, truncation=args.truncation, truncation_latent=mean_latent
 	                   )
+            # for id, sample in enumerate(x_sample[0][0]):
+            #     print(id, sample.min(), sample.mean(), sample.max()) 
             
+            # batch_to_print = x_sample
+            # img_size=256
+            # nb_var=3
+            # for var_id, varname in enumerate(args.var_names) :
+            #     fig, ax = plt.subplots(nrows=4, ncols=args.nb_timesteps, figsize=(200,50))
+            #     st = fig.suptitle(varname, fontsize='100')
+            #     # st.set_y(0.96)
+            #     # print(batch_to_print.shape)
+            #     for seq_id in range(4):
+            #         for t in range(args.nb_timesteps):
+            #             if args.stack_sample_along_time_and_variable:
+            #                 b = batch_to_print[seq_id][var_id+nb_var*t].view(img_size, img_size)
+            #             else :
+            #                 if args.variable_first:
+            #                     b = batch_to_print[seq_id,var_id,t].view(img_size, img_size)
+            #                 else :
+            #                     b = batch_to_print[seq_id,t,var_id].view(img_size, img_size)
+            #             print(t,b.min(),b.mean(),b.max())
+            #             im = ax[seq_id][t].imshow(b.cpu().detach().numpy()[::-1,:]) # , cmap=cmap, vmin=limits[0], vmax=limits[1])
+
+            #     fig.subplots_adjust(bottom=0.05,top=0.9, left=0.05, right=0.9)
+            #     cbax=fig.add_axes([0.92,0.05,0.02,0.85])
+            #     cb=fig.colorbar(im, cax=cbax)
+            #     cb.ax.tick_params(labelsize=80)
+            #     plt.savefig(output_dir+f"Samples_at_Step_{step}_{varname}.png")
+            #     plt.close()
+            
+            #TODO : To implement
+            raise NotImplementedError
             # save(output_dir+'_w_sample_'+str(step)+'_'+str(t)+'.npy', w_sample.detach().cpu().numpy())
             if args.multi_timestep_mode :
                 # no matter the configuration the data are stored as (4,256,256) (to be the same as the dataset)
@@ -110,11 +142,11 @@ def main():
     )
     
     parser.add_argument(
-        "--list_steps", type=str2list, default=[206000], help="list of training steps to be used as checkpoints"
+        "--list_steps", type=str2list, default=[22000], help="list of training steps to be used as checkpoints"
     )
 
     parser.add_argument(
-        "--training_dir", type=str, default="/project/home/p200177/DE_371/experiments_WP1/gan_training/exp5/" # change with your path
+        "--training_dir", type=str, default="/project/home/p200177/DE_371/experiments_WP1/gan_training/exp21/" # change with your path
     )
 
     parser.add_argument("--truncation", type=float, default=1, help="truncation ratio")
@@ -128,7 +160,7 @@ def main():
     parser.add_argument(
         "--channel_multiplier",
         type=int,
-        default=1,
+        default=2,
         help="channel multiplier of the generator. config-f = 2, else = 1",
     )
 
@@ -138,9 +170,9 @@ def main():
     
     parser.add_argument('--stack_sample_along_time_and_variable', action='store_true')
     
-    parser.add_argument('--nb_timesteps', type=int, default=15)
-    parser.add_argument('--g_channels', type=int, default=45)
-    parser.add_argument('--timestep_period', type=int, default=3)
+    parser.add_argument('--nb_timesteps', type=int, default=8)
+    parser.add_argument('--g_channels', type=int, default=3)
+    parser.add_argument('--timestep_period', type=int, default=6)
     parser.add_argument('--var_names', type=str2list, default=['u','v','t2m'])#, 'orog'])
     parser.add_argument('--device', type=str, default='cuda:0')#, 'orog'])
 
@@ -172,6 +204,15 @@ def main():
     mem_g = torch.cuda.memory_allocated(device=device)-mem_cuda
     print('memory_allocated for Generator {}'.format(humanbytes(mem_g)))
     for step in args.list_steps :
+        checkpoint = torch.load(args.training_dir+f'models/{str(step).zfill(6)}.pt')["g_ema"]
+        if 'module' in list(checkpoint.items())[0][0]: # juglling with Pytorch versioning and different module packaging
+            ckpt_adapt = OrderedDict()
+            for k in checkpoint.keys():
+                k0 = k[7:]
+                ckpt_adapt[k0] = checkpoint[k]
+            g_ema.load_state_dict(ckpt_adapt)
+        else:
+            g_ema.load_state_dict(checkpoint)
         if args.truncation < 1:
             with torch.no_grad():
                 mean_latent = g_ema.mean_latent(args.truncation_mean)

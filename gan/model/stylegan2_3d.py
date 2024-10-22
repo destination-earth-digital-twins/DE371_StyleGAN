@@ -780,6 +780,7 @@ class ResBlock(nn.Module):
         )
 
     def forward(self, input):
+        # print("resblock, input ", input.shape)
         # print("###### RESBLOCK IN ######")
         out = self.conv1(input)
         # print("resblock, out1 ", out.shape)

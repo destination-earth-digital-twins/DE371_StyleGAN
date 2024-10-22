@@ -11,7 +11,7 @@ from tqdm import tqdm
 from inversion.vgg_perceptual_loss import VGGPerceptualLoss
 from inversion.patch_vgg_perceptual_loss import PatchVGGPerceptualLoss
 from inversion.plotter import online_inv_plot_2, online_inv_plot
-import inversion.PerceptualSimilarity.lpips as lpips
+# import inversion.PerceptualSimilarity.lpips as lpips
 from inversion.ssim import ssim, ms_ssim, SSIM, MS_SSIM
 # from inversion.hd_vgg_perceptual_loss import VGG16ConvLoss
 import time
@@ -183,7 +183,8 @@ def optimize(Ens_r, g_ema, latent_mean, device, params):
         raise NotImplementedError
     
     if params.hd_vgg :
-        VGG_loss = VGG16ConvLoss().to(device).requires_grad_(False)
+        # VGG_loss = VGG16ConvLoss().to(device).requires_grad_(False)
+        raise NotImplementedError
     else :
         if params.lambda_vgg>0 and not params.patch_mode:
             VGG_loss = VGGPerceptualLoss(
@@ -200,18 +201,18 @@ def optimize(Ens_r, g_ema, latent_mean, device, params):
                             split_factor=params.split_factor
             ).to(device)
 
-    if params.lambda_lpips>0:
-        LPIPS_loss = lpips.LPIPS(
-            net=params.lpips_pnet, 
-            model_path=params.lpips_linear_layers_state_dict_path, # linear layer linked to lpips
-            pretrained=True, # linear layer linked to lpips
-            pnet_rand_path=params.lpips_pnet_state_dict_path, # Perceptual Net Path
-            pnet_tune=params.lpips_pnet_tune,
-            lpips=params.lpips_mode
-        ).to(device)
-        if params.lpips_pnet_tune:
-            optimizer.add_param_group({'params':LPIPS_loss.net.parameters()})
-        # params.lpips_pnet_state_dict_path
+    # if params.lambda_lpips>0:
+    #     LPIPS_loss = lpips.LPIPS(
+    #         net=params.lpips_pnet, 
+    #         model_path=params.lpips_linear_layers_state_dict_path, # linear layer linked to lpips
+    #         pretrained=True, # linear layer linked to lpips
+    #         pnet_rand_path=params.lpips_pnet_state_dict_path, # Perceptual Net Path
+    #         pnet_tune=params.lpips_pnet_tune,
+    #         lpips=params.lpips_mode
+    #     ).to(device)
+    #     if params.lpips_pnet_tune:
+    #         optimizer.add_param_group({'params':LPIPS_loss.net.parameters()})
+    #     # params.lpips_pnet_state_dict_path
     if params.hd_vgg :
         Ens_r_features=[]
         if params.vgg_computation=='sol1':
@@ -287,8 +288,8 @@ def optimize(Ens_r, g_ema, latent_mean, device, params):
                                                                 alpha_feature = params.vgg_alpha_feature,
                                                                 alpha_style = params.vgg_alpha_style
                                     )
-                                elif params.lambda_lpips>0. :
-                                    perceptual_loss += torch.sum(torch.abs(LPIPS_loss.forward(img_gen[i_mem, i_var, :, :], Ens_r[i_mem, i_var, :, :])))
+                                # elif params.lambda_lpips>0. :
+                                #     perceptual_loss += torch.sum(torch.abs(LPIPS_loss.forward(img_gen[i_mem, i_var, :, :], Ens_r[i_mem, i_var, :, :])))
                                 else:
                                     raise NotImplementedError
                                 # MS_SSIM Loss
@@ -309,10 +310,10 @@ def optimize(Ens_r, g_ema, latent_mean, device, params):
                                                                 alpha_feature = params.vgg_alpha_feature,
                                                                 alpha_style = params.vgg_alpha_style
                                     )
-                            elif params.lambda_lpips>0. :
-                                gen = img_gen[:, i_var, :, :].unsqueeze(1).repeat(1, 3, 1, 1)
-                                original = Ens_r[:, i_var, :, :].unsqueeze(1).repeat(1, 3, 1, 1)
-                                perceptual_loss += torch.sum(torch.abs(LPIPS_loss.forward(gen,original)))
+                            # elif params.lambda_lpips>0. :
+                            #     gen = img_gen[:, i_var, :, :].unsqueeze(1).repeat(1, 3, 1, 1)
+                            #     original = Ens_r[:, i_var, :, :].unsqueeze(1).repeat(1, 3, 1, 1)
+                            #     perceptual_loss += torch.sum(torch.abs(LPIPS_loss.forward(gen,original)))
                             else:
                                 raise NotImplementedError
                             # MS_SSIM Loss
@@ -332,9 +333,9 @@ def optimize(Ens_r, g_ema, latent_mean, device, params):
                                                         alpha_feature = params.vgg_alpha_feature,
                                                         alpha_style = params.vgg_alpha_style
                             )
-                        elif params.lambda_lpips>0. :
-                            perceptual_loss =  LPIPS_loss.forward(img_gen, Ens_r)
-                            perceptual_loss = torch.sum(torch.abs(perceptual_loss))
+                        # elif params.lambda_lpips>0. :
+                        #     perceptual_loss =  LPIPS_loss.forward(img_gen, Ens_r)
+                        #     perceptual_loss = torch.sum(torch.abs(perceptual_loss))
                         else:
                             raise NotImplementedError
                         
@@ -453,8 +454,8 @@ def optimize(Ens_r, g_ema, latent_mean, device, params):
 
         if params.lambda_vgg>0. :
             weighted_perceptual_loss = params.lambda_vgg*perceptual_loss
-        elif params.lambda_lpips>0. :
-            weighted_perceptual_loss = params.lambda_lpips*perceptual_loss
+        # elif params.lambda_lpips>0. :
+        #     weighted_perceptual_loss = params.lambda_lpips*perceptual_loss
         else :
             weighted_perceptual_loss=0
         # compute total loss

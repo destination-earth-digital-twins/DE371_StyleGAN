@@ -290,6 +290,8 @@ class Trainer():
         if self.config.train_type in ["stylegan","wave_d"]:
             self.D_backward = GAN.Discrim_Step_StyleGAN
             self.G_backward = GAN.Generator_Step_StyleGAN
+        else :
+            raise NotImplementedError
 
     def instantiate_metrics_log(self):
 
@@ -410,8 +412,12 @@ class Trainer():
             batch, _, _ = modelG([samples_z])
 
         modelG.train()
-
-        batch = torch.cat((batch, samples[:self.config.plot_samples // 4, :, :, :]), dim=0)
+        # for id, sample in enumerate(samples[0][0]):
+        #     print(id, sample.min(), sample.mean(), sample.max()) 
+        if len(samples.shape) == 4 :
+            batch = torch.cat((batch, samples[:self.config.plot_samples // 4, :, :, :]), dim=0)
+        else :
+            batch = torch.cat((batch, samples[:self.config.plot_samples // 4, :, :, :, :]), dim=0)
 
         if not self.config.multi_timestep_mode:
             plotFunc.online_sample_plot(self.config, batch, Step)
@@ -638,6 +644,8 @@ class Trainer():
                     img, _, _ = batch
                 else :
                     img, _, _, label = batch
+                
+                
                 t = time.perf_counter()
                 Step = epoch * N_batch + step
                 if self.config.pretrained_model > 0:

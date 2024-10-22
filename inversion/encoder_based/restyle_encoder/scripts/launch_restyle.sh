@@ -1,3 +1,0 @@
-#!/bin/bash
-
-sbatch run_ReStylePSP.slurm "--resume_step=40000|--checkpoint_path=/scratch/mrmn/brochetc/GAN_2D/psp4arome_expe/lr_0.001_l2_lambda_1.0_8iter/Instance_2/checkpoints/iteration_40000.pt|--dataset_type=arome_encode|--exp_dir=/scratch/mrmn/brochetc/GAN_2D/psp4arome_expe/|--workers=8|--batch_size=8|--test_batch_size=16|--test_workers=16|--val_interval=5000|--save_interval=5000|--start_from_latent_avg|--lpips_lambda=0.0|--scat_lambda=0.0|--l2_lambda=1.0|--swd_lambda=0.0|--w_norm_lambda=0.00|--learning_rate=0.001|--input_nc=6|--n_iters_per_batch=8|--output_size=128|--stylegan_weights=/scratch/mrmn/brochetc/GAN_2D/psp4arome_expe/285000.pt"
