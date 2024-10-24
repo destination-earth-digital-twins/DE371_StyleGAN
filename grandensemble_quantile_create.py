@@ -7,18 +7,19 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import random
-from bronx.stdtypes.date import daterangex as rangex
+# from bronx.stdtypes.date import daterangex as rangex
 import argparse
 import os
+
 
 if __name__=="__main__" :
 
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--param', type=str, default='t2m')
-    parser.add_argument('--GAN_sample_dir', type=str, default='/project/home/p200177/DE_371/experiments_WP1/Grand_Ensemble/Final/Gen/')
+    parser.add_argument('--GAN_sample_dir', type=str, default='/project/home/p200177/DE_371/experiments_WP1/Grand_Ensemble/Perturbation/')
     parser.add_argument('--output_dir', type=str, default='/project/home/p200177/DE_371/experiments_WP1/Grand_Ensemble/Scores')
-    parser.add_argument('--ech', type=int, default=42) # echeance de la prevision, n'importe quelle valeur entre 0 et 45h est disponible (par pas de 1h)
+    parser.add_argument('--ech', type=int, default=6) # echeance de la prevision, n'importe quelle valeur entre 0 et 45h est disponible (par pas de 1h)
     parser.add_argument('--unbias', action="store_true")
     args = parser.parse_args()
     param = args.param
@@ -37,7 +38,7 @@ if __name__=="__main__" :
     nbGANs = 1       # Nb of different GAN setups to plot
     nbrandinit = 50
 
-    nameGAN = ["stochastic_['1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '0', '0', '0', '0']_False_10_1.0/samples/"]
+    nameGAN = ["stochastic_['1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '0', '0', '0', '0']_False/"]
 
     GANfilenames = ['genFsemble_']#'StyleMixing_2_3_10_12_','StyleMixing_0_2_9_12_']
     GANnameout = ['cut=10_infl1.0']#,'cut=8', 'cut=10','cut=12', 'cut=14']
@@ -46,14 +47,12 @@ if __name__=="__main__" :
     #ech_GAN=np.int((ech/3)-1)
     ech_GAN = args.ech
 
-    base_dir = "/scratch/work/brochetc/grandEnsemble/Resultats/"
+    base_dir = "/project/home/p200177/DE_371/datasets/dataset_Meteo_France/grandEnsemble/AROME/"
 
     unbias = args.unbias
     # out_dir = base_dir + f"{args.ech}_{param}_{GANnameout[0]}" if not unbias else base_dir + f"{args.ech}_{param}_{GANnameout[0]}_unbias_{unbias}"
     
     os.makedirs(args.output_dir, exist_ok=True)
-
-    homedir = "/home/gmap/mrmn/exploiting_ge/"
 
     if param=='t2m':
         sup=3
@@ -83,8 +82,8 @@ if __name__=="__main__" :
     lsaveq=True
     lstamp=False
     lrandinit=False
-    reseaux = rangex(myDates)
-    print(reseaux)
+    # reseaux = rangex(myDates)
+    # print(reseaux)
 
     def initsmall(lstbc,lstic,Ns,Nlbc):
         yic = random.sample(lstic, Ns)
@@ -107,7 +106,7 @@ if __name__=="__main__" :
         mb = np.zeros((Nsmall,nbrandinit))
         for r in range(nbrandinit):
             mb[:,r] = initsmall(lstlbc,lstic,Nsmall,Nlbc)
-        np.save(out_dir + '/' + 'nbrandinit_MBs',mb,allow_pickle=True)
+        np.save(args.output_dir + '/' + 'nbrandinit_MBs',mb,allow_pickle=True)
 
     # reseau= reseaux[0]
     if lpercentilebig:
@@ -171,11 +170,11 @@ if __name__=="__main__" :
                 qavg_small=pd.DataFrame(columns=['args.ech','Quantiles','Init','DiffSmall', 'DiffRelSmall'])
                 for i in range(nbrandinit):
                     tabs = np.zeros((Nsmall,tabref.shape[1],tabref.shape[2]))
-                    mb = np.load(param.GAN_sample_dir + nameGAN[0] + "mb_" + str(i) + '_6_1000.npy',allow_pickle=True).astype(np.uint16)
+                    mb = np.load(args.GAN_sample_dir + nameGAN[0] + "mb_" + str(i) + '_6_2000.npy',allow_pickle=True).astype(np.uint16)
 
                     ### This loop should maybe be rewritten and using numpy array reindexing directly
                     for k in range(Nsmall):
-                        tabs[k,:,:] = tabref[np.int(mb[k]),:,:]
+                        tabs[k,:,:] = tabref[int(mb[k]),:,:]
 
                     #sdevs.append(np.std(tabs,axis=0))
                     #sdevsavg[i]=np.mean(sdevs)
@@ -200,12 +199,12 @@ if __name__=="__main__" :
                     #     qsmall_avg = np.mean(Qsmall[q])
                     #     newq=pd.DataFrame([[args.ech,quant[q],i,qsmall_avg-qref_avg[q],(qsmall_avg-qref_avg[q])/qref_avg[q]]],columns=['ech','Quantiles','Init','DiffSmall','DiffRelSmall'])
                     #     qavg_small=qavg_small.append(newq,ignore_index=True)
-                print(qavg_small.head())
-                qavg_small.to_pickle(out_dir + "/" + "Quantiles_Xtremes_avg_" + param + str(lag) + "_dom" + dom + "_" + "Small"  +"_"+ str(reseau) + "+" + str(args.ech) + ".pkl")
-                print(len(q0small), q0small[0].shape)
+                
+                qavg_small.to_pickle(args.output_dir + "/" + "Quantiles_Xtremes_avg_" + param + str(lag) + "_dom" + dom + "_" + "Small"  +"_"+ str(reseau) + "+" + str(args.ech) + ".pkl")
                 
                 
-                np.save(f"{out_dir}/quantiles_small_{args.ech}_{param}.npy",
+                
+                np.save(f"{args.output_dir}/quantiles_small_{args.ech}_{param}.npy",
                         np.array([np.array(q0small),np.array(q05small), np.array(q1small),
                                 np.array(q5small), np.array(q10small), np.array(q25small),
                                 np.array(q50small), np.array(q75small), np.array(q90small),
@@ -219,14 +218,14 @@ if __name__=="__main__" :
                                 q50small, q75small, q90small,
                                 q95small, q99small, q995small,
                                 q100small, sdev_small]
-                data_list = [np.percentile(np.array(q),50,interpolation='nearest',axis=0) for q in data_list]
+                data_list = [np.percentile(np.array(q),50,method='nearest',axis=0) for q in data_list]
 
                 if lplotq:
                     #Ici on trace les median +stdev des percentiles sur les N rand init
                     print("plotting median and stddev of percentiles on the N random init Small ensemble")
 
 
-                    prefix = out_dir + "/" + "MapOf_MedianRandInit_" + param + str(lag) + "_dom" + dom + "_" + "Small"
+                    prefix = args.output_dir + "/" + "MapOf_MedianRandInit_" + param + str(lag) + "_dom" + dom + "_" + "Small"
                     suffix =  "_"+ str(reseau) + "+" + str(args.ech) + "h.png"
                     denom = ["_Q0","_Q05", "_Q1", "_Q5", "_Q10","_Q25","_Q50","_Q75","_Q90","_Q95", "_Q99", "_Q995", "_Q100", "_Sdev"]
 
@@ -238,21 +237,21 @@ if __name__=="__main__" :
                     print("Computing diff wrt to large real ensemble")
 
                     data_diff_list = [q - qref for (q,qref) in zip(data_list, data_ref_list)]
-                    np.save(f"{out_dir}/median_quantiles_diffsmall_{args.ech}_{param}.npy",np.array(data_list))
+                    np.save(f"{args.output_dir}/median_quantiles_diffsmall_{args.ech}_{param}.npy",np.array(data_list))
 
         for k in range(nbGANs):
             qavg=pd.DataFrame(columns=['ech','Quantiles','Init','Diff'+GANnameout[k], 'DiffRel'+GANnameout[k]])
             Qs = []
             for i in range(nbrandinit):
                 print("Loading files containing GAN generations")
-                data = np.load(param.GAN_sample_dir + nameGAN[k] + GANfilenames[k] + str(i) + '_' + str(ech_GAN) + '_1000.npy', mmap_mode='r', allow_pickle=True)
+                data = np.load(args.GAN_sample_dir + nameGAN[k] + 'samples/' + GANfilenames[k] + str(i) + '_' + str(ech_GAN) + '_2000.npy', mmap_mode='r', allow_pickle=True)
                 tabs = np.zeros((Nsmall,tabref.shape[1],tabref.shape[2]))
                 ## this members tab is the same for all leadtimes
-                mb = np.load(param.GAN_sample_dir + nameGAN[0] + "mb_" + str(i) + '_6_1000.npy',allow_pickle=True).astype(np.uint16)
+                mb = np.load(args.GAN_sample_dir + nameGAN[0] + "mb_" + str(i) + '_6_2000.npy',allow_pickle=True).astype(np.uint16)
 
                 ### This loop should maybe be rewritten and using numpy array reindexing directly
                 for mb_idx in range(Nsmall):
-                    tabs[mb_idx,:,:] = tabref[np.int(mb[mb_idx]),:,:]
+                    tabs[mb_idx,:,:] = tabref[int(mb[mb_idx]),:,:]
 
                 print(data.shape)
                 print(tabs.shape)
@@ -266,7 +265,7 @@ if __name__=="__main__" :
                 if lvisuGAN:
                     print("plotting the 100th (random) GAN member")
                     
-                    fig.savefig(out_dir + "/" + "MapOf_" + param  + "_dom" + dom + "_" + GANnameout[k] + "_mb100_init_"+ str(i)  +"_"+ str(reseau) + "+" + str(args.ech) + "h.png", dpi = 150, bbox_inches='tight')
+                    fig.savefig(args.output_dir + "/" + "MapOf_" + param  + "_dom" + dom + "_" + GANnameout[k] + "_mb100_init_"+ str(i)  +"_"+ str(reseau) + "+" + str(args.ech) + "h.png", dpi = 150, bbox_inches='tight')
 
                 if unbias:
                     print("unbiasing gan data wrt to conditioning AROME")
@@ -283,11 +282,11 @@ if __name__=="__main__" :
                     for q in range(np.size(quant)):
                         qm = np.mean(Qs[-1][q])
                         newq = pd.DataFrame([[args.ech,quant[q],i,qm-qref_avg[q],(qm-qref_avg[q])/qref_avg[q]]],columns=['args.ech','Quantiles','Init','Diff'+GANnameout[k],'DiffRel'+GANnameout[k]])
-                        qavg = qavg.append(newq,ignore_index=True)
+                        qavg = qavg._append(newq,ignore_index=True)
 
             median_quantiles = np.percentile(np.array(Qs),50,interpolation='nearest',axis=0)
-            np.save(f"{out_dir}/quantiles_gan_{GANnameout[k]}_{args.ech}_{param}.npy", np.array(Qs))
-            np.save(f"{out_dir}/median_quantiles_gan_{GANnameout[k]}_{args.ech}_{param}.npy",median_quantiles)
+            np.save(f"{args.output_dir}/quantiles_gan_{GANnameout[k]}_{args.ech}_{param}.npy", np.array(Qs))
+            np.save(f"{args.output_dir}/median_quantiles_gan_{GANnameout[k]}_{args.ech}_{param}.npy",median_quantiles)
 
             
 
@@ -297,7 +296,7 @@ if __name__=="__main__" :
 
                 data_diffgan_list = [q - qref for q, qref in zip(median_quantiles, Qrefs) ]
 
-                prefix = out_dir + "/" + "MapOf_diff_" + param + str(lag) + "_dom" + dom + "_" + GANnameout[k]
+                prefix = args.output_dir + "/" + "MapOf_diff_" + param + str(lag) + "_dom" + dom + "_" + GANnameout[k]
                 suffix =  "_"+ str(reseau) + "+" + str(args.ech) + "h.png"
                 denom = ["_Q0","_Q05", "_Q1", "_Q5", "_Q10","_Q25","_Q50","_Q75","_Q90","_Q95", "_Q99", "_Q995", "_Q100","_Sdev"]
 
@@ -306,5 +305,5 @@ if __name__=="__main__" :
             if lsaveq:
                 print("saving Quantiles averages")
                 print(qavg.head())
-                qavg.to_pickle(out_dir + "/" + "Quantiles_avg_Xtremes" + param + str(lag) + "_dom" + dom + "_" + GANnameout[k]  +"_"+ str(reseau) + "+" + str(args.ech) + ".pkl")
+                qavg.to_pickle(args.output_dir + "/" + "Quantiles_avg_Xtremes" + param + str(lag) + "_dom" + dom + "_" + GANnameout[k]  +"_"+ str(reseau) + "+" + str(args.ech) + ".pkl")
 

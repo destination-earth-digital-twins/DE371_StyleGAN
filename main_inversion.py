@@ -42,10 +42,10 @@ if __name__=="__main__" :
                         default='/project/home/p200177/DE_371/datasets/dataset_Meteo_France/IS_1_1.0_0_0_0_0_0_256_large_lt_done/')
     # Output Directory - PATH where the output of the inversion will be saved
     parser.add_argument('--output_dir',type = str, 
-                        default ='/project/scratch/p200177/DE_371/victorsanchez/results/member_inversion/test_lpips/inversion_squeeze_tuning/')
+                        default ='/project/scratch/p200177/DE_371/victorsanchez/results/member_inversion/test/inversion/')
     # Pack Directory - PATH where the packed ensembles will be saved
     parser.add_argument("--pack_dir", type=str, 
-                        default = '/project/scratch/p200177/DE_371/victorsanchez/results/member_inversion/test_lpips/pack_squeeze_tuning/') # storing "packed" (normalized) real data
+                        default = '/project/scratch/p200177/DE_371/victorsanchez/results/member_inversion/test/pack/') # storing "packed" (normalized) real data
     
     # Dataset information
     parser.add_argument("--normalization", type=str, default="meanmax", choices=["minmax", "meanmax"])
@@ -96,20 +96,9 @@ if __name__=="__main__" :
     
     # Parameter related to perceptual loss 
     parser.add_argument("--optimize_features_computation", action='store_true', help="Compute the features of original ensemble only once")
-
-    # LPIPS
-    parser.add_argument("--lpips_pnet", type=str, default='alex', choices=['alex','vgg','squeeze'], help="network type for lpips loss")
-    parser.add_argument("--lpips_pnet_tune", action='store_true', help="tuning the weights of the pnet")
-    parser.add_argument("--lpips_pnet_state_dict_path", type=str, default='/home/users/u101833/project/DE371_StyleGAN/inversion/PerceptualSimilarity/lpips/weights_pnets/alex_random.pth', help="path to lpips pre-trained network weights")
-    parser.add_argument("--lambda_lpips", type=float, default=0.0, help="weight of the lpips (perceptual) loss")
-
-    parser.add_argument("--lpips_mode", action='store_true', help="if lpips mode=False, it act like simple vgg")
-    parser.add_argument("--lpips_linear_layers_state_dict_path", type=str, default='/home/users/u101833/project/DE371_StyleGAN/inversion/PerceptualSimilarity/lpips/weights_linear_layers/v0.1/vgg.pth', help="path to liunear layer lpips")
-    
     # VGG
-    parser.add_argument('--hd_vgg', action='store_true', help="to use the VGG loss from HRInversion paper")
     parser.add_argument("--lambda_vgg", type=float, default=1.0, help="weight of the vgg (perceptual) loss")
-    parser.add_argument("--resize_vgg_input", type=float, default=1.0, help="resize input for vgg loss")
+    parser.add_argument("--resize_vgg_input", type=float, default=0.0, help="resize input for vgg loss")
     parser.add_argument("--vgg_computation", type=str, default='sol2', choices = ['sol1', 'sol2', 'sol3', 'sol4', 'sol5'], 
                         help="Either we compute layer by layer and member per member but we have to triple th einput to make it rgb or all in one (naive)")
     parser.add_argument("--vgg_state_dict_path", type=str, default='/project/scratch/p200177/DE_371/resources/vgg_weights/vgg16-random.pth', help="Insert a path")
@@ -121,9 +110,8 @@ if __name__=="__main__" :
     parser.add_argument("--patch_mode", action='store_true')
     parser.add_argument("--split_factor", type=int, default=2, help="splitting factor for patching")
     
-
-    parser.add_argument("--invstep", type=int, default=2000, help="optimize iterations")
-    parser.add_argument("--inv_checkpoints", type=utils.str2intlist, default=[10,50,100,250,500,1000,1500,2000])
+    parser.add_argument("--invstep", type=int, default=1000, help="optimize iterations")
+    parser.add_argument("--inv_checkpoints", type=utils.str2intlist, default=[100,500,1000])
     parser.add_argument("--plot_checkpoint", action='store_true')
     
     # lambda_ms_ssim

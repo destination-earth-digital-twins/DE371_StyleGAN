@@ -59,14 +59,15 @@ def d_r1_loss(real_pred, real_img):
     
     if len(real_img.shape)==4 :
         with conv2d_gradfix.no_weight_gradients():
-            grad_real, = autograd.grad(
+            grad_real = autograd.grad(
                 outputs=real_pred.sum(), inputs=real_img, create_graph=True
-            )
+            )[0]
     elif len(real_img.shape)==5 :
         with conv3d_gradfix.no_weight_gradients():
-            grad_real, = autograd.grad(
+            grad_real = autograd.grad(
                 outputs=real_pred.sum(), inputs=real_img, create_graph=True
-            )
+            )[0]
+            
 
     grad_penalty = grad_real.pow(2).reshape(grad_real.shape[0], -1).sum(1).mean()
 
@@ -86,11 +87,10 @@ def g_path_regularize(fake_img, latents, mean_path_length, decay=0.01):
     )
     
     noise = noise.cuda()
-    
 
     grad = autograd.grad(
         outputs=(fake_img * noise).sum(), inputs=latents, create_graph=True, only_inputs = True)[0]
-
+    
     path_lengths = grad.square().sum(2).mean(1).sqrt()
 
     path_mean = torch.lerp(mean_path_length.cuda(), path_lengths.mean(), decay)
@@ -148,7 +148,6 @@ def Discrim_Regularize(samples, modelD, r1, d_reg_every) :
 
     for param in modelD.parameters():
         param.grad=None
-        
         
     (r1 / 2 * r1_loss * d_reg_every + 0 * real_pred[0]).backward()
     
