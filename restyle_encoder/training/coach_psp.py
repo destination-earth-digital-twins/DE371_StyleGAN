@@ -1,0 +1,341 @@
+import os
+import matplotlib
+import matplotlib.pyplot as plt
+matplotlib.use('Agg')
+
+import torch
+from torch import nn
+from torch.utils.data import DataLoader
+import torch.nn.functional as F
+
+from restyle_encoder.utils import common, train_utils
+from restyle_encoder.criteria import id_loss, w_norm, moco_loss, scattering_loss
+from restyle_encoder.criteria.SWD_loss import SwdLoss
+from restyle_encoder.configs import data_configs
+from restyle_encoder.datasets.arome_dataset import AromeDataset
+from restyle_encoder.criteria.lpips.lpips import LPIPS
+from restyle_encoder.models.psp import pSp
+from restyle_encoder.training.ranger import Ranger
+from inversion.vgg_perceptual_loss import VGGPerceptualLoss
+
+import numpy as np
+
+class Coach:
+    def __init__(self, config):
+        self.config = config
+        self.global_step = self.config.resume_step + 1 if self.config.resume_step!=0 else 0
+
+        self.device = 'cuda:0'
+        self.config.device = self.device
+
+        # Initialize network
+        self.net = pSp(self.config).to(self.device)
+
+        # Estimate latent_avg via dense sampling if latent_avg is not available
+        if self.net.latent_avg is None:
+            self.net.latent_avg = self.net.decoder.mean_latent(int(1e5))[0].detach()
+
+		# get the image corresponding to the latent average
+        self.avg_sample = self.net(self.net.latent_avg.unsqueeze(0),
+                                   input_code=True,
+                                   randomize_noise=False,return_latents=False,
+                                   average_code=True)[0]
+        
+        self.avg_sample = self.avg_sample.to(self.device).float().detach()
+            
+        np.save(os.path.join(self.config.exp_dir, 'avg_sample'), self.avg_sample.cpu().numpy())
+
+		# Initialize loss
+        if self.config.id_lambda > 0 and self.config.moco_lambda > 0:
+            raise ValueError('Both ID and MoCo loss have lambdas > 0! Please select only one to have non-zero lambda!')
+        self.mse_loss = nn.MSELoss().to(self.device).eval()
+        if self.config.lpips_lambda > 0:
+            self.lpips_loss = LPIPS(net_type='discrim').to(self.device).eval()
+        if self.config.id_lambda > 0:
+            self.id_loss = id_loss.IDLoss().to(self.device).eval()
+        if self.config.w_norm_lambda > 0:
+            self.w_norm_loss = w_norm.WNormLoss(start_from_latent_avg=self.config.start_from_latent_avg)
+        if self.config.moco_lambda > 0:
+            self.moco_loss = moco_loss.MocoLoss()
+        if self.config.scat_lambda > 0:
+            self.scat_loss = scattering_loss.ScatteringLoss(device=self.device)
+        if self.config.swd_lambda > 0 :
+            self.swd_loss = SwdLoss((128,128), device = self.device)
+        if self.config.vgg_lambda > 0 :
+            self.vgg_loss = VGGPerceptualLoss(params=self.config, device=self.device).to(self.device).eval()
+                            
+		# Initialize optimizer
+        self.optimizer = self.configure_optimizers()
+
+    	# Initialize dataset
+        self.train_dataset, self.test_dataset = self.configure_datasets() 
+        self.train_dataloader = DataLoader(self.train_dataset,
+										   batch_size=self.config.batch_size,
+										   shuffle=True,
+										   num_workers=int(self.config.workers),
+										   drop_last=True)
+        self.test_dataloader = DataLoader(self.test_dataset,
+										  batch_size=self.config.test_batch_size,
+										  shuffle=False,
+										  num_workers=int(self.config.test_workers),
+										  drop_last=True)
+
+		# Initialize logger
+        self.log_dir = os.path.join(config.exp_dir, 'logs')
+        os.makedirs(self.log_dir, exist_ok=True)
+        
+        #self.logger = SummaryWriter(log_dir=log_dir)
+
+		# Initialize checkpoint dir
+        self.checkpoint_dir = os.path.join(config.exp_dir, 'checkpoints')
+        os.makedirs(self.checkpoint_dir, exist_ok=True)
+        self.best_val_loss = None
+        if self.config.save_interval is None:
+            self.config.save_interval = self.config.max_steps
+
+    def train(self):
+        self.net.train()
+        while self.global_step < self.config.max_steps:
+            for batch_idx, batch in enumerate(self.train_dataloader):
+                self.optimizer.zero_grad()
+                x, y = batch
+                # x, y 
+                x, y = x.to(self.device).float(), y.to(self.device).float()
+                
+                y_hat, latent = self.net.forward(x, return_latents=True)
+                
+                loss, loss_dict = self.calc_loss(x, y, y_hat, latent)
+                loss.backward()
+                self.optimizer.step()
+
+				# Logging related
+                if self.global_step==0 :
+                    with open(self.log_dir+'/metrics_train.csv','w') as f :
+                        f.write('Step,')
+                        for key in loss_dict.keys() :
+                            f.write(key+',')
+                        f.write('null\n')
+                
+                if self.global_step % self.config.image_interval == 0 or (self.global_step < 1000 and self.global_step % 25 == 0):
+                    print('plotting for train')
+                    self.parse_and_log_images(x, y, y_hat, title='samples/train')
+                    
+                if self.global_step % self.config.board_interval == 0:
+                    self.print_metrics(loss_dict, prefix='train')
+                    self.log_metrics(self.global_step, loss_dict,  prefix='train')
+
+				# Validation related
+                val_loss_dict = None
+                if (self.global_step % self.config.val_interval == 0 or self.global_step == self.config.max_steps):
+                    print('validation')
+                    val_loss_dict = self.validate() ## includes image logging !
+                    
+                    if val_loss_dict and (self.best_val_loss is None or val_loss_dict['loss'] < self.best_val_loss):
+                        self.best_val_loss = val_loss_dict['loss']
+                        self.checkpoint_me(val_loss_dict, is_best=True)
+
+                if self.global_step % self.config.save_interval == 0 or self.global_step == self.config.max_steps:
+                    
+                    if val_loss_dict is not None:
+                        self.checkpoint_me(val_loss_dict, is_best=False)
+                    else:
+                        self.checkpoint_me(loss_dict, is_best=False)
+                        
+                if self.global_step == self.config.max_steps:
+                    print('OMG, finished training!')
+                    break
+
+                self.global_step += 1
+
+
+    def validate(self):
+        self.net.eval()
+        agg_loss_dict = []
+        for batch_idx, batch in enumerate(self.test_dataloader):
+            if batch_idx%250==0 :
+                print('test set percentage {0:.2f}'.format(100*batch_idx/len(self.test_dataloader)))
+
+            x, y = batch
+            
+            with torch.no_grad():
+                x, y = x.to(self.device).float(), y.to(self.device).float()
+                y_hat, latent = self.net.forward(y, return_latents=True)
+                _, cur_loss_dict = self.calc_loss(x, y, y_hat, latent)
+            agg_loss_dict.append(cur_loss_dict)
+
+			# Logging related
+            self.parse_and_log_images(x, y, y_hat, title='samples/test', subscript='{:04d}'.format(batch_idx))
+
+			# For first step just do sanity test on small amount of data
+            if self.global_step == 0 and batch_idx >= 4:
+                self.net.train()
+                return None  # Do not log, inaccurate in first batch
+
+        loss_dict = train_utils.aggregate_loss_dict(agg_loss_dict)
+        
+        if self.global_step // self.config.val_interval==1 :
+        
+            with open(self.log_dir+'/metrics_test.csv','w') as f :
+                f.write('Step,')
+                for key in loss_dict.keys() :
+                    f.write(key+',')
+                f.write('null\n')
+        
+        self.log_metrics(self.global_step, loss_dict, prefix='test')
+        self.print_metrics(loss_dict, prefix='test')
+
+        self.net.train()
+        return loss_dict
+
+    def checkpoint_me(self, loss_dict, is_best):
+        save_name = 'best_model.pt' if is_best else 'iteration_{}.pt'.format(self.global_step)
+        save_dict = self.__get_save_dict()
+        checkpoint_path = os.path.join(self.checkpoint_dir, save_name)
+        torch.save(save_dict, checkpoint_path)
+        with open(os.path.join(self.checkpoint_dir, 'timestamp.txt'), 'a') as f:
+            if is_best:
+                f.write('**Best**: Step - {}, Loss - {:.3f} \n{}\n'.format(self.global_step, self.best_val_loss, loss_dict))
+            else:
+                f.write('Step - {}, \n{}\n'.format(self.global_step, loss_dict))
+
+    def configure_optimizers(self):
+        params = list(self.net.encoder.parameters())
+        if self.config.train_decoder:
+            params += list(self.net.decoder.parameters())
+        if self.config.optim_name == 'adam':
+            optimizer = torch.optim.Adam(params, lr=self.config.learning_rate, weight_decay = 0.0005)
+        else:
+            optimizer = Ranger(params, lr=self.config.learning_rate)
+        return optimizer
+
+    def configure_datasets(self):
+        if self.config.dataset_type not in data_configs.DATASETS.keys():
+            raise Exception('{} is not a valid dataset_type'.format(self.config.dataset_type))
+        print('Loading dataset for {}'.format(self.config.dataset_type))
+        
+        dataset_args = data_configs.DATASETS[self.config.dataset_type]
+        path = dataset_args['train_source_root']
+        transforms_dict = dataset_args['transforms'](self.config, path).get_transforms()
+        train_dataset = AromeDataset('Large_lt_train_labels_1.csv',[1,2,3],
+                                     [78,206,55,183],
+                                     source_root=dataset_args['train_source_root'],
+									  target_root=dataset_args['train_target_root'],
+									  source_transform=transforms_dict['transform_source'],
+									  target_transform=transforms_dict['transform_gt_train'],
+									  config=self.config,
+                                      mode='train')
+        
+        path = dataset_args['test_source_root']
+        transforms_dict = dataset_args['transforms'](self.config, path).get_transforms()
+        test_dataset = AromeDataset('Large_lt_test_labels.csv',[1,2,3],
+                                     [78,206,55,183],
+                                     source_root=dataset_args['test_source_root'],
+									 target_root=dataset_args['test_target_root'],
+									 source_transform=transforms_dict['transform_source'],
+									 target_transform=transforms_dict['transform_test'],
+									 config=self.config,
+                                     mode='val')
+        print("Number of training samples: {}".format(len(train_dataset)))
+        print("Number of test samples: {}".format(len(test_dataset)))
+        return train_dataset, test_dataset
+
+    def calc_loss(self, x, y, y_hat, latent, option ='train'):
+        loss_dict = {}
+        loss = 0.0
+        id_logs = None
+        if self.config.id_lambda > 0:
+            loss_id, sim_improvement, id_logs = self.id_loss(y_hat, y, x)
+            loss_dict['loss_id'] = float(loss_id)
+            loss_dict['id_improve'] = float(sim_improvement)
+            loss = loss_id * self.config.id_lambda
+        if self.config.l2_lambda > 0:
+            loss_l2 = F.mse_loss(y_hat, y)
+            loss_dict['loss_l2'] = float(loss_l2)
+            loss += loss_l2 * self.config.l2_lambda
+        if self.config.lpips_lambda > 0:
+            loss_lpips = self.lpips_loss(y_hat, y)
+            loss_dict['loss_lpips'] = float(loss_lpips)
+            loss += loss_lpips * self.config.lpips_lambda
+        if self.config.w_norm_lambda > 0:
+            loss_w_norm = self.w_norm_loss(latent, self.net.latent_avg)
+            loss_dict['loss_w_norm'] = float(loss_w_norm)
+            loss += loss_w_norm * self.config.w_norm_lambda
+        if self.config.moco_lambda > 0:
+            loss_moco, sim_improvement, id_logs = self.moco_loss(y_hat, y, x)
+            loss_dict['loss_moco'] = float(loss_moco)
+            loss_dict['id_improve'] = float(sim_improvement)
+            loss += loss_moco * self.config.moco_lambda
+        if self.config.scat_lambda > 0 :  # Scattering loss
+            loss_scat = self.scat_loss(y_hat, y)
+            loss_dict['scat_loss'] = float(loss_scat)
+            loss += loss_scat * self.config.scat_lambda
+        if self.config.swd_lambda > 0 :  # Scattering loss
+            loss_swd = self.swd_loss.End2End(y_hat, y)
+            loss_dict['swd_loss'] = float(loss_swd)
+            loss += loss_swd * self.config.swd_lambda
+        
+        if self.config.vgg_lambda > 0 :
+            loss_vgg = self.vgg_loss(y_hat, y)
+            loss_dict['loss_vgg'] = float(loss_vgg)
+            loss += loss_vgg * self.config.vgg_lambda
+            
+        if option != 'train' :
+            if self.config.l2_lambda==0 :
+                loss_l2 = F.mse_loss(y_hat, y)
+                loss_dict['loss_l2'] = float(loss_l2)
+            
+            loss_mae = F.l1_loss(y_hat,y)
+            loss_dict['loss_mae'] = float(loss_mae)
+            
+
+        loss_dict['loss'] = float(loss)
+        return loss, loss_dict
+    
+    def log_metrics(self, step, metrics_dict, prefix):
+        with open(self.log_dir+'/metrics_' + prefix + '.csv', 'a') as f:
+            f.write(str(step)+',')
+            for key, value in metrics_dict.items():
+                f.write(str(value))
+                f.write(',')
+            f.write('0\n')  #last null metric
+           
+
+    def print_metrics(self, metrics_dict, prefix):
+        print('Metrics for {}, step {}'.format(prefix, self.global_step))
+        for key, value in metrics_dict.items():
+            print('\t{} = '.format(key), value)
+
+    def parse_and_log_images(self, x, y, y_hat, title, subscript=None, display_count=1):
+        sample_data = []
+        for i in range(display_count):                
+            cur_sample_data = {
+				'input': common.numpyfy(x[i]),
+				'target': common.numpyfy(y[i]),
+				'output': [common.numpyfy(y_hat[i])],
+			}
+
+            sample_data.append(cur_sample_data)
+            
+        self.log_images(title, sample_data=sample_data, subscript=subscript)
+
+    def log_images(self, name, sample_data, subscript=None, log_latest=False):
+
+        fig = common.vis_samples(sample_data, self.config.n_vars)
+        step = self.global_step
+        if log_latest:
+            step = 0
+        if subscript:
+            path = os.path.join(self.log_dir, name, '{}_{:04d}.png'.format(subscript, step))
+        else:
+            path = os.path.join(self.log_dir, name, '{:04d}.png'.format(step))
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        fig.savefig(path)
+        plt.close(fig)
+
+    def __get_save_dict(self):
+        save_dict = {
+			'state_dict': self.net.state_dict(),
+			'config': vars(self.config),
+			'latent_avg': self.net.latent_avg
+		}
+        return save_dict
