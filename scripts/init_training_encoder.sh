@@ -21,9 +21,12 @@ module load Apptainer/1.2.4-GCCcore-12.3.0
 apptainer exec --nv /project/scratch/p200177/DE_371/resources/apptainer_container/container_encoder.sif python3 restyle_encoder/train_restyle_psp.py \
         --exp_dir='/project/scratch/p200177/DE_371/victorsanchez/results/encoder/' \
         --learning_rate=0.001 \
-        --l2_lambda=10 \
+        --l2_lambda=0 \
         --vgg_lambda=1 \
+        --w_norm_lambda=0 \
         --vgg_computation='sol2' \
         --max_steps=50000 \
         --start_from_latent_avg \
         --n_iters_per_batch=10 \
+        --batch_size=8 \
+        --test_batch_size=2 \

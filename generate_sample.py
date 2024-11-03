@@ -92,20 +92,20 @@ def main():
     parser.add_argument(
         "--sample",
         type=int,
-        default=256,
+        default=64,
         help="number of samples to be generated per batch",
     )
     
     parser.add_argument(
-        "--n_batches", type=int, default=64, help="number of batches to be generated"
+        "--n_batches", type=int, default=256, help="number of batches to be generated"
     )
     
     parser.add_argument(
-        "--list_steps", type=str2list, default=[206000], help="list of training steps to be used as checkpoints"
+        "--list_steps", type=str2list, default=[146000], help="list of training steps to be used as checkpoints"
     )
 
     parser.add_argument(
-        "--training_dir", type=str, default="/project/home/p200177/DE_371/experiments_WP1/gan_training/exp5/" # change with your path
+        "--training_dir", type=str, default="/project/home/p200177/DE_371/experiments_WP1/gan_training/exp11ter/" # change with your path
     )
 
     parser.add_argument("--truncation", type=float, default=1, help="truncation ratio")

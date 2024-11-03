@@ -10,7 +10,7 @@ from torch.utils.tensorboard import SummaryWriter
 import torch.nn.functional as F
 
 from restyle_encoder.utils import common, train_utils
-from restyle_encoder.criteria import id_loss, moco_loss
+from restyle_encoder.criteria import moco_loss
 from restyle_encoder.configs import data_configs
 from restyle_encoder.datasets.images_dataset import ImagesDataset
 from restyle_encoder.criteria.lpips.lpips import LPIPS
@@ -49,13 +49,10 @@ class Coach:
 		common.tensor2im(self.avg_image).save(os.path.join(self.config.exp_dir, 'avg_image.jpg'))
 
 		# Initialize loss
-		if self.config.id_lambda > 0 and self.config.moco_lambda > 0:
-			raise ValueError('Both ID and MoCo loss have lambdas > 0! Please select only one to have non-zero lambda!')
+		
 		self.mse_loss = nn.MSELoss().to(self.device).eval()
 		if self.config.lpips_lambda > 0:
 			self.lpips_loss = LPIPS(net_type='alex').to(self.device).eval()
-		if self.config.id_lambda > 0:
-			self.id_loss = id_loss.IDLoss().to(self.device).eval()
 		if self.config.moco_lambda > 0:
 			self.moco_loss = moco_loss.MocoLoss()
 
@@ -312,11 +309,6 @@ class Coach:
 			loss += self.config.delta_norm_lambda * total_delta_loss
 
 		# similarity losses
-		if self.config.id_lambda > 0:
-			loss_id, sim_improvement, id_logs = self.id_loss(y_hat, y, x)
-			loss_dict['loss_id'] = float(loss_id)
-			loss_dict['id_improve'] = float(sim_improvement)
-			loss += loss_id * self.config.id_lambda
 		if self.config.l2_lambda > 0:
 			loss_l2 = F.mse_loss(y_hat, y)
 			loss_dict['loss_l2'] = float(loss_l2)

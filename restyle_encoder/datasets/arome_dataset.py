@@ -23,7 +23,7 @@ class AromeDataset(Dataset):
     
     def __init__(self, ID_file, var_indexes, crop_indexes,
                  source_transform=None, target_transform=None, source_root=None,
-                 target_root=None, config=None, mode=None):
+                 target_root=None, config=None, mode=None, length_ratio=None):
         
         self.source_root = source_root
         self.target_root = target_root
@@ -46,10 +46,13 @@ class AromeDataset(Dataset):
         
         self.CI = crop_indexes
         self.VI = var_indexes
-        
+        self.length_ratio=length_ratio
         
     def __len__(self):
-        return len(self.labels)
+        if self.length_ratio is None:
+            return len(self.labels)
+        else :
+            return int(len(self.labels)*self.length_ratio)
     
     def __getitem__(self, idx, mode = 'index'):
         

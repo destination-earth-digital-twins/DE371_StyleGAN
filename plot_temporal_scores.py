@@ -27,7 +27,7 @@ if __name__=="__main__" :
     parser.add_argument('--id_file', type=str, default="Large_lt_train_labels_1.csv")
     parser.add_argument('--pretrained_model', type=int, default=-1)
     parser.add_argument('--training_dir', type=str, default='/project/home/p200177/DE_371/experiments_WP1/gan_training/exp5/')
-    parser.add_argument('--training_step', type=int, default=[106000,206000])
+    parser.add_argument('--training_step', type=int, default=[146000])
     # Model architecture hyper-parameters
     
     parser.add_argument('--model', type=str, default='stylegan2', \
@@ -39,10 +39,10 @@ if __name__=="__main__" :
     #architectural choices
     
     parser.add_argument('--latent_dim', type=int, default=512)
-    parser.add_argument('--g_channels', type=int, default=45)
-    parser.add_argument('--d_channels', type=int, default=45)
+    parser.add_argument('--g_channels', type=int, default=24)
+    parser.add_argument('--d_channels', type=int, default=24)
     parser.add_argument('--n_mlp', type=int, default=8, help="depth of the z->w mlp")
-    parser.add_argument("--channel_multiplier",type=int, default=2,
+    parser.add_argument("--channel_multiplier",type=int, default=6,
         help="channel multiplier factor for the stylegan/swagan model. config-f = 2, else = 1",
     )
 
@@ -116,8 +116,8 @@ if __name__=="__main__" :
     parser.add_argument('--multi_timestep_mode', action='store_true')
     parser.add_argument('--timestep_labelling', action='store_true')
     parser.add_argument('--variable_first', action='store_true')
-    parser.add_argument('--nb_timesteps', type=int, default=15)
-    parser.add_argument('--timestep_period', type=int, default=3)
+    parser.add_argument('--nb_timesteps', type=int, default=8)
+    parser.add_argument('--timestep_period', type=int, default=6)
     parser.add_argument('--stack_sample_along_time_and_variable', action='store_true')
     parser.add_argument('--cutoff_dataset_leadtimes', action='store_true', help='To only consider [t+dt, t+2*dt...] and not the leadtime between t and dt')
     
@@ -204,7 +204,7 @@ if __name__=="__main__" :
         G = G.to(device)
         generators.append(G)
 
-    output_dir = config.training_dir+'scores/plots/diurnal_cycle/'
+    output_dir = config.training_dir+'scores/'
     
     
     # Dataset loading
@@ -315,7 +315,7 @@ if __name__=="__main__" :
 
                             # Temporal Difference
                             if t==0 :
-                                temporal_difference[checkpoint_id, var_id, t, cursor+member_id]=np.nan
+                                temporal_difference[checkpoint_id, var_id, t, cursor+member_id] = np.nan
                             elif t < config.nb_timesteps-1:
                                 temporal_difference[checkpoint_id, var_id, t, cursor+member_id] = np.mean(np.abs(gen_sample[t+1][var_id] - gen_sample[t][var_id]))
 
@@ -323,20 +323,26 @@ if __name__=="__main__" :
         cursor+=16
 
     list_ticks = np.arange(0, 45, config.timestep_period)
-
+    output_dir_temporal_exp = output_dir + 'Temporal_Experiments/'
+    if not os.path.exists(output_dir_temporal_exp):
+        os.makedirs(output_dir_temporal_exp)
+    output_dir_plots = output_dir + 'plots/'
+    if not os.path.exists(output_dir_plots):
+        os.makedirs(output_dir_plots)
+    
     diurnal_cycle = np.mean(diurnal_cycle, -1)
     print('Saving Diurnal Cycle')
-    np.save(output_dir+f'Diurnal_Cycle_over_{nb_sample_total}_samples_{config.nb_timesteps}_nb_var_{len(config.var_names)}.npy', diurnal_cycle)
+    np.save(output_dir_temporal_exp+f'Diurnal_Cycle_over_{nb_sample_total}_samples_{config.nb_timesteps}_nb_var_{len(config.var_names)}.npy', diurnal_cycle)
     print('Plotting Diurnal Cycle')
     for key_id, key in enumerate(pixel_coordinate_dict):
         fig, ax = plt.subplots(nrows=2, ncols=1, figsize=(16,16))
         ax[0].plot(range(config.nb_timesteps),  diurnal_cycle[0,key_id,0], linewidth=6, color='k', label='AROME')
         ax[0].set_ylabel('Wind speed (m/s)', size = 30)
-        ax[0].set_xticks(range(15), labels=list_ticks)
+        ax[0].set_xticks(range(len(list_ticks)), labels=list_ticks)
 
         ax[1].plot(range(config.nb_timesteps), diurnal_cycle[0,key_id,1], linewidth=6, color='k', label='AROME')
         ax[1].set_ylabel('Temperature at 2m (K)', size = 30)
-        ax[1].set_xticks(range(15), labels=list_ticks)
+        ax[1].set_xticks(range(len(list_ticks)), labels=list_ticks)
 
         for checkpoint_id in range(1, len(config.training_step)+1):
             ax[0].plot(range(config.nb_timesteps), diurnal_cycle[checkpoint_id,key_id,0], linewidth=6, label=f'Generated - {config.training_step[checkpoint_id-1]}')
@@ -345,32 +351,33 @@ if __name__=="__main__" :
             ax[1].legend(prop={'size':20})
 
         fig.suptitle(f'Diurnal Cycle on pixel {key}', size=30)
-        if not os.path.exists(output_dir):
-            os.makedirs(output_dir)
-        fig.savefig(output_dir+f'Diurnal_Cycle_over_{nb_sample_total}_samples_{config.nb_timesteps}_nb_var_{len(config.var_names)}_{key}.png') 
+        output_dir_diurnal_cycle = output_dir_plots + 'Diurnal_Cycle/'
+        if not os.path.exists(output_dir_diurnal_cycle):
+            os.makedirs(output_dir_diurnal_cycle)
+        fig.savefig(output_dir_diurnal_cycle+f'Diurnal_Cycle_over_{nb_sample_total}_samples_{config.nb_timesteps}_nb_var_{len(config.var_names)}_{key}.pdf') 
     
     
     pearsons_sliding_img = np.mean(pearsons_sliding_img, -1)
     pearsons_first_to_each_leadtime_img = np.mean(pearsons_first_to_each_leadtime_img, -1)
     
     print('Saving Pearson Correlation')
-    np.save(output_dir+f'Pearson_Correlation_first_to_each_over_{nb_sample_total}_samples_{config.nb_timesteps}_nb_var_{len(config.var_names)}.npy', pearsons_first_to_each_leadtime_img)
-    np.save(output_dir+f'Pearson_Correlation_sliding_over_{nb_sample_total}_samples_{config.nb_timesteps}_nb_var_{len(config.var_names)}.npy', pearsons_sliding_img)
+    np.save(output_dir_temporal_exp+f'Pearson_Correlation_first_to_each_over_{nb_sample_total}_samples_{config.nb_timesteps}_nb_var_{len(config.var_names)}.npy', pearsons_first_to_each_leadtime_img)
+    np.save(output_dir_temporal_exp+f'Pearson_Correlation_sliding_over_{nb_sample_total}_samples_{config.nb_timesteps}_nb_var_{len(config.var_names)}.npy', pearsons_sliding_img)
     print('Plotting Pearson Correlation')
     
     
     fig, ax = plt.subplots(nrows=3, ncols=1, figsize=(16,16))
     ax[0].plot(range(config.nb_timesteps),  pearsons_first_to_each_leadtime_img[0, 0], linewidth=6, color='k', label='AROME')
     ax[0].set_ylabel('Wind speed U (m/s)', size = 30)
-    ax[0].set_xticks(range(15), labels=list_ticks)
+    ax[0].set_xticks(range(len(list_ticks)), labels=list_ticks)
     
     ax[1].plot(range(config.nb_timesteps),  pearsons_first_to_each_leadtime_img[0, 1], linewidth=6, color='k', label='AROME')
     ax[1].set_ylabel('Wind speed V (m/s)', size = 30)
-    ax[1].set_xticks(range(15), labels=list_ticks)
+    ax[1].set_xticks(range(len(list_ticks)), labels=list_ticks)
 
     ax[2].plot(range(config.nb_timesteps), pearsons_first_to_each_leadtime_img[0, 2], linewidth=6, color='k', label='AROME')
     ax[2].set_ylabel('Temperature at 2m (K)', size = 30)
-    ax[2].set_xticks(range(15), labels=list_ticks)
+    ax[2].set_xticks(range(len(list_ticks)), labels=list_ticks)
 
     for checkpoint_id in range(1, len(config.training_step)+1):
         ax[0].plot(range(config.nb_timesteps), pearsons_first_to_each_leadtime_img[checkpoint_id, 0], linewidth=6, label=f'Generated - {config.training_step[checkpoint_id-1]}')
@@ -381,22 +388,23 @@ if __name__=="__main__" :
         ax[2].legend(prop={'size':20})
 
     fig.suptitle('Pearson Correlation First to Each Leadtime', size=30)
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
-    fig.savefig(output_dir+f'Pearson_Correlation_first_to_each_over_{nb_sample_total}_samples_{config.nb_timesteps}_nb_var_{len(config.var_names)}.png') 
+    output_dir_pearson_correlation = output_dir_plots + 'Pearson_Correlation/'
+    if not os.path.exists(output_dir_pearson_correlation):
+        os.makedirs(output_dir_pearson_correlation)
+    fig.savefig(output_dir_pearson_correlation+f'Pearson_Correlation_first_to_each_over_{nb_sample_total}_samples_{config.nb_timesteps}_nb_var_{len(config.var_names)}.pdf') 
 
     fig, ax = plt.subplots(nrows=3, ncols=1, figsize=(16,16))
     ax[0].plot(range(config.nb_timesteps-1),  pearsons_sliding_img[0, 0], linewidth=6, color='k', label='AROME')
     ax[0].set_ylabel('Wind speed U (m/s)', size = 30)
-    ax[0].set_xticks(range(15), labels=list_ticks)
+    ax[0].set_xticks(range(len(list_ticks)), labels=list_ticks)
 
     ax[1].plot(range(config.nb_timesteps-1),  pearsons_sliding_img[0, 1], linewidth=6, color='k', label='AROME')
     ax[1].set_ylabel('Wind speed V (m/s)', size = 30)
-    ax[1].set_xticks(range(15), labels=list_ticks)
+    ax[1].set_xticks(range(len(list_ticks)), labels=list_ticks)
     
     ax[2].plot(range(config.nb_timesteps-1), pearsons_sliding_img[0, 2], linewidth=6, color='k', label='AROME')
     ax[2].set_ylabel('Temperature at 2m (K)', size = 30)
-    ax[2].set_xticks(range(15), labels=list_ticks)
+    ax[2].set_xticks(range(len(list_ticks)), labels=list_ticks)
 
     for checkpoint_id in range(1, len(config.training_step)+1):
         ax[0].plot(range(config.nb_timesteps-1), pearsons_sliding_img[checkpoint_id, 0], linewidth=6, label=f'Generated - {config.training_step[checkpoint_id-1]}')
@@ -407,30 +415,28 @@ if __name__=="__main__" :
         ax[2].legend(prop={'size':20})
 
     fig.suptitle('Pearson Correlation between X(t) and X(t+1)', size=30)
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
-    fig.savefig(output_dir+f'Pearson_Correlation_sliding_over_{nb_sample_total}_samples_{config.nb_timesteps}_nb_var_{len(config.var_names)}.png') 
+    fig.savefig(output_dir_pearson_correlation+f'Pearson_Correlation_sliding_over_{nb_sample_total}_samples_{config.nb_timesteps}_nb_var_{len(config.var_names)}.pdf') 
 
 
     temporal_difference = np.mean(temporal_difference, -1)
 
     print('Saving Temporal Difference')
-    np.save(output_dir+f'Temporal_Difference_over_{nb_sample_total}_samples_{config.nb_timesteps}_nb_var_{len(config.var_names)}.npy', temporal_difference)
+    np.save(output_dir_temporal_exp+f'Temporal_Difference_over_{nb_sample_total}_samples_{config.nb_timesteps}_nb_var_{len(config.var_names)}.npy', temporal_difference)
     print('Plotting Temporal Difference')
 
     
     fig, ax = plt.subplots(nrows=3, ncols=1, figsize=(16,16))
     ax[0].plot(range(config.nb_timesteps-1),  temporal_difference[0, 0], linewidth=6, color='k', label='AROME')
     ax[0].set_ylabel('Wind speed U (m/s)', size = 30)
-    ax[0].set_xticks(range(15), labels=list_ticks)
+    ax[0].set_xticks(range(len(list_ticks)), labels=list_ticks)
 
     ax[1].plot(range(config.nb_timesteps-1),  temporal_difference[0, 1], linewidth=6, color='k', label='AROME')
     ax[1].set_ylabel('Wind speed V (m/s)', size = 30)
-    ax[1].set_xticks(range(15), labels=list_ticks)
+    ax[1].set_xticks(range(len(list_ticks)), labels=list_ticks)
 
     ax[2].plot(range(config.nb_timesteps-1), temporal_difference[0, 2], linewidth=6, color='k', label='AROME')
     ax[2].set_ylabel('Temperature at 2m (K)', size = 30)
-    ax[2].set_xticks(range(15), labels=list_ticks)
+    ax[2].set_xticks(range(len(list_ticks)), labels=list_ticks)
 
     for checkpoint_id in range(1, len(config.training_step)+1):
         ax[0].plot(range(config.nb_timesteps-1), temporal_difference[checkpoint_id, 0], linewidth=6, label=f'Generated - {config.training_step[checkpoint_id-1]}')
@@ -441,6 +447,7 @@ if __name__=="__main__" :
         ax[2].legend(prop={'size':20})
 
     fig.suptitle('Temporal Difference for Each Leadtime : ∆X = |X(t+1) - X(t)|', size=30)
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
-    fig.savefig(output_dir+f'Temporal_Difference_over_{nb_sample_total}_samples_{config.nb_timesteps}_nb_var_{len(config.var_names)}.png') 
+    output_dir_temporal_difference = output_dir_plots + 'Temporal_Difference/'
+    if not os.path.exists(output_dir_temporal_difference):
+        os.makedirs(output_dir_temporal_difference)
+    fig.savefig(output_dir_temporal_difference+f'Temporal_Difference_over_{nb_sample_total}_samples_{config.nb_timesteps}_nb_var_{len(config.var_names)}.pdf') 

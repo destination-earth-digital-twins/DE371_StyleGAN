@@ -11,7 +11,7 @@ import torch.nn.functional as F
 from tqdm import tqdm
 
 from restyle_encoder.utils import common, train_utils
-from restyle_encoder.criteria import id_loss, w_norm, moco_loss, scattering_loss
+from restyle_encoder.criteria import w_norm, moco_loss, scattering_loss
 from restyle_encoder.criteria.SWD_loss import SwdLoss
 from restyle_encoder.configs import data_configs
 from restyle_encoder.datasets.arome_dataset import AromeDataset
@@ -48,13 +48,10 @@ class Coach:
         np.save(os.path.join(self.config.exp_dir, 'avg_sample.pth'), self.avg_sample.cpu().numpy())
 
 		# Initialize loss
-        if self.config.id_lambda > 0 and self.config.moco_lambda > 0:
-            raise ValueError('Both ID and MoCo loss have lambdas > 0! Please select only one to have non-zero lambda!')
+        
         self.mse_loss = nn.MSELoss().to(self.device).eval()
         if self.config.lpips_lambda > 0:
             self.lpips_loss = LPIPS(net_type='discrim').to(self.device).eval()
-        if self.config.id_lambda > 0:
-            self.id_loss = id_loss.IDLoss().to(self.device).eval()
         if self.config.w_norm_lambda > 0:
             self.w_norm_loss = w_norm.WNormLoss(start_from_latent_avg=self.config.start_from_latent_avg)
         if self.config.moco_lambda > 0:
@@ -73,6 +70,8 @@ class Coach:
 
     	# Initialize dataset
         self.train_dataset, self.test_dataset = self.configure_datasets() 
+        print(f'Length of train set : {len(self.train_dataset)} | Length of test set : {len(self.test_dataset)}')
+
         self.train_dataloader = DataLoader(self.train_dataset,
 										   batch_size=self.config.batch_size,
 										   shuffle=True,
@@ -160,8 +159,8 @@ class Coach:
                     print('validation')
                     val_loss_dict = self.validate() ## includes image logging !
                     
-                    if val_loss_dict and (self.best_val_loss is None or val_loss_dict['loss'] < self.best_val_loss):
-                        self.best_val_loss = val_loss_dict['loss']
+                    if val_loss_dict and (self.best_val_loss is None or val_loss_dict['loss_total'] < self.best_val_loss):
+                        self.best_val_loss = val_loss_dict['loss_total']
                         self.checkpoint_me(val_loss_dict, is_best=True)
 
                 if self.global_step % self.config.save_interval == 0 or self.global_step == self.config.max_steps:
@@ -203,6 +202,7 @@ class Coach:
 
         self.net.eval()
         agg_loss_dict = []
+
         for batch_idx, batch in enumerate(self.test_dataloader):
             
             # if batch_idx%250==0 : print('test set percentage {0:.2f}'.format(100*batch_idx/len(self.test_dataloader)))
@@ -215,12 +215,14 @@ class Coach:
                 agg_loss_dict.append(cur_loss_dict)
 
 			# Logging related
-            self.parse_and_log_images(x, y, y_hats, title='samples/test', subscript='{:04d}'.format(batch_idx))
+            if batch_idx % 50 == 0:
+                self.parse_and_log_images(x, y, y_hats, title='samples/test', subscript='{:04d}'.format(batch_idx))
 
 			# For first step just do sanity test on small amount of data
             if self.global_step == 0 and batch_idx >= 4:
                 self.net.train()
                 return None  # Do not log, inaccurate in first batch
+            
 
         loss_dict = train_utils.aggregate_loss_dict(agg_loss_dict)
         
@@ -285,7 +287,8 @@ class Coach:
 									 source_transform=transforms_dict['transform_source'],
 									 target_transform=transforms_dict['transform_test'],
 									 config=self.config,
-                                     mode='val')
+                                     mode='val',
+                                     length_ratio=0.01)
         print("Number of training samples: {}".format(len(train_dataset)))
         print("Number of test samples: {}".format(len(test_dataset)))
         return train_dataset, test_dataset
@@ -294,11 +297,6 @@ class Coach:
         loss_dict = {}
         loss = 0.0
         id_logs = None
-        if self.config.id_lambda > 0:
-            loss_id, sim_improvement, id_logs = self.id_loss(y_hat, y, x)
-            loss_dict['loss_id'] = float(loss_id)
-            loss_dict['id_improve'] = float(sim_improvement)
-            loss = loss_id * self.config.id_lambda
         if self.config.l2_lambda > 0:
             loss_l2 = F.mse_loss(y_hat, y)
             loss_dict['loss_l2'] = float(loss_l2)
