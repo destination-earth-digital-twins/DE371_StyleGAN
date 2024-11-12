@@ -110,36 +110,10 @@ class Coach:
 		print(f'Resuming training from step {self.global_step}')
 
 	def compute_discriminator_loss(self, x):
-		avg_image_for_batch = self.avg_image.unsqueeze(0).repeat(x.shape[0], 1, 1, 1)
-		avg_image_for_batch.clone().detach().requires_grad_(True)
-		x_input = torch.cat([x, avg_image_for_batch], dim=1)
 		disc_loss_dict = {}
 		if self.is_training_discriminator():
-			disc_loss_dict = self.train_discriminator(x_input)
+			disc_loss_dict = self.train_discriminator(x)
 		return disc_loss_dict
-
-	def perform_train_iteration_on_batch(self, x, y):
-		y_hat, latent = None, None
-		loss_dict = None
-		y_hats = {idx: [] for idx in range(y.shape[0])}
-		for iter in range(self.config.n_iters_per_batch):
-			if iter == 0:
-				avg_image_for_batch = self.avg_image.unsqueeze(0).repeat(x.shape[0], 1, 1, 1)
-				x_input = torch.cat([y, avg_image_for_batch], dim=1)
-				y_hat, latent = self.net.forward(x_input, latent=None, return_latents=True)
-			else:
-				y_hat_clone = y_hat.clone().detach().requires_grad_(True)
-				latent_clone = latent.clone().detach().requires_grad_(True)
-				x_input = torch.cat([y, y_hat_clone], dim=1)
-				y_hat, latent = self.net.forward(x_input, latent=latent_clone, return_latents=True)
-
-			loss, loss_dict = self.calc_loss(x, y, y_hat, latent)
-			loss.backward()
-			# store intermediate outputs
-			for idx in range(y.shape[0]):
-				y_hats[idx].append([y_hat[idx]])
-
-		return y_hats, loss_dict
 
 	def train(self):
 		self.net.train()
@@ -149,14 +123,15 @@ class Coach:
 
 		while self.global_step < self.config.max_steps:
 			for batch_idx, batch in enumerate(self.train_dataloader):
-				
+				self.optimizer.zero_grad()
 				x, y = batch
 				x, y = x.to(self.device).float(), y.to(self.device).float()
 
 				disc_loss_dict = self.compute_discriminator_loss(x)
-
-				self.optimizer.zero_grad()
-				y_hats, encoder_loss_dict = self.perform_train_iteration_on_batch(x, y)
+				y_hat, latent = self.net.forward(x, return_latents=True)
+                
+				loss, encoder_loss_dict = self.calc_loss(x, y, y_hat, latent)
+				loss.backward()
 				self.optimizer.step()
 
 				loss_dict = {**disc_loss_dict, **encoder_loss_dict}
@@ -171,7 +146,7 @@ class Coach:
                 
 				if self.global_step % self.config.image_interval == 0 : #or (self.global_step < 1000 and self.global_step % 25 == 0):
 					print('plotting for train')
-					self.parse_and_log_images(x, y, y_hats, title='samples/train')
+					self.parse_and_log_images(x, y, y_hat, title='samples/train')
 
 				if self.global_step % self.config.board_interval == 0:
 					self.log_metrics(self.global_step, loss_dict, prefix='train')
@@ -229,21 +204,22 @@ class Coach:
 			with torch.no_grad():
 				x, y = x.to(self.device).float(), y.to(self.device).float()
 				# validate discriminator on batch
-				avg_image_for_batch = self.avg_image.unsqueeze(0).repeat(x.shape[0], 1, 1, 1)
-				x_input = torch.cat([x, avg_image_for_batch], dim=1)
 				cur_disc_loss_dict = {}
 				if self.is_training_discriminator():
-					cur_disc_loss_dict = self.validate_discriminator(x_input)
+					cur_disc_loss_dict = self.validate_discriminator(x)
 
 				# validate encoder on batch
-				y_hats, cur_enc_loss_dict, id_logs = self.perform_val_iteration_on_batch(x, y)
+				with torch.no_grad():
+					x, y = x.to(self.device).float(), y.to(self.device).float()
+					y_hat, latent = self.net.forward(y, return_latents=True)
+					_, cur_enc_loss_dict = self.calc_loss(x, y, y_hat, latent)
 
 				cur_loss_dict = {**cur_disc_loss_dict, **cur_enc_loss_dict}
 				agg_loss_dict.append(cur_loss_dict)
 
 			# Logging related
 			if batch_idx % 50 == 0:
-				self.parse_and_log_images(x, y, y_hats,
+				self.parse_and_log_images(x, y, y_hat,
 									  title='samples/test',
 									  subscript='{:04d}'.format(batch_idx))
 
@@ -413,28 +389,20 @@ class Coach:
 
 	def parse_and_log_images(self, x, y, y_hat, title, subscript=None, display_count=1):
 		sample_data = []
-		for i in range(display_count):
-			if isinstance(y_hat, dict):
-				output = [
-					[common.numpyfy(y_hat[i][iter_idx][0])]
-					for iter_idx in range(len(y_hat[i]))
-				]
-			else:
-				output = [common.numpyfy(y_hat[i])]
-                
+		for i in range(display_count):                
 			cur_sample_data = {
 				'input': common.numpyfy(x[i]),
 				'target': common.numpyfy(y[i]),
-				'output': output, # ouput has len = the number of iterations for residual
+				'output': [common.numpyfy(y_hat[i])],
 			}
 
-		sample_data.append(cur_sample_data)
+			sample_data.append(cur_sample_data)
             
 		self.log_images(title, sample_data=sample_data, subscript=subscript)
 	
 	def log_images(self, name, sample_data, subscript=None, log_latest=False):
 
-		fig = common.vis_samples(sample_data, self.config.n_vars)
+		fig = common.vis_samples_diff(sample_data, self.config.n_vars, single=True)
 		step = self.global_step
 		if log_latest:
 			step = 0
@@ -442,18 +410,6 @@ class Coach:
 			path = os.path.join(self.log_dir, name, '{}_{:04d}.png'.format(subscript, step))
 		else:
 			path = os.path.join(self.log_dir, name, '{:04d}.png'.format(step))
-		os.makedirs(os.path.dirname(path), exist_ok=True)
-		fig.savefig(path)
-		plt.close(fig)
-
-		fig = common.vis_samples_diff(sample_data, self.config.n_vars)
-		step = self.global_step
-		if log_latest:
-			step = 0
-		if subscript:
-			path = os.path.join(self.log_dir, name, '{}_{:04d}_diff.png'.format(subscript, step))
-		else:
-			path = os.path.join(self.log_dir, name, '{:04d}_diff.png'.format(step))
 		os.makedirs(os.path.dirname(path), exist_ok=True)
 		fig.savefig(path)
 		plt.close(fig)

@@ -18,6 +18,20 @@ def str2intlist(li):
     else : 
         raise ValueError("li argument must be a string or a list, not '{}'".format(type(li)))
 
+def str2strlist(li):
+    if type(li)==list:
+        li2 = [str(p) for p in li]
+        return li2
+    
+    elif type(li)==str:
+        li2 = li[1:-1].split(',')
+        li3 = [str(p) for p in li2]
+        return li3
+
+    else : 
+        raise ValueError("li argument must be a string or a list, not '{}'".format(type(li)))
+
+
 def load_batch_from_timestamp(
         dataframe,
         date,
@@ -36,9 +50,9 @@ def load_batch_from_timestamp(
     Nb = len(df0)
 
     batch = np.zeros((Nb,) + tuple(Shape))
-    print(batch.shape)
+    # print(batch.shape)
     for i,s in enumerate(df0['Name']):
-        print(i, s)
+        # print(i, s)
         sn = np.load(f'{data_dir}{s}.npy')[var_indices,:,:].astype(np.float32)
 
         batch[i] = sn

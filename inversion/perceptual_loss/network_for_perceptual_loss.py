@@ -28,6 +28,7 @@ def set_blocks_from_direct_features(config, network, feature_layers):
         for id_layer in range(1, feature_layers[0]+1):
             layers.append(network.features[id_layer].eval())
         blocks.append(nn.Sequential(*layers))
+
     for id in range(len(feature_layers)-1):
         blocks.append(network.features[feature_layers[id]:feature_layers[id+1]].eval())
 

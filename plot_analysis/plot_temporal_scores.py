@@ -26,7 +26,7 @@ if __name__=="__main__" :
     parser.add_argument('--min_file', type=str, default=None )
     parser.add_argument('--id_file', type=str, default="Large_lt_train_labels_1.csv")
     parser.add_argument('--pretrained_model', type=int, default=-1)
-    parser.add_argument('--training_dir', type=str, default='/project/home/p200177/DE_371/experiments_WP1/gan_training/exp5/')
+    parser.add_argument('--training_dir', type=str, default='/project/home/p200177/DE_371/experiments_WP1/gan_training/exp11ter/')
     parser.add_argument('--training_step', type=int, default=[146000])
     # Model architecture hyper-parameters
     
@@ -225,12 +225,13 @@ if __name__=="__main__" :
                         drop_last = True,
                         num_workers=1
     )
-    nb_batch =16
+    nb_batch = 233
     nb_sample_total = nb_batch * 16
 
     print(f'Eval done on {nb_sample_total} samples')
 
     diurnal_cycle = np.zeros((len(generators)+1, len(pixel_coordinate_dict), 2, config.nb_timesteps, nb_sample_total))
+    diurnal_cycle_average = np.zeros((len(generators)+1, 2, config.nb_timesteps, nb_sample_total))
     pearsons_first_to_each_leadtime_img = np.zeros((len(generators)+1, 3, config.nb_timesteps, nb_sample_total))
     pearsons_sliding_img = np.zeros((len(generators)+1, 3, config.nb_timesteps-1, nb_sample_total))
     temporal_difference = np.zeros((len(generators)+1, 3, config.nb_timesteps-1, nb_sample_total))
@@ -261,6 +262,12 @@ if __name__=="__main__" :
                     diurnal_cycle[0, key_id, 1, t, cursor+member_id] = t2m
                     
                     
+                    # Average diurnal cycle
+                    u = np.mean(_sample[0])
+                    v = np.mean(_sample[1])
+                    diurnal_cycle_average[0, 0, t, cursor+member_id] = np.sqrt(u**2+v**2)
+                    diurnal_cycle_average[0, 1, t, cursor+member_id] = np.mean(_sample[2])
+
                     for var_id in range(3):
                         # Pearson Correlation on generated samples
                         pearsons_first_to_each_leadtime_img[0, var_id, t, cursor+member_id] = scipy.stats.pearsonr(
@@ -299,6 +306,12 @@ if __name__=="__main__" :
                         diurnal_cycle[checkpoint_id, key_id, 0, t, cursor+member_id] = np.sqrt(u**2+v**2)
                         diurnal_cycle[checkpoint_id, key_id, 1, t, cursor+member_id] = _sample[2][pixel_coordinate[0]][pixel_coordinate[1]]
 
+                        # Average diurnal cycle
+                        u = np.mean(_sample[0])
+                        v = np.mean(_sample[1])
+                        diurnal_cycle_average[checkpoint_id, 0, t, cursor+member_id] = np.sqrt(u**2+v**2)
+                        diurnal_cycle_average[checkpoint_id, 1, t, cursor+member_id] = np.mean(_sample[2])
+
                         # Pearson Correlation on generated samples
                         for var_id in range(3):
                             pearsons_first_to_each_leadtime_img[checkpoint_id, var_id, t, cursor+member_id] = scipy.stats.pearsonr(
@@ -331,6 +344,7 @@ if __name__=="__main__" :
         os.makedirs(output_dir_plots)
     
     diurnal_cycle = np.mean(diurnal_cycle, -1)
+    diurnal_cycle_average = np.mean(diurnal_cycle_average, -1)
     print('Saving Diurnal Cycle')
     np.save(output_dir_temporal_exp+f'Diurnal_Cycle_over_{nb_sample_total}_samples_{config.nb_timesteps}_nb_var_{len(config.var_names)}.npy', diurnal_cycle)
     print('Plotting Diurnal Cycle')
@@ -356,6 +370,27 @@ if __name__=="__main__" :
             os.makedirs(output_dir_diurnal_cycle)
         fig.savefig(output_dir_diurnal_cycle+f'Diurnal_Cycle_over_{nb_sample_total}_samples_{config.nb_timesteps}_nb_var_{len(config.var_names)}_{key}.pdf') 
     
+    fig, ax = plt.subplots(nrows=2, ncols=1, figsize=(16,16))
+    ax[0].plot(range(config.nb_timesteps),  diurnal_cycle_average[0, 0], linewidth=6, color='k', label='AROME')
+    ax[0].set_ylabel('Wind speed (m/s)', size = 30)
+    ax[0].set_xticks(range(len(list_ticks)), labels=list_ticks)
+    ax[1].plot(range(config.nb_timesteps), diurnal_cycle_average[0, 1], linewidth=6, color='k', label='AROME')
+    ax[1].set_ylabel('Temperature at 2m (K)', size = 30)
+    ax[1].set_xticks(range(len(list_ticks)), labels=list_ticks)
+
+    for checkpoint_id in range(1, len(config.training_step)+1):
+        ax[0].plot(range(config.nb_timesteps), diurnal_cycle_average[checkpoint_id, 0], linewidth=6, label=f'Generated - {config.training_step[checkpoint_id-1]}')
+        ax[0].legend(prop={'size':20})
+        ax[1].plot(range(config.nb_timesteps), diurnal_cycle_average[checkpoint_id, 1], linewidth=6, label=f'Generated - {config.training_step[checkpoint_id-1]}')
+        ax[1].legend(prop={'size':20})
+
+    fig.suptitle('Average Diurnal Cycle', size=30)
+    output_dir_diurnal_cycle = output_dir_plots + 'Diurnal_Cycle/'
+    if not os.path.exists(output_dir_diurnal_cycle):
+        os.makedirs(output_dir_diurnal_cycle)
+    fig.savefig(output_dir_diurnal_cycle+f'Average_diurnal_cycle_{nb_sample_total}_samples_{config.nb_timesteps}_nb_var_{len(config.var_names)}.pdf') 
+
+
     
     pearsons_sliding_img = np.mean(pearsons_sliding_img, -1)
     pearsons_first_to_each_leadtime_img = np.mean(pearsons_first_to_each_leadtime_img, -1)

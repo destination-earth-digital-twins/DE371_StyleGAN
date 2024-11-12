@@ -94,24 +94,26 @@ if __name__=="__main__" :
     parser.add_argument('--pixel_loss_type', type=str, default='mse', choices = ['mse', 'mae'])
     parser.add_argument("--lambda_pixel", type=float, default=10.0, help="weight of the (mae/mse) pixel loss")
     
-    # Parameter related to perceptual loss 
-    parser.add_argument("--optimize_features_computation", action='store_true', help="Compute the features of original ensemble only once")
-    # VGG
-    parser.add_argument("--lambda_vgg", type=float, default=1.0, help="weight of the vgg (perceptual) loss")
-    parser.add_argument("--resize_vgg_input", type=float, default=0.0, help="resize input for vgg loss")
-    parser.add_argument("--vgg_computation", type=str, default='sol2', choices = ['sol1', 'sol2', 'sol3', 'sol4', 'sol5'], 
-                        help="Either we compute layer by layer and member per member but we have to triple th einput to make it rgb or all in one (naive)")
-    parser.add_argument("--vgg_state_dict_path", type=str, default='/project/scratch/p200177/DE_371/resources/vgg_weights/vgg16-random.pth', help="Insert a path")
-    parser.add_argument("--vgg_style_layers", type=utils.str2intlist, default=[], help="style layers to include in vgg loss computation")
-    parser.add_argument("--vgg_feature_layers", type=utils.str2intlist, default=[0,1,2,3], help="feature layers to include in vgg computation")
-    parser.add_argument("--vgg_alpha_feature", type=float, default=1.0, help="weight of the feature/content loss")
-    parser.add_argument("--vgg_alpha_style", type=float, default=0.01, help="weight of the style loss")
-    parser.add_argument("--vgg_loss_after_step", type=float, default=0, help="compute the vgg loss only after a given number of steps")
-    parser.add_argument("--patch_mode", action='store_true')
-    parser.add_argument("--split_factor", type=int, default=2, help="splitting factor for patching")
+    # Focal Frequency Loss
+    parser.add_argument("--lambda_focal_frequency_loss", type=float, default=1.0, help="weight of the vgg (perceptual) loss")
+
+    # Perceptual Loss
+    parser.add_argument("--lambda_perceptual_loss", type=float, default=1.0, help="weight of the vgg (perceptual) loss")
+    parser.add_argument("--resize_input", type=float, default=0.0, help="resize input for vgg loss")
+    parser.add_argument("--network_type", type=str, default='vgg16', choices=['vgg16','vgg11','vgg13','vgg19','alexnet','squeezenet1_1','resnet18','resnet34','resnet50','resnet101','resnet152','set_vit_b_16'])
+    parser.add_argument("--pre_trained", action='store_true')
+    parser.add_argument("--features_after_relu", action='store_true')
+    parser.add_argument("--channel_computation", type=str, default='sol2', choices = ['sol1', 'sol2', 'sol3', 'sol4', 'sol5'], 
+                    help="Either we compute layer by layer and member per member but we have to triple th einput to make it rgb or all in one (naive)")
+    parser.add_argument("--network_dir", type=str, default='/project/scratch/p200177/DE_371/resources/network_for_perceptual_loss/', help="Insert a path")
+    parser.add_argument("--style_layers", type=utils.str2intlist, default=[], help="style layers to include in vgg loss computation")
+    parser.add_argument("--feature_layers", type=utils.str2intlist, default=[0,1,2,3], help="feature layers to include in vgg computation")
+    parser.add_argument("--alpha_feature", type=float, default=1.0, help="weight of the feature/content loss")
+    parser.add_argument("--alpha_style", type=float, default=0.01, help="weight of the style loss")
+    parser.add_argument("--multi_scale_perceptual_loss",  action='store_true')
     
     parser.add_argument("--invstep", type=int, default=1000, help="optimize iterations")
-    parser.add_argument("--inv_checkpoints", type=utils.str2intlist, default=[100,500,1000])
+    parser.add_argument("--inv_checkpoints", type=utils.str2intlist, default=[100,200,300,400,500,1000])
     parser.add_argument("--plot_checkpoint", action='store_true')
     
     # lambda_ms_ssim
@@ -205,10 +207,6 @@ if __name__=="__main__" :
     print("\nInversion parameters:")
     for key, value in params.__dict__.items():
         print(f"{key}: {value}")
-
-    if params.vgg_loss_after_step >= params.invstep:
-        print('The parameters vgg_loss_after_step cannot be superior or equal to the number of optim steps')
-        raise ValueError
 
     #################### main loop ##################
     for date_ in list_dates:

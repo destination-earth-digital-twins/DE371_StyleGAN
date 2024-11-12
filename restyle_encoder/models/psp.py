@@ -133,8 +133,8 @@ class pSp(nn.Module):
                 encoder_ckpt['input_layer.0.weight'] = altered_input_layer
             return encoder_ckpt
         else:
-            print('Loading encoders weights from resnet34!')
-            if self.config.random_resnet34 :
+            print('Loading encoders weights from resnet!')
+            if self.config.random_resnet :
                 return None
             else :
                 encoder_ckpt = torch.load(model_paths['resnet34'])

@@ -69,7 +69,7 @@ def vis_samples(log_hooks, n_vars):
     
     return fig
 
-def vis_samples_diff(log_hooks, n_vars):
+def vis_samples_diff(log_hooks, n_vars, single=False):
     
     display_count = len(log_hooks)
 
@@ -81,7 +81,10 @@ def vis_samples_diff(log_hooks, n_vars):
         hooks_dict = log_hooks[i]
         for j in range(n_vars):
             real_sample = hooks_dict['input'][j,:,:]
-            inv_sample = hooks_dict['output'][-1][0][j,:,:]
+            if single :
+                inv_sample = hooks_dict['output'][-1][j,:,:]
+            else :
+                inv_sample = hooks_dict['output'][-1][0][j,:,:]
             diff = real_sample - inv_sample
             vmin=real_sample.min()
             vmax=real_sample.max()

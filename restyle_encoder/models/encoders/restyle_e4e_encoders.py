@@ -102,7 +102,7 @@ class ResNetProgressiveBackboneEncoder(Module):
         self.bn1 = BatchNorm2d(64)
         self.relu = PReLU(64)
 
-        resnet_basenet = resnet34(pretrained=True)
+        resnet_basenet = resnet34(weights=None)
         blocks = [
             resnet_basenet.layer1,
             resnet_basenet.layer2,

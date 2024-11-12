@@ -16,20 +16,23 @@ class MultiPerceptualLoss(torch.nn.Module):
         for net_type in network_type_list :
             config.network_type = net_type
             self.perceptual_losses.append(deepcopy(PerceptualLoss(config=config, device=device)))
-        
 
-    def forward(self, img_gen, input_img, normalize=False):
+    def compute_perceptual_features(self, img):
+        for id, perceptual_loss in enumerate(self.perceptual_losses) :
+                perceptual_loss.compute_perceptual_features(img)
+
+    def forward(self, img_gen, input_img=None, normalize=False):
         perceptual_loss_total = 0
         for id, perceptual_loss in enumerate(self.perceptual_losses) :
             loss =  perceptual_loss(img_gen, input_img, normalize)
-            print(perceptual_loss.config.network_type, loss)
+            # print(perceptual_loss.config.network_type, loss)
             perceptual_loss_total += loss
 
         return perceptual_loss_total
 
 
 class PerceptualLoss(torch.nn.Module):
-    def __init__(self, config=None, device=None):
+    def __init__(self, config=None, device=None, multi_scale=False):
         r''' Class that computes the Perceptual Loss based on VGG Network.
 
          As the original VGG has three channels there are different possibilities to forward the VGG Loss :
@@ -58,7 +61,20 @@ class PerceptualLoss(torch.nn.Module):
         
         self.features_input_img=None
         self.styles_input_img=None 
+
+        self.multi_scale = multi_scale
+        self.scaling_factor = [0]
+        if multi_scale :
+            for i in range(3):
+                self.scaling_factor.append(2**i)
     
+    def downscale(self, x, scale_times=1, mode='bilinear'):
+        # print('before downscaling', x.shape)
+        for _ in range(scale_times):
+            x = torch.nn.functional.interpolate(x, scale_factor=0.5, mode=mode)
+        # print('after downscaling', x.shape)
+        return x
+
     def set_network(self):
         print(f'Init Network {self.config.network_type}')
         if self.config.network_type == 'vgg16':
@@ -135,9 +151,6 @@ class PerceptualLoss(torch.nn.Module):
             grayscale_std = 0.2692461874154524
             x = (input_img-grayscale_mean) / grayscale_std
 
-        
-            
-        
         for i, block in enumerate(self.blocks):
             if self.config.network_type == 'set_vit_b_16' and i == 1:
                 b, c, h, w = x.shape
@@ -155,36 +168,43 @@ class PerceptualLoss(torch.nn.Module):
         r''' Compute the features of a single image with respect to the chosen solution and save them in the memory '''
         features = []
         styles = []
-        if self.config.channel_computation=='sol1':
-            for i_mem in range(img.shape[0]):
-                for i_var in range(img.shape[1]):
+        for scaling_factor in self.scaling_factor:
+            if self.multi_scale:
+                x = self.downscale(img, scaling_factor)
+            else :
+                x = img
+
+            if self.config.channel_computation=='sol1':
+                for i_mem in range(x.shape[0]):
+                    for i_var in range(x.shape[1]):
+                        feature, style = self.forward_net_single_img(
+                                                    (x[i_mem, i_var, :, :]+1)/2,
+                                                    feature_layers = self.config.feature_layers,
+                                                    style_layers = self.config.style_layers
+                        )
+                        features.append(feature)
+                        styles.append(style)
+
+            elif self.config.channel_computation in ['sol2', 'sol4', 'sol5']:
+                for i_var in range(x.shape[1]):
                     feature, style = self.forward_net_single_img(
-                                                (img[i_mem, i_var, :, :]+1)/2,
-                                                feature_layers = self.config.feature_layers,
-                                                style_layers = self.config.style_layers
-                    )
+                                                        (x[:, i_var, :, :]+1)/2,
+                                                        feature_layers = self.config.feature_layers,
+                                                        style_layers = self.config.style_layers
+                            )
                     features.append(feature)
                     styles.append(style)
 
-        elif self.config.channel_computation in ['sol2', 'sol4', 'sol5']:
-            for i_var in range(img.shape[1]):
-                feature, style = self.forward_net_single_img(
-                                                    (img[:, i_var, :, :]+1)/2,
-                                                    feature_layers = self.config.feature_layers,
-                                                    style_layers = self.config.style_layers
-                        )
-                features.append(feature)
-                styles.append(style)
-
-        elif self.config.channel_computation == 'sol3':
-            features, styles = self.forward_net_single_img(
-                                                    (img+1)/2,
-                                                    feature_layers = self.config.feature_layers,
-                                                    style_layers = self.config.style_layers
-                        )
+            elif self.config.channel_computation == 'sol3':
+                features, styles = self.forward_net_single_img(
+                                                        (x+1)/2,
+                                                        feature_layers = self.config.feature_layers,
+                                                        style_layers = self.config.style_layers
+                            )
 
 
         self.features_input_img=features
+        # print('self.features_input_img length :', len(self.features_input_img))
         self.styles_input_img=styles 
 
     
@@ -230,65 +250,98 @@ class PerceptualLoss(torch.nn.Module):
             NB: If input images are between -1 and +1, they will be normalized.
         '''
 
-        if normalize: # turn on this flag if input is [0,1] so it can be adjusted to [-1, +1]
+        if normalize: # turn on this flag if input is [-1, +1] so it can be adjusted to [01, 1]
             # TODO
             pass
 
         perceptual_loss = torch.tensor(0.).to(self.device)
 
         if input_img is not None:
-            if self.config.channel_computation=='sol1':
-                for i_mem in range(img_gen.shape[0]):
-                    for i_var in range(img_gen.shape[1]):
-                        perceptual_loss += self.perceptual_loss_given_input_and_target(
-                            (img_gen[i_mem, i_var, :, :]+1)/2,
-                            (input_img[i_mem, i_var, :, :]+1)/2,
+            for scaling_factor in self.scaling_factor:
+                if self.multi_scale:
+                    x = self.downscale(img_gen, scaling_factor)
+                    y = self.downscale(input_img, scaling_factor)
+                else :
+                    x = img_gen
+                    y = input_img
+
+                if self.config.channel_computation=='sol1':
+                    for i_mem in range(x.shape[0]):
+                        for i_var in range(x.shape[1]):
+                            perceptual_loss += self.perceptual_loss_given_input_and_target(
+                                (x[i_mem, i_var, :, :]+1)/2,
+                                (y[i_mem, i_var, :, :]+1)/2,
+                                feature_layers = self.config.feature_layers,
+                                style_layers = self.config.style_layers,
+                                alpha_feature = self.config.alpha_feature,
+                                alpha_style = self.config.alpha_style
+                            )
+
+                    perceptual_loss /= x.shape[0]*x.shape[1]
+                elif self.config.channel_computation in ['sol2', 'sol4', 'sol5']:
+                    for i_var in range(x.shape[1]):
+                        perceptual_loss += self.perceptual_loss_given_input_and_target( 
+                            (x[:, i_var, :, :]+1)/2,
+                            (y[:, i_var, :, :]+1)/2,
                             feature_layers = self.config.feature_layers,
                             style_layers = self.config.style_layers,
                             alpha_feature = self.config.alpha_feature,
                             alpha_style = self.config.alpha_style
                         )
+                    perceptual_loss /= x.shape[1]
 
-                perceptual_loss /= img_gen.shape[0]*img_gen.shape[1]
-            elif self.config.channel_computation in ['sol2', 'sol4', 'sol5']:
-                for i_var in range(img_gen.shape[1]):
-                    perceptual_loss += self.perceptual_loss_given_input_and_target( 
-                        (img_gen[:, i_var, :, :]+1)/2,
-                        (input_img[:, i_var, :, :]+1)/2,
+                elif self.config.channel_computation == 'sol3':
+                    perceptual_loss = self.perceptual_loss_given_input_and_target(
+                        (x+1)/2,
+                        (y+1)/2,
                         feature_layers = self.config.feature_layers,
                         style_layers = self.config.style_layers,
                         alpha_feature = self.config.alpha_feature,
                         alpha_style = self.config.alpha_style
                     )
-                perceptual_loss /= img_gen.shape[1]
-
-            elif self.config.channel_computation == 'sol3':
-                perceptual_loss = self.perceptual_loss_given_input_and_target(
-                    (img_gen+1)/2,
-                    (input_img+1)/2,
-                    feature_layers = self.config.feature_layers,
-                    style_layers = self.config.style_layers,
-                    alpha_feature = self.config.alpha_feature,
-                    alpha_style = self.config.alpha_style
-                )
-            else :
-                raise NotImplementedError
+                else :
+                    raise NotImplementedError
 
         else :
             if self.features_input_img is None and self.styles_input_img is None :
                 print('Warning: The features needs to be computed beforehand')
                 raise ValueError
-            
-            if self.config.channel_computation=='sol1':
-                for i_mem in range(img_gen.shape[0]):
-                    for i_var in range(img_gen.shape[1]):
-                        features_input_img=self.features_input_img[i_mem+i_var]
+            for id_scaling_factor, scaling_factor in enumerate(self.scaling_factor):
+                if self.multi_scale:
+                    x = self.downscale(img_gen, scaling_factor)
+                else :
+                    x = img_gen
+                    id_scaling_factor = 0
+
+                if self.config.channel_computation=='sol1':
+                    for i_mem in range(x.shape[0]):
+                        for i_var in range(x.shape[1]):
+                            features_input_img=self.features_input_img[id_scaling_factor*(x.shape[1]+x.shape[0])+i_mem+i_var]
+                            if self.config.style_layers:
+                                styles_input_img=self.styles_input_img[id_scaling_factor*(x.shape[1]+x.shape[0])+i_mem+i_var]
+                            else :
+                                styles_input_img=None
+                            perceptual_loss += self.perceptual_loss_given_features_and_target(
+                                target_img=(x[i_mem, i_var, :, :]+1)/2,
+                                features_input_img=features_input_img, 
+                                styles_input_img=styles_input_img,
+                                feature_layers = self.config.feature_layers,
+                                style_layers = self.config.style_layers,
+                                alpha_feature = self.config.alpha_feature,
+                                alpha_style = self.config.alpha_style
+                            )
+                        
+                    perceptual_loss /= x.shape[0]*x.shape[1]
+
+                elif self.config.channel_computation in ['sol2', 'sol4', 'sol5']:
+                    for i_var in range(x.shape[1]):
+                        features_input_img=self.features_input_img[id_scaling_factor*x.shape[1]+i_var]
                         if self.config.style_layers:
-                            styles_input_img=self.styles_input_img[i_mem+i_var]
+                            styles_input_img=self.styles_input_img[id_scaling_factor*x.shape[1]+i_var]
                         else :
                             styles_input_img=None
                         perceptual_loss += self.perceptual_loss_given_features_and_target(
-                            target_img=(img_gen[i_mem, i_var, :, :]+1)/2,
+                            target_img=(x[:, i_var, :, :]+1)/2,
                             features_input_img=features_input_img, 
                             styles_input_img=styles_input_img,
                             feature_layers = self.config.feature_layers,
@@ -296,18 +349,16 @@ class PerceptualLoss(torch.nn.Module):
                             alpha_feature = self.config.alpha_feature,
                             alpha_style = self.config.alpha_style
                         )
-                       
-                perceptual_loss /= img_gen.shape[0]*img_gen.shape[1]
+                    perceptual_loss /= x.shape[1]
 
-            elif self.config.channel_computation in ['sol2', 'sol4', 'sol5']:
-                for i_var in range(img_gen.shape[1]):
-                    features_input_img=self.features_input_img[i_var]
+                elif self.config.channel_computation == 'sol3':
+                    features_input_img=self.features_input_img
                     if self.config.style_layers:
-                        styles_input_img=self.styles_input_img[i_var]
+                        styles_input_img=self.styles_input_img
                     else :
                         styles_input_img=None
                     perceptual_loss += self.perceptual_loss_given_features_and_target(
-                        target_img=(img_gen[:, i_var, :, :]+1)/2,
+                        target_img=(x+1)/2,
                         features_input_img=features_input_img, 
                         styles_input_img=styles_input_img,
                         feature_layers = self.config.feature_layers,
@@ -315,24 +366,7 @@ class PerceptualLoss(torch.nn.Module):
                         alpha_feature = self.config.alpha_feature,
                         alpha_style = self.config.alpha_style
                     )
-                perceptual_loss /= img_gen.shape[1]
-
-            elif self.config.channel_computation == 'sol3':
-                features_input_img=self.features_input_img
-                if self.config.style_layers:
-                    styles_input_img=self.styles_input_img
                 else :
-                    styles_input_img=None
-                perceptual_loss += self.perceptual_loss_given_features_and_target(
-                    target_img=(img_gen+1)/2,
-                    features_input_img=features_input_img, 
-                    styles_input_img=styles_input_img,
-                    feature_layers = self.config.feature_layers,
-                    style_layers = self.config.style_layers,
-                    alpha_feature = self.config.alpha_feature,
-                    alpha_style = self.config.alpha_style
-                )
-            else :
-                raise NotImplementedError
+                    raise NotImplementedError
             
         return perceptual_loss

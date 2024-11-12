@@ -7,7 +7,7 @@ import torch
 from torch import nn
 from torch.utils.data import DataLoader
 import torch.nn.functional as F
-
+from tqdm import tqdm
 from restyle_encoder.utils import common, train_utils
 from restyle_encoder.criteria import w_norm, moco_loss, scattering_loss
 from restyle_encoder.criteria.SWD_loss import SwdLoss
@@ -16,7 +16,8 @@ from restyle_encoder.datasets.arome_dataset import AromeDataset
 from restyle_encoder.criteria.lpips.lpips import LPIPS
 from restyle_encoder.models.psp import pSp
 from restyle_encoder.training.ranger import Ranger
-from inversion.vgg_perceptual_loss import VGGPerceptualLoss
+from inversion.perceptual_loss.perceptual_loss import PerceptualLoss
+from inversion.focal_frequency_loss import FocalFrequencyLoss
 
 import numpy as np
 
@@ -43,7 +44,7 @@ class Coach:
         
         self.avg_sample = self.avg_sample.to(self.device).float().detach()
             
-        np.save(os.path.join(self.config.exp_dir, 'avg_sample'), self.avg_sample.cpu().numpy())
+        np.save(os.path.join(self.config.exp_dir, 'avg_sample.pth'), self.avg_sample.cpu().numpy())
 
 		# Initialize loss
         
@@ -53,19 +54,24 @@ class Coach:
         if self.config.w_norm_lambda > 0:
             self.w_norm_loss = w_norm.WNormLoss(start_from_latent_avg=self.config.start_from_latent_avg)
         if self.config.moco_lambda > 0:
-            self.moco_loss = moco_loss.MocoLoss()
+            self.moco_loss = moco_loss.MocoLoss(self.device)
         if self.config.scat_lambda > 0:
             self.scat_loss = scattering_loss.ScatteringLoss(device=self.device)
         if self.config.swd_lambda > 0 :
-            self.swd_loss = SwdLoss((128,128), device = self.device)
-        if self.config.vgg_lambda > 0 :
-            self.vgg_loss = VGGPerceptualLoss(params=self.config, device=self.device).to(self.device).eval()
+            self.swd_loss = SwdLoss((256,256), device = self.device)
+        if self.config.perceptual_lambda > 0 :
+            self.perceptual_loss = PerceptualLoss(config=self.config, device=self.device, multi_scale=self.config.multi_scale_perceptual_loss).to(self.device).eval()
+        if self.config.ffl_lambda > 0 :
+            self.ffl_loss = FocalFrequencyLoss().to(self.device)
                             
 		# Initialize optimizer
         self.optimizer = self.configure_optimizers()
+        self.pbar = None
 
     	# Initialize dataset
         self.train_dataset, self.test_dataset = self.configure_datasets() 
+        print(f'Length of train set : {len(self.train_dataset)} | Length of test set : {len(self.test_dataset)}')
+
         self.train_dataloader = DataLoader(self.train_dataset,
 										   batch_size=self.config.batch_size,
 										   shuffle=True,
@@ -92,6 +98,7 @@ class Coach:
 
     def train(self):
         self.net.train()
+        self.pbar = tqdm(range(self.config.max_steps))
         while self.global_step < self.config.max_steps:
             for batch_idx, batch in enumerate(self.train_dataloader):
                 self.optimizer.zero_grad()
@@ -113,22 +120,23 @@ class Coach:
                             f.write(key+',')
                         f.write('null\n')
                 
-                if self.global_step % self.config.image_interval == 0 or (self.global_step < 1000 and self.global_step % 25 == 0):
+                if self.global_step % self.config.image_interval == 0: # or (self.global_step < 1000 and self.global_step % 25 == 0):
                     print('plotting for train')
                     self.parse_and_log_images(x, y, y_hat, title='samples/train')
                     
                 if self.global_step % self.config.board_interval == 0:
-                    self.print_metrics(loss_dict, prefix='train')
                     self.log_metrics(self.global_step, loss_dict,  prefix='train')
-
-				# Validation related
+                
+                self.print_metrics(loss_dict, prefix='train')
+                
+                # Validation related
                 val_loss_dict = None
                 if (self.global_step % self.config.val_interval == 0 or self.global_step == self.config.max_steps):
                     print('validation')
                     val_loss_dict = self.validate() ## includes image logging !
                     
-                    if val_loss_dict and (self.best_val_loss is None or val_loss_dict['loss'] < self.best_val_loss):
-                        self.best_val_loss = val_loss_dict['loss']
+                    if val_loss_dict and (self.best_val_loss is None or val_loss_dict['loss_total'] < self.best_val_loss):
+                        self.best_val_loss = val_loss_dict['loss_total']
                         self.checkpoint_me(val_loss_dict, is_best=True)
 
                 if self.global_step % self.config.save_interval == 0 or self.global_step == self.config.max_steps:
@@ -143,15 +151,12 @@ class Coach:
                     break
 
                 self.global_step += 1
-
+                self.pbar.update(1)
 
     def validate(self):
         self.net.eval()
         agg_loss_dict = []
         for batch_idx, batch in enumerate(self.test_dataloader):
-            if batch_idx%250==0 :
-                print('test set percentage {0:.2f}'.format(100*batch_idx/len(self.test_dataloader)))
-
             x, y = batch
             
             with torch.no_grad():
@@ -161,7 +166,8 @@ class Coach:
             agg_loss_dict.append(cur_loss_dict)
 
 			# Logging related
-            self.parse_and_log_images(x, y, y_hat, title='samples/test', subscript='{:04d}'.format(batch_idx))
+            if batch_idx % 50 == 0:
+                self.parse_and_log_images(x, y, y_hat, title='samples/test', subscript='{:04d}'.format(batch_idx))
 
 			# For first step just do sanity test on small amount of data
             if self.global_step == 0 and batch_idx >= 4:
@@ -214,7 +220,7 @@ class Coach:
         path = dataset_args['train_source_root']
         transforms_dict = dataset_args['transforms'](self.config, path).get_transforms()
         train_dataset = AromeDataset('Large_lt_train_labels_1.csv',[1,2,3],
-                                     [78,206,55,183],
+                                     [0,256,0,256],
                                      source_root=dataset_args['train_source_root'],
 									  target_root=dataset_args['train_target_root'],
 									  source_transform=transforms_dict['transform_source'],
@@ -225,13 +231,14 @@ class Coach:
         path = dataset_args['test_source_root']
         transforms_dict = dataset_args['transforms'](self.config, path).get_transforms()
         test_dataset = AromeDataset('Large_lt_test_labels.csv',[1,2,3],
-                                     [78,206,55,183],
+                                     [0,256,0,256], #[78,206,55,183]
                                      source_root=dataset_args['test_source_root'],
 									 target_root=dataset_args['test_target_root'],
 									 source_transform=transforms_dict['transform_source'],
 									 target_transform=transforms_dict['transform_test'],
 									 config=self.config,
-                                     mode='val')
+                                     mode='val',
+                                     length_ratio=0.01)
         print("Number of training samples: {}".format(len(train_dataset)))
         print("Number of test samples: {}".format(len(test_dataset)))
         return train_dataset, test_dataset
@@ -266,11 +273,16 @@ class Coach:
             loss_dict['swd_loss'] = float(loss_swd)
             loss += loss_swd * self.config.swd_lambda
         
-        if self.config.vgg_lambda > 0 :
-            loss_vgg = self.vgg_loss(y_hat, y)
-            loss_dict['loss_vgg'] = float(loss_vgg)
-            loss += loss_vgg * self.config.vgg_lambda
-            
+        if self.config.perceptual_lambda > 0 :
+            perceptual_loss = self.perceptual_loss(y_hat, y)
+            loss_dict['perceptual_loss'] = float(perceptual_loss)
+            loss += perceptual_loss * self.config.perceptual_lambda
+
+        if self.config.ffl_lambda > 0 :
+            ffl_loss = self.ffl_loss(y_hat, y)
+            loss_dict['ffl_loss'] = float(ffl_loss)
+            loss += ffl_loss * self.config.ffl_lambda
+
         if option != 'train' :
             if self.config.l2_lambda==0 :
                 loss_l2 = F.mse_loss(y_hat, y)
@@ -280,7 +292,7 @@ class Coach:
             loss_dict['loss_mae'] = float(loss_mae)
             
 
-        loss_dict['loss'] = float(loss)
+        loss_dict['loss_total'] = float(loss)
         return loss, loss_dict
     
     def log_metrics(self, step, metrics_dict, prefix):
@@ -292,10 +304,11 @@ class Coach:
             f.write('0\n')  #last null metric
            
 
-    def print_metrics(self, metrics_dict, prefix):
-        print('Metrics for {}, step {}'.format(prefix, self.global_step))
-        for key, value in metrics_dict.items():
-            print('\t{} = '.format(key), value)
+    def print_metrics(self, loss_dict, prefix):
+        display = f'{prefix} :'
+        for key, loss in loss_dict.items():
+            display += f"{key}: {loss:.6f} || "
+        self.pbar.set_description((display))
 
     def parse_and_log_images(self, x, y, y_hat, title, subscript=None, display_count=1):
         sample_data = []
@@ -312,7 +325,7 @@ class Coach:
 
     def log_images(self, name, sample_data, subscript=None, log_latest=False):
 
-        fig = common.vis_samples(sample_data, self.config.n_vars)
+        fig = common.vis_samples_diff(sample_data, self.config.n_vars, single=True)
         step = self.global_step
         if log_latest:
             step = 0

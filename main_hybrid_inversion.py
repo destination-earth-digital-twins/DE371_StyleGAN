@@ -21,7 +21,7 @@ import matplotlib
 matplotlib.use('Agg')
 import perturbation.utils as utils
 from restyle_encoder.models.psp import pSp
-import inversion.optimization_based.inversion_new as inv
+import inversion.optimization_based.inversion as inv
 from generate_sample import humanbytes
 from time import time
 
@@ -366,7 +366,8 @@ if __name__=="__main__" :
                     g_ema=network.decoder,
                     latent_mean=latent,
                     device=params.device,
-                    params=params
+                    params=params,
+                    hybrid=True
                 )
                 print('Time taken for inversion :', time()-t0)
 

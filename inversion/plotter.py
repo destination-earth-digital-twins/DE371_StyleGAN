@@ -166,7 +166,7 @@ def online_inv_temporal_plot(packsample, invsample, crop=[0,-1,0,-1], mem_idx=0,
 def online_pert_plot(packsample, invsample, pert_sample, crop=[0,-1,0,-1], mem_idx=0, figtitle=" ", figname="inv.png"):
 
         fig = plt.figure(figsize=(15,15))
-        mem_pert_idx = np.random.randint(0, len(pert_sample)-1)
+        mem_pert_idx = mem_idx # np.random.randint(0, len(pert_sample)-1)
         #### u
         vmin = np.min([np.min(packsample[:,0,crop[0]:crop[1],crop[2]:crop[3]])])
         vmax = np.min([np.max(packsample[:,0,crop[0]:crop[1],crop[2]:crop[3]])])

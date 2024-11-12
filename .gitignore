@@ -41,7 +41,7 @@ gan/model/stylegan2_t_conditionned.py
 gan/model/test_stylegan2_3d.py
 inversion/hd_vgg_perceptual_loss.py
 gan/model/op_3d_other/*
-
+FeatureStyleEncoder
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

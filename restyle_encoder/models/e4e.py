@@ -9,7 +9,7 @@ from gan.model.stylegan2 import Generator
 from restyle_encoder.configs.paths_config import model_paths
 from restyle_encoder.models.encoders import restyle_e4e_encoders
 from restyle_encoder.utils.model_utils import RESNET_MAPPING
-
+from collections import OrderedDict
 
 class e4e(nn.Module):
 
@@ -45,7 +45,15 @@ class e4e(nn.Module):
             self.encoder.load_state_dict(encoder_ckpt, strict=False)
             print(f'Loading decoder weights from pretrained path: {self.config.stylegan_weights}')
             ckpt = torch.load(self.config.stylegan_weights)
-            self.decoder.load_state_dict(ckpt['g_ema'], strict=True)
+            checkpoint = ckpt['g_ema']
+            if 'module' in list(checkpoint.items())[0][0]: # juglling with Pytorch versioning and different module packaging
+                ckpt_adapt = OrderedDict()
+                for k in checkpoint.keys():
+                    k0 = k[7:]
+                    ckpt_adapt[k0] = checkpoint[k]
+                self.decoder.load_state_dict(ckpt_adapt, strict=True)
+            else:
+                self.decoder.load_state_dict(checkpoint, strict=True)
             self.__load_latent_avg(ckpt, repeat=self.n_styles)
 
     def forward(self, x, latent=None, resize=True, latent_mask=None, input_code=False, randomize_noise=True,
@@ -77,7 +85,7 @@ class e4e(nn.Module):
         else:
             input_is_latent = (not input_code) or (input_is_full)
 
-        images, result_latent = self.decoder([codes],
+        images, result_latent, _ = self.decoder([codes],
                                              input_is_latent=input_is_latent,
                                              randomize_noise=randomize_noise,
                                              return_latents=return_latents)

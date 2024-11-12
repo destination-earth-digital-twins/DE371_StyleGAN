@@ -8,10 +8,10 @@ import torch.nn.functional as F
 import numpy as np
 import pickle
 from tqdm import tqdm
-from inversion.vgg_perceptual_loss import VGGPerceptualLoss
-# from inversion.patch_vgg_perceptual_loss import PatchVGGPerceptualLoss
+from inversion.perceptual_loss.perceptual_loss import PerceptualLoss
 from inversion.plotter import online_inv_plot_2, online_inv_plot
 from inversion.ssim import ssim, ms_ssim, SSIM, MS_SSIM
+from inversion.focal_frequency_loss import FocalFrequencyLoss
 
 import time
 from torch.autograd import Variable
@@ -79,7 +79,7 @@ def latent_noise(latent, strength):
     noise = torch.randn_like(latent) * strength
     return latent + noise
 
-def optimize(Ens_r, g_ema, latent_mean, device, params):
+def optimize(Ens_r, g_ema, latent_mean, device, params, hybrid=False):
 
     """
 
@@ -107,8 +107,20 @@ def optimize(Ens_r, g_ema, latent_mean, device, params):
     """
     Ens_r = Ens_r.to(device) # torch.Size([B, CH, 256, 256])
     latent_mean = latent_mean.to(device) # torch.Size([512])
-    latent_in = latent_mean.detach().clone().unsqueeze(0).repeat(Ens_r.shape[0], 1) # torch.Size([B, 512])
-
+    if hybrid : 
+        if len(latent_mean.shape) == 2 :
+            latent_in = latent_mean.detach().clone().unsqueeze(0).repeat(Ens_r.shape[0], 1) # torch.Size([B, 512])
+            latent_in = latent_mean.detach().clone().unsqueeze(0).repeat(Ens_r.shape[0], 1) # (B, 512)
+            latent_in = latent_in.unsqueeze(1).repeat(1, g_ema.n_latent, 1) # (B, 14, 512)
+            latent_in.requires_grad = True
+        else :
+            latent_in = latent_mean
+            
+    else :
+            latent_in = latent_mean.detach().clone().unsqueeze(0).repeat(Ens_r.shape[0], 1) # torch.Size([B, 512])
+            latent_in = latent_mean.detach().clone().unsqueeze(0).repeat(Ens_r.shape[0], 1) # (B, 512)
+            latent_in = latent_in.unsqueeze(1).repeat(1, g_ema.n_latent, 1) # (B, 14, 512)
+            latent_in.requires_grad = True
     with torch.no_grad():
         noise_sample = torch.randn(Ens_r.shape[0], 512, device=device) # torch.Size([B,512]) (z)
         latent_out = g_ema.style(noise_sample) # torch.Size([B,512]) (w)
@@ -123,9 +135,6 @@ def optimize(Ens_r, g_ema, latent_mean, device, params):
         for i, noise in enumerate(noises_single):
             noises.append(noise.repeat(Ens_r.shape[0], 1, 1, 1).normal_())
 
-    latent_in = latent_mean.detach().clone().unsqueeze(0).repeat(Ens_r.shape[0], 1) # (B, 512)
-    latent_in = latent_in.unsqueeze(1).repeat(1, g_ema.n_latent, 1) # (B, 14, 512)
-    latent_in.requires_grad = True
 
     if params.noise_optimize:
         for noise in noises:
@@ -140,16 +149,22 @@ def optimize(Ens_r, g_ema, latent_mean, device, params):
     latent_path = []
 
     #### Perceptual Loss ####
-    if params.lambda_vgg>0:
-        VGG_loss = VGGPerceptualLoss(params=params, device=device).to(device).eval()
-        if params.optimize_features_computation :    
-            VGG_loss.compute_perceptual_features(img=Ens_r)
+    if params.lambda_perceptual_loss>0:
+        perceptual_loss_class = PerceptualLoss(
+                                        config=params,
+                                        device=device,
+                                        multi_scale=params.multi_scale_perceptual_loss
+                                        ).to(device).eval()
+        perceptual_loss_class.compute_perceptual_features(img=Ens_r)
         
     # MS-SSIM module for MS-SSIM loss
     # ssim_module = SSIM(data_range=1, size_average=True, channel=1)
     if params.lambda_ms_ssim :
         ms_ssim_module = MS_SSIM(data_range=1, size_average=True, channel=3)
 
+    ### Focal Frequency Loss ###
+    if params.lambda_focal_frequency_loss:
+        focal_frequency_loss_module = FocalFrequencyLoss()
 
     list_perceptual_loss = []
     list_pixel_loss = []
@@ -180,12 +195,9 @@ def optimize(Ens_r, g_ema, latent_mean, device, params):
         
         # compute vgg/perceptual loss
         perceptual_loss = torch.tensor(0.).to(device)
-        if (i >= params.vgg_loss_after_step and (params.lambda_vgg>0.)) or params.lambda_ms_ssim>0:
+        if params.lambda_perceptual_loss>0:
                 t0 = time.time()
-                if not params.optimize_features_computation:
-                    perceptual_loss = VGG_loss(input_img=Ens_r, img_gen=img_gen)
-                else :
-                    perceptual_loss = VGG_loss(img_gen=img_gen)
+                perceptual_loss = perceptual_loss_class(img_gen=img_gen)
                 list_time_to_compute_vgg_loss.append(time.time()-t0)
                 list_perceptual_loss.append(perceptual_loss.cpu().detach().numpy())
         else :
@@ -196,6 +208,11 @@ def optimize(Ens_r, g_ema, latent_mean, device, params):
         ms_ssim_loss = torch.tensor(0.).to(device)
         if params.lambda_ms_ssim>0. : 
             ms_ssim_loss = 1 - ms_ssim_module((img_gen+1)/2, (Ens_r+1)/2)
+
+        # compute ffl loss
+        ffl_loss = torch.tensor(0.).to(device)
+        if params.lambda_focal_frequency_loss:
+            ffl_loss = focal_frequency_loss_module(img_gen, Ens_r)
 
         # compute mae/mse pixel loss
         if params.pixel_loss_type=='mse' :
@@ -210,16 +227,16 @@ def optimize(Ens_r, g_ema, latent_mean, device, params):
         else:
             raise ValueError(f"unknown pixel_loss_type: {params.pixel_loss_type}")
 
-        if params.lambda_vgg>0. :
-            weighted_perceptual_loss = params.lambda_vgg*perceptual_loss
+        if params.lambda_perceptual_loss>0. :
+            weighted_perceptual_loss = params.lambda_perceptual_loss*perceptual_loss
         else :
             weighted_perceptual_loss=0
 
         # compute total loss
         if not params.progressive_loss_mode :
-            loss = params.noise_optimize*params.lambda_noise*noise_loss + params.lambda_pixel*pixel_loss + params.lambda_ms_ssim*ms_ssim_loss + weighted_perceptual_loss
+            loss = params.noise_optimize*params.lambda_noise*noise_loss + params.lambda_pixel*pixel_loss + params.lambda_ms_ssim*ms_ssim_loss + weighted_perceptual_loss + ffl_loss * params.lambda_focal_frequency_loss
         else :
-            loss = params.noise_optimize*params.lambda_noise*noise_loss + params.lambda_pixel*pixel_loss*(1-t) + (weighted_perceptual_loss+params.lambda_ms_ssim*ms_ssim_loss)*t
+            loss = params.noise_optimize*params.lambda_noise*noise_loss + params.lambda_pixel*pixel_loss+weighted_perceptual_loss+params.lambda_ms_ssim*ms_ssim_loss + ffl_loss * params.lambda_focal_frequency_loss*t
 
         optimizer.zero_grad()
         loss.backward()
@@ -231,8 +248,10 @@ def optimize(Ens_r, g_ema, latent_mean, device, params):
         display = f'lr: {lr:.4f}'
         if params.lambda_ms_ssim>0. : 
             display += f" || ms_ssim_loss: {ms_ssim_loss.item():.6f}"
-        if params.lambda_vgg>0. : 
+        if params.lambda_perceptual_loss>0. : 
             display += f" || perceptual_loss: {perceptual_loss.item():.6f}"
+        if params.lambda_focal_frequency_loss>0. :
+            display += f" || focal_frequency_loss: {ffl_loss.item():.6f}"
         # if weighted_perceptual_loss: 
         #     display += f" || weighted_perceptual_loss: {weighted_perceptual_loss:.6f}"
         # if params.lambda_pixel>0. : 

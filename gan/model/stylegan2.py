@@ -554,11 +554,18 @@ class Generator(nn.Module):
 
     def get_latent(self, input):
         return self.style(input)
+    
+
+    def insert_feature(self, x, layer_idx, features_in, feature_scale):
+        if features_in is not None and features_in[layer_idx] is not None:
+            x = (1 - feature_scale) * x + feature_scale * features_in[layer_idx].type_as(x)
+        return x
 
     def forward(
         self,
         styles,
         return_latents=False,
+        return_features=False,
         inject_index=None,
         truncation=1,
         truncation_latent=None,
@@ -566,6 +573,8 @@ class Generator(nn.Module):
         noise=None,
         randomize_noise=True,
         return_rgb=False,
+        features_in=None,
+        feature_scale=0
     ):
         if not input_is_latent:
             styles = [self.style(s) for s in styles]
@@ -606,9 +615,12 @@ class Generator(nn.Module):
 
             latent = torch.cat([latent, latent2], 1)
         # print("latent ", latent.shape)
+        outs = []
         out = self.input(latent)
         # print("input gen ", out.shape)
+        outs.append(out)
         out = self.conv1(out, latent[:, 0], noise=noise[0])
+        outs.append(out)
         # print("conv1 gen ", out.shape)
 
         skip, input_conved = self.to_rgb1(out, latent[:, 1])
@@ -629,10 +641,15 @@ class Generator(nn.Module):
         for conv1, conv2, noise1, noise2, to_rgb in zip(
             self.convs[::2], self.convs[1::2], noise[1::2], noise[2::2], self.to_rgbs
         ):
+            
+            out = self.insert_feature(out, i, features_in=features_in, feature_scale=feature_scale)
             out = conv1(out, latent[:, i], noise=noise1)
+            outs.append(out)
             # print("From Generator :conv1 gen ", out.shape)
+            out = self.insert_feature(out, i + 1, features_in=features_in, feature_scale=feature_scale)
             out = conv2(out, latent[:, i + 1], noise=noise2)
             # print("From Generator :conv2 gen ", out.shape)
+            outs.append(out)
             skip, input_conved, prev_rgb_upsampled, prev_rgb = to_rgb(out, latent[:, i + 2], skip)
             # print("From Generator :rgb ", skip.shape)
             if return_rgb:
@@ -653,6 +670,11 @@ class Generator(nn.Module):
             else:
                 return image, latent, None
 
+        elif return_features:
+            if return_rgb:
+                return image, outs, rgbs_saved
+            else:
+                return image, outs, None
         else:
             if return_rgb:
                 return image, None, rgbs_saved

@@ -8,6 +8,7 @@ model_paths = {
 	'ir_se50': '/project/scratch/p200177/DE_371/resources/pretrained_models/model_ir_se50.pth',
 	'resnet34': '/project/scratch/p200177/DE_371/resources/pretrained_models/resnet34-333f7ec4.pth',
     'resnet34_random' : '/project/scratch/p200177/DE_371/resources/pretrained_models/resnet34_random.pth',
+	'resnet50' : '/project/scratch/p200177/DE_371/resources/pretrained_models/resnet50_random.pth',
 	'mtcnn_pnet': '/project/scratch/p200177/DE_371/resources/pretrained_models/mtcnn/pnet.npy',
 	'mtcnn_rnet': '/project/scratch/p200177/DE_371/resources/pretrained_models/mtcnn/rnet.npy',
 	'mtcnn_onet': '/project/scratch/p200177/DE_371/resources/pretrained_models/mtcnn/onet.npy',

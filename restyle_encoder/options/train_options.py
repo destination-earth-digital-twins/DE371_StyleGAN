@@ -30,27 +30,33 @@ class TrainOptions:
         self.parser.add_argument('--weight_decay', default = 0.0, type =float,help = 'Adding weight decay to the encoder')
 
         # loss lambdas
+        self.parser.add_argument('--l2_lambda_features', default=1, type=float,help='Loss on features')
         self.parser.add_argument('--lpips_lambda', default=0, type=float,help='LPIPS loss multiplier factor')
-        self.parser.add_argument('--l2_lambda', default=10, type=float,help='L2 loss multiplier factor')
+        self.parser.add_argument('--l2_lambda', default=1, type=float,help='L2 loss multiplier factor')
         self.parser.add_argument('--w_norm_lambda', default=0, type=float,help='W-norm loss multiplier factor')
         self.parser.add_argument('--moco_lambda', default=0, type=float,help='Moco feature loss multiplier factor')
         self.parser.add_argument('--scat_lambda', default=0, type=float,help='Scattering loss multiplier factor')
         self.parser.add_argument('--swd_lambda', default=0, type=float,help='Sliced Wasserstein Distance loss multiplier factor')
-        self.parser.add_argument('--vgg_lambda', default=1, type=float,help='L2 loss multiplier factor')
-        
+        self.parser.add_argument('--perceptual_lambda', default=1, type=float,help='L2 loss multiplier factor')
+        self.parser.add_argument('--ffl_lambda', default=0, type=float,help='Focal Frequency Loss')
+
         # VGG parameters
-        self.parser.add_argument("--resize_vgg_input", type=float, default=0.0, help="resize input for vgg loss")
-        self.parser.add_argument("--vgg_computation", type=str, default='sol2', choices = ['sol1', 'sol2', 'sol3', 'sol4', 'sol5'], 
+        self.parser.add_argument("--multi_scale_perceptual_loss", action='store_true')
+        self.parser.add_argument("--resize_input", type=float, default=0.0, help="resize input for vgg loss")
+        self.parser.add_argument("--network_type", type=str, default='vgg16', choices=['vgg16','vgg11','vgg13','vgg19','alexnet','squeezenet1_1','resnet18','resnet34','resnet50','resnet101','resnet152','set_vit_b_16'])
+        self.parser.add_argument("--pre_trained", action='store_true')
+        self.parser.add_argument("--features_after_relu", action='store_true')
+        self.parser.add_argument("--channel_computation", type=str, default='sol2', choices = ['sol1', 'sol2', 'sol3', 'sol4', 'sol5'], 
                         help="Either we compute layer by layer and member per member but we have to triple th einput to make it rgb or all in one (naive)")
-        self.parser.add_argument("--vgg_state_dict_path", type=str, default='/project/scratch/p200177/DE_371/resources/vgg_weights/vgg16-random.pth', help="Insert a path")
-        self.parser.add_argument("--vgg_style_layers", type=utils.str2intlist, default=[], help="style layers to include in vgg loss computation")
-        self.parser.add_argument("--vgg_feature_layers", type=utils.str2intlist, default=[0,1,2,3], help="feature layers to include in vgg computation")
-        self.parser.add_argument("--vgg_alpha_feature", type=float, default=1.0, help="weight of the feature/content loss")
-        self.parser.add_argument("--vgg_alpha_style", type=float, default=0.01, help="weight of the style loss")
+        self.parser.add_argument("--network_dir", type=str, default='/project/scratch/p200177/DE_371/resources/network_for_perceptual_loss/', help="Insert a path")
+        self.parser.add_argument("--style_layers", type=utils.str2intlist, default=[], help="style layers to include in vgg loss computation")
+        self.parser.add_argument("--feature_layers", type=utils.str2intlist, default=[0,1,2,3], help="feature layers to include in vgg computation")
+        self.parser.add_argument("--alpha_feature", type=float, default=1.0, help="weight of the feature/content loss")
+        self.parser.add_argument("--alpha_style", type=float, default=0.01, help="weight of the style loss")
         
         # weights and checkpoint paths
         self.parser.add_argument('--stylegan_weights', default='/project/scratch/p200177/DE_371/victorsanchez/models/trained_generator/000024.pt', type=str,help='Path to StyleGAN model weights')
-        self.parser.add_argument('--random_resnet34', action='store_true')
+        self.parser.add_argument('--random_resnet', action='store_true')
         self.parser.add_argument('--checkpoint_path', default=None, type=str, help='Path to ReStyle model checkpoint')
         self.parser.add_argument('--resume_step', default=0, type=int,help='step number to resume from')
 
@@ -73,7 +79,8 @@ def createNamesFromLosses(config) :
     name ='loss_train'
     
     config_dict = vars(config)
-    
+    mspl = ''
+
     for arg, value in config_dict.items() :
         
         if 'lambda' in arg :
@@ -81,17 +88,22 @@ def createNamesFromLosses(config) :
                 name = name + '_' + arg + '_' + str(value)
         
         if 'learning_rate' in arg :
-                name = 'lr' + '_' + str(value)
+            name = 'lr' + '_' + str(value)
         
+        if 'network_type' in arg :
+            network_type = value
+
         if 'n_iters_per_batch' in arg :
             suffix = str(value)
 
-        if 'random_resnet34' in arg :
+        if 'random_resnet' in arg :
             if value :
-                resnet34 = 'random'
+                resnet = 'random'
             else :
-                resnet34 = 'trained'
+                resnet = 'trained'
         
-    name = f'{name}_resnet34={resnet34}_{suffix}_iter/'
+        if 'multi_scale_perceptual_loss' in arg :
+            mspl = '_multi_scale_PL'
+    name = f'{name}_resnet={resnet}_network_type={network_type}{mspl}_{suffix}_iter/'
     
     return name

@@ -17,7 +17,7 @@ if __name__=="__main__" :
     # Real Data Directory - PATH to samples of the dataset
     parser.add_argument('--real_data_dir', type = str,  default='/project/home/p200177/DE_371/datasets/dataset_Meteo_France/IS_1_1.0_0_0_0_0_0_256_large_lt_done/')
     # Output Directory - PATH where the output of the inversion will be saved
-    parser.add_argument('--output_dir',type = str, default ='/project/scratch/p200177/DE_371/victorsanchez/results/perturbation/coherence_temporelle_gan_classique/plots/')
+    parser.add_argument('--output_dir',type = str, default ='/project/scratch/p200177/DE_371/victorsanchez/results/perturbation/coherence_temporelle_gan_classique/plots_bis/')
     parser.add_argument('--gen_sample_dir',type = str, default ="/project/scratch/p200177/DE_371/victorsanchez/results/perturbation/coherence_temporelle_gan_classique/stochastic_['1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '0', '0', '0', '0']_False_-1_16_/samples/")
     parser.add_argument("--Shape", type=tuple, default=(3,256,256), help='size of the samples')
     # Dataset information
@@ -78,7 +78,7 @@ if __name__=="__main__" :
     else:
         raise ValueError(f"Unknown normalization: {params.normalization}")
 
-    display_AROME = False
+    display_AROME = True
     if not params.sample_from_imported_perturbation:
         label_perturbation = '_generated_pert'
     else :
@@ -107,55 +107,55 @@ if __name__=="__main__" :
         for lt in params.leadtimes :
             try :
                 path_to_sample = params.gen_sample_dir + f"genFsemble_{date_}_{lt}_{params.invstep}_16{label_perturbation}.npy"    
-                Ens_gen.append(np.load(path_to_sample)[list(range(2,112,7))])
+                Ens_gen.append(np.load(path_to_sample))
             except :
                 print(f"File 'genFsemble_{date_}_{lt}_{params.invstep}_16{label_perturbation}.npy' Not Found")
         Ens_gen = np.array(Ens_gen)
         Ens_gen = utils.rescale(Ens_gen, Means, Maxs, 1/0.95)
         
-        Nb_member=16
+        Nb_member=2
         if display_AROME:
-            fig0, ax0 = plt.subplots(nrows=Nb_member, ncols=14, figsize=(200,200))
-            fig1, ax1 = plt.subplots(nrows=Nb_member, ncols=14, figsize=(200,200))
-            fig2, ax2 = plt.subplots(nrows=Nb_member, ncols=14, figsize=(200,200))
-        fig0gen, ax0gen = plt.subplots(nrows=Nb_member, ncols=14, figsize=(200,200))
-        fig1gen, ax1gen = plt.subplots(nrows=Nb_member, ncols=14, figsize=(200,200))
-        fig2gen, ax2gen = plt.subplots(nrows=Nb_member, ncols=14, figsize=(200,200))
-
+            fig0, ax0 = plt.subplots(nrows=Nb_member, ncols=14, figsize=(200,50))
+            fig1, ax1 = plt.subplots(nrows=Nb_member, ncols=14, figsize=(200,50))
+            fig2, ax2 = plt.subplots(nrows=Nb_member, ncols=14, figsize=(200,50))
+        fig0gen, ax0gen = plt.subplots(nrows=Nb_member, ncols=14, figsize=(200,50))
+        fig1gen, ax1gen = plt.subplots(nrows=Nb_member, ncols=14, figsize=(200,50))
+        fig2gen, ax2gen = plt.subplots(nrows=Nb_member, ncols=14, figsize=(200,50))
+        offset = 6
         for t in trange(params.nb_timesteps):
             for member_id in range(Nb_member):
                 if display_AROME:
-                    Arome_member = Ens_r[member_id][t]
+                    Arome_member = Ens_r[offset*member_id+member_id][t]
                     
 
                     im0=ax0[member_id][t].imshow(Arome_member[0], origin="lower", cmap="viridis", vmin=Arome_member[0].min(), vmax=Arome_member[0].max())
-                    ax0[member_id][t].set_ylabel(f'M{member_id+1}-t+{t}', fontsize=45)
+                    ax0[member_id][t].set_ylabel(f'M{offset*member_id+member_id+1}-t+{t}', fontsize=45)
                     ax0[member_id][t].set_xticks([])
                     ax0[member_id][t].set_yticks([])
 
                     im1=ax1[member_id][t].imshow(Arome_member[1], origin="lower", cmap="viridis", vmin=Arome_member[1].min(), vmax=Arome_member[1].max())
-                    ax1[member_id][t].set_ylabel(f'M{member_id+1}-t+{t}', fontsize=45)
+                    ax1[member_id][t].set_ylabel(f'M{offset*member_id+member_id+1}-t+{t}', fontsize=45)
                     ax1[member_id][t].set_xticks([])
                     ax1[member_id][t].set_yticks([])
 
                     im2=ax2[member_id][t].imshow(Arome_member[2], origin="lower", cmap="coolwarm", vmin=Arome_member[2].min(), vmax=Arome_member[2].max())
-                    ax2[member_id][t].set_ylabel(f'M{member_id+1}-t+{t}', fontsize=45)
+                    ax2[member_id][t].set_ylabel(f'M{offset*member_id+member_id+1}-t+{t}', fontsize=45)
                     ax2[member_id][t].set_xticks([])
                     ax2[member_id][t].set_yticks([])
 
-                Generated_member = Ens_gen[t][member_id]
+                Generated_member = Ens_gen[t][(offset*member_id+member_id)*7] # We multiply by 7 to keep child members from the same father member
                 im0gen=ax0gen[member_id][t].imshow(Generated_member[0], origin="lower", cmap="viridis", vmin=Generated_member[0].min(), vmax=Generated_member[0].max())
-                ax0gen[member_id][t].set_ylabel(f'GEN M{member_id+1}-t+{t}', fontsize=45)
+                ax0gen[member_id][t].set_ylabel(f'GEN M{offset*member_id+member_id+1}-t+{t}', fontsize=45)
                 ax0gen[member_id][t].set_xticks([])
                 ax0gen[member_id][t].set_yticks([])
 
                 im1gen=ax1gen[member_id][t].imshow(Generated_member[1], origin="lower", cmap="viridis", vmin=Generated_member[1].min(), vmax=Generated_member[1].max())
-                ax1gen[member_id][t].set_ylabel(f'GEN M{member_id+1}-t+{t}', fontsize=45)
+                ax1gen[member_id][t].set_ylabel(f'GEN M{offset*member_id+member_id+1}-t+{t}', fontsize=45)
                 ax1gen[member_id][t].set_xticks([])
                 ax1gen[member_id][t].set_yticks([])
 
                 im2gen=ax2gen[member_id][t].imshow(Generated_member[2], origin="lower", cmap="coolwarm", vmin=Generated_member[2].min(), vmax=Generated_member[2].max())
-                ax2gen[member_id][t].set_ylabel(f'GEN M{member_id+1}-t+{t}', fontsize=45)
+                ax2gen[member_id][t].set_ylabel(f'GEN M{offset*member_id+member_id+1}-t+{t}', fontsize=45)
                 ax2gen[member_id][t].set_xticks([])
                 ax2gen[member_id][t].set_yticks([])
             

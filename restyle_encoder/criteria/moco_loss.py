@@ -2,21 +2,21 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 from restyle_encoder.configs.paths_config import model_paths
-
+import torchvision.models as models
 
 class MocoLoss(nn.Module):
 
-    def __init__(self):
+    def __init__(self, device):
         super(MocoLoss, self).__init__()
         print("Loading MOCO model from path: {}".format(model_paths["moco"]))
         self.model = self.__load_model()
-        self.model.cuda()
         self.model.eval()
+        self.model.to(device)
 
     @staticmethod
     def __load_model():
-        import torchvision.models as models
-        model = models.__dict__["resnet50"]()
+        model = models.__dict__["resnet50"](weights=None)
+
         # freeze all layers but the last fc
         for name, param in model.named_parameters():
             if name not in ['fc.weight', 'fc.bias']:
@@ -38,7 +38,7 @@ class MocoLoss(nn.Module):
         return model
 
     def extract_feats(self, x):
-        x = F.interpolate(x, size=224)
+        # x = F.interpolate(x, size=224) # downsampling can create arifacts !!!
         x_feats = self.model(x)
         x_feats = nn.functional.normalize(x_feats, dim=1)
         x_feats = x_feats.squeeze()
