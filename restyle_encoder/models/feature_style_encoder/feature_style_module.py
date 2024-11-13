@@ -17,7 +17,7 @@ class FeatureStyleModule(nn.Module):
         self.set_config(config)
         self.n_styles = int(math.log(self.config.output_size, 2)) * 2 - 2
         # Define architecture
-        self.idx_k = 7 # See paper https://arxiv.org/pdf/2202.02183
+        self.idx_k = 6 # See paper https://arxiv.org/pdf/2202.02183 Instance 1 - 7 / Instance 2 - 6
         self.encoder = fs_encoder(n_styles=self.n_styles)
         self.decoder = Generator(self.config.output_size, 512, 8, channel_multiplier=2)
 

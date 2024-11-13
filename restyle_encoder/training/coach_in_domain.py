@@ -9,15 +9,14 @@ from torch.utils.data import DataLoader
 import torch.nn.functional as F
 from tqdm import tqdm
 from restyle_encoder.utils import common, train_utils
-from restyle_encoder.criteria import w_norm, moco_loss, scattering_loss
-from restyle_encoder.criteria.SWD_loss import SwdLoss
 from restyle_encoder.configs import data_configs
 from restyle_encoder.datasets.arome_dataset import AromeDataset
-from restyle_encoder.criteria.lpips.lpips import LPIPS
-from restyle_encoder.models.feature_style_encoder.feature_style_module import FeatureStyleModule
+from restyle_encoder.models.in_domain import inDomain
 from restyle_encoder.training.ranger import Ranger
 from inversion.perceptual_loss.perceptual_loss import PerceptualLoss
-from inversion.focal_frequency_loss import FocalFrequencyLoss
+
+from torch import autograd
+from gan.model.op import conv2d_gradfix
 
 import numpy as np
 
@@ -30,37 +29,35 @@ class Coach:
         self.config.device = self.device
 
         # Initialize network
-        self.net = FeatureStyleModule(self.config).to(self.device)
-        
+        self.net = inDomain(self.config).to(self.device)
 
         # Estimate latent_avg via dense sampling if latent_avg is not available
         if self.net.latent_avg is None:
             self.net.latent_avg = self.net.decoder.mean_latent(int(1e5))[0].detach()
 
-        self.avg_sample, _, _ = self.net.decoder([self.net.latent_avg.unsqueeze(0)], input_is_latent=True, randomize_noise=False)
+		# get the image corresponding to the latent average
+        self.avg_sample = self.net(self.net.latent_avg.unsqueeze(0),
+                                   input_code=True,
+                                   randomize_noise=False,return_latents=False,
+                                   average_code=True)[0]
+        
         self.avg_sample = self.avg_sample.to(self.device).float().detach()
-        # self.noise = self.net.decoder.make_noise()
+            
+        np.save(os.path.join(self.config.exp_dir, 'avg_sample.pth'), self.avg_sample.cpu().numpy())
 
 		# Initialize loss
         
         self.mse_loss = nn.MSELoss().to(self.device).eval()
-        if self.config.lpips_lambda > 0:
-            self.lpips_loss = LPIPS(net_type='discrim').to(self.device).eval()
-        if self.config.w_norm_lambda > 0:
-            self.w_norm_loss = w_norm.WNormLoss(start_from_latent_avg=self.config.start_from_latent_avg)
-        if self.config.moco_lambda > 0:
-            self.moco_loss = moco_loss.MocoLoss(self.device)
-        if self.config.scat_lambda > 0:
-            self.scat_loss = scattering_loss.ScatteringLoss(device=self.device)
-        if self.config.swd_lambda > 0 :
-            self.swd_loss = SwdLoss((256,256), device = self.device)
         if self.config.perceptual_lambda > 0 :
             self.perceptual_loss = PerceptualLoss(config=self.config, device=self.device, multi_scale=self.config.multi_scale_perceptual_loss).to(self.device).eval()
-        if self.config.ffl_lambda > 0 :
-            self.ffl_loss = FocalFrequencyLoss().to(self.device)
-                            
+       
 		# Initialize optimizer
-        self.optimizer = self.configure_optimizers()
+        self.encoder_optimizer = self.configure_optimizers()
+        if self.config.train_discriminator :
+            self.discriminator_optimizer = self.configure_optimizers_for_discriminator()
+        else :
+            for p in self.net.discriminator.parameters():
+                p.requires_grad = False
         self.pbar = None
 
     	# Initialize dataset
@@ -96,20 +93,28 @@ class Coach:
         self.pbar = tqdm(range(self.config.max_steps))
         while self.global_step < self.config.max_steps:
             for batch_idx, batch in enumerate(self.train_dataloader):
-                self.optimizer.zero_grad()
-                x, y = batch
-                
-                x, y = x.to(self.device).float(), y.to(self.device).float()
-                
-                feature_scale = min(1.0, 0.0001*self.global_step)
-                # y = torch.cat([self.avg_sample, y], dim=0)
+                self.encoder_optimizer.zero_grad()
+                if self.config.train_discriminator :
+                    self.discriminator_optimizer.zero_grad()
 
-                concat_img, fea, fea_recon, y_hat, y_hat_hat = self.net.forward(y, feature_scale=feature_scale)
+                x, y = batch
+                # x, y 
+                x, y = x.to(self.device).float(), y.to(self.device).float()
+                y.requires_grad = True
+
+                y_hat, latent, discrim_out_real, discrim_out_fake = self.net.forward(y, return_latents=True)
                 
-                loss, loss_dict = self.calc_loss(x, y, concat_img, fea, fea_recon, y_hat, y_hat_hat)
+                loss, loss_dict = self.calc_loss_encoder(x, y, y_hat, latent, discrim_out_real, discrim_out_fake)
+
+                if self.config.train_discriminator :
+                    loss_discriminator, loss_discriminator_dict = self.calc_loss_discriminator(x, y, y_hat, latent, discrim_out_real, discrim_out_fake)
+                    loss += loss_discriminator
 
                 loss.backward()
-                self.optimizer.step()
+
+                self.encoder_optimizer.step()
+                if self.config.train_discriminator :
+                    self.discriminator_optimizer.step()
 
 				# Logging related
                 if self.global_step==0 :
@@ -121,9 +126,7 @@ class Coach:
                 
                 if self.global_step % self.config.image_interval == 0: # or (self.global_step < 1000 and self.global_step % 25 == 0):
                     print('plotting for train')
-                    b = concat_img.size(0)//2  
-                    # self.parse_and_log_images(x, concat_img[:b], y_hat[:b], title='samples/train_fake')
-                    self.parse_and_log_images(x, y, y_hat_hat[b:], title='samples/train')
+                    self.parse_and_log_images(x, y, y_hat, title='samples/train')
                     
                 if self.global_step % self.config.board_interval == 0:
                     self.log_metrics(self.global_step, loss_dict,  prefix='train')
@@ -162,19 +165,18 @@ class Coach:
             
             with torch.no_grad():
                 x, y = x.to(self.device).float(), y.to(self.device).float()
-                feature_scale = min(1.0, 0.0001*self.global_step)
-                # y = torch.cat([self.avg_sample, y], dim=0)
+                y_hat, latent, discrim_out_real, discrim_out_fake = self.net.forward(y, return_latents=True)
+                _, cur_loss_dict = self.calc_loss_encoder(x, y, y_hat, latent, discrim_out_real, discrim_out_fake)
                 
-                concat_img, fea, fea_recon, y_hat, y_hat_hat = self.net.forward(y, feature_scale=feature_scale, train=False)
-                # print(y.shape, concat_img.shape, y_hat.shape, y_hat_hat.shape)
-                loss, loss_dict = self.calc_loss(x, y, concat_img, fea, fea_recon, y_hat, y_hat_hat)
-            agg_loss_dict.append(loss_dict)
+                # if self.config.train_discriminator :
+                #     _, loss_discriminator_dict = self.calc_loss_discriminator(x, y, y_hat, latent, discrim_out_real, discrim_out_fake)
+                #     agg_loss_dict.append(loss_discriminator_dict)
+
+            agg_loss_dict.append(cur_loss_dict)
 
 			# Logging related
             if batch_idx % 50 == 0:
-                b = concat_img.size(0)//2  
-                # self.parse_and_log_images(x, y, y_hat[:b], title='samples/test_fake', subscript='{:04d}'.format(batch_idx))
-                self.parse_and_log_images(x, y, y_hat_hat[b:], title='samples/test', subscript='{:04d}'.format(batch_idx))
+                self.parse_and_log_images(x, y, y_hat, title='samples/test', subscript='{:04d}'.format(batch_idx))
 
 			# For first step just do sanity test on small amount of data
             if self.global_step == 0 and batch_idx >= 4:
@@ -217,6 +219,16 @@ class Coach:
         else:
             optimizer = Ranger(params, lr=self.config.learning_rate)
         return optimizer
+    
+    def configure_optimizers_for_discriminator(self):
+        params = list(self.net.discriminator.parameters())
+        
+        if self.config.optim_name == 'adam':
+            optimizer = torch.optim.Adam(params, lr=self.config.learning_rate, weight_decay = 0.0005)
+        else:
+            optimizer = Ranger(params, lr=self.config.learning_rate)
+        
+        return optimizer
 
     def configure_datasets(self):
         if self.config.dataset_type not in data_configs.DATASETS.keys():
@@ -250,58 +262,48 @@ class Coach:
         print("Number of test samples: {}".format(len(test_dataset)))
         return train_dataset, test_dataset
 
-    def calc_loss(self, x, y, concat_img, fea, fea_recon, y_hat, y_hat_hat, option ='train'):
+    def calc_loss_discriminator(self, x, y, y_hat, latent, discrim_out_real, discrim_out_fake, option ='train'):
         loss_dict = {}
         loss = 0.0
 
-        b = concat_img.size(0)//2        
-        if self.config.l2_lambda_features and (fea is not None and fea_recon is not None) :
-            loss_l2_features = F.mse_loss(fea, fea_recon)
-            # print('loss_l2_features', loss_l2_features)
-            loss_dict['loss_l2_features'] = float(loss_l2_features)
-            loss += loss_l2_features * self.config.l2_lambda_features
+        adv_loss_fake = F.softplus(discrim_out_fake.sum())
+        adv_loss_real = - F.softplus(discrim_out_real.sum())
+
+        loss_dict['adv_loss_fake'] = float(adv_loss_fake)
+        loss_dict['adv_loss_real'] = float(adv_loss_real)
+
+
+        with conv2d_gradfix.no_weight_gradients():
+            grad_real = autograd.grad(
+                outputs=discrim_out_real.sum(), inputs=y, create_graph=True
+            )[0]
+        
+        grad_real=grad_real.pow(2).reshape(grad_real.shape[0], -1).sum(1).mean()
+        loss_grad = 10 / 2 * grad_real * 16
+
+        loss_dict['loss_grad'] = float(loss_grad)
+        
+        loss = adv_loss_fake + adv_loss_real + loss_grad
+        return loss, loss_dict
+    
+    def calc_loss_encoder(self, x, y, y_hat, latent, discrim_out_real, discrim_out_fake, option ='train'):
+        loss_dict = {}
+        loss = 0.0
+
         if self.config.l2_lambda > 0:
-            loss_l2 =  F.mse_loss(concat_img[:b], y_hat[:b]) # l2 loss only on synthetic data
-            # print('loss_l2', loss_l2)
+            loss_l2 = F.mse_loss(y_hat, y)
             loss_dict['loss_l2'] = float(loss_l2)
             loss += loss_l2 * self.config.l2_lambda
-        # if self.config.lpips_lambda > 0:
-        #     loss_lpips = self.lpips_loss(y_hat, y)
-        #     loss_dict['loss_lpips'] = float(loss_lpips)
-        #     loss += loss_lpips * self.config.lpips_lambda
-        # if self.config.w_norm_lambda > 0:
-        #     loss_w_norm = self.w_norm_loss(latent, self.net.latent_avg)
-        #     loss_dict['loss_w_norm'] = float(loss_w_norm)
-        #     loss += loss_w_norm * self.config.w_norm_lambda
-        # if self.config.moco_lambda > 0:
-        #     loss_moco, sim_improvement, id_logs = self.moco_loss(y_hat, y, x)
-        #     loss_dict['loss_moco'] = float(loss_moco)
-        #     loss_dict['id_improve'] = float(sim_improvement)
-        #     loss += loss_moco * self.config.moco_lambda
-        # if self.config.scat_lambda > 0 :  # Scattering loss
-        #     loss_scat = self.scat_loss(y_hat, y)
-        #     loss_dict['scat_loss'] = float(loss_scat)
-        #     loss += loss_scat * self.config.scat_lambda
-        # if self.config.swd_lambda > 0 :  # Scattering loss
-        #     loss_swd = self.swd_loss.End2End(y_hat, y)
-        #     loss_dict['swd_loss'] = float(loss_swd)
-        #     loss += loss_swd * self.config.swd_lambda
         
         if self.config.perceptual_lambda > 0 :
-            perceptual_loss = self.perceptual_loss(concat_img, y_hat)
-            # print('perceptual_loss', perceptual_loss)
-            loss_dict['perceptual_loss_concat_img_y_hat'] = float(perceptual_loss)
+            perceptual_loss = self.perceptual_loss(y_hat, y)
+            loss_dict['perceptual_loss'] = float(perceptual_loss)
             loss += perceptual_loss * self.config.perceptual_lambda
 
-            perceptual_loss = self.perceptual_loss(concat_img, y_hat_hat)
-            # print('perceptual_loss', perceptual_loss)
-            loss_dict['perceptual_loss_concat_img_y_hat_y_hat'] = float(perceptual_loss)
-            loss += perceptual_loss * self.config.perceptual_lambda
-
-        if self.config.ffl_lambda > 0 :
-            ffl_loss = self.ffl_loss(concat_img, y_hat)
-            loss_dict['ffl_loss'] = float(ffl_loss)
-            loss += ffl_loss * self.config.ffl_lambda
+        if self.config.adv_lambda > 0:
+            adv_loss = -F.softplus(discrim_out_fake.sum())
+            loss_dict['adv_loss'] = float(adv_loss)
+            loss += adv_loss * self.config.adv_lambda
 
         if option != 'train' :
             if self.config.l2_lambda==0 :

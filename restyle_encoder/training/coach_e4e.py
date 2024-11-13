@@ -157,7 +157,7 @@ class Coach:
 					print('validation')
 					val_loss_dict = self.validate()
 
-					if val_loss_dict and (self.best_val_loss is None or val_loss_dict['loss'] < self.best_val_loss):
+					if val_loss_dict and (self.best_val_loss is None or val_loss_dict['loss_total'] < self.best_val_loss):
 						self.best_val_loss = val_loss_dict['loss_total']
 						self.checkpoint_me(val_loss_dict, is_best=True)
 
