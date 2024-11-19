@@ -279,6 +279,7 @@ class Coach:
             )[0]
         
         grad_real=grad_real.pow(2).reshape(grad_real.shape[0], -1).sum(1).mean()
+        grad_real = torch.clamp(grad_real, -1, 1)
         loss_grad = 10 / 2 * grad_real * 16
 
         loss_dict['loss_grad'] = float(loss_grad)

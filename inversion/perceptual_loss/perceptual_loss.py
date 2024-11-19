@@ -120,7 +120,7 @@ class PerceptualLoss(torch.nn.Module):
 
         self.blocks = torch.nn.ModuleList(blocks)
     
-    def forward_net_single_img(self, input_img, feature_layers=[0,1,2,3], style_layers=[], return_features=False):
+    def forward_net_single_img(self, input_img, feature_layers=[0,1,2,3,4], style_layers=[], return_features=False, compute_all_features=False):
         r''' Forward the Network features and styles for a single image '''
 
         if self.config.channel_computation=='sol4' and len(input_img.shape)==3: #sol4
@@ -152,11 +152,12 @@ class PerceptualLoss(torch.nn.Module):
             x = (input_img-grayscale_mean) / grayscale_std
 
         for i, block in enumerate(self.blocks):
-            if self.config.network_type == 'set_vit_b_16' and i == 1:
-                b, c, h, w = x.shape
-                x = x.reshape(b,h*w,c)
             x = block(x)
-            features.append(x)
+            if i in feature_layers or compute_all_features:
+                if self.config.network_type == 'set_vit_b_16' and i == 1:
+                    b, c, h, w = x.shape
+                    x = x.reshape(b,h*w,c)
+                features.append(x)
             if i in style_layers: 
                 act_x = x.reshape(x.shape[0], x.shape[1], -1)
                 gram_x = act_x @ act_x.permute(0, 2, 1)
@@ -164,7 +165,7 @@ class PerceptualLoss(torch.nn.Module):
         
         return features, styles
     
-    def compute_perceptual_features(self, img):
+    def compute_perceptual_features(self, img, compute_all_features=True):
         r''' Compute the features of a single image with respect to the chosen solution and save them in the memory '''
         features = []
         styles = []
@@ -180,7 +181,8 @@ class PerceptualLoss(torch.nn.Module):
                         feature, style = self.forward_net_single_img(
                                                     (x[i_mem, i_var, :, :]+1)/2,
                                                     feature_layers = self.config.feature_layers,
-                                                    style_layers = self.config.style_layers
+                                                    style_layers = self.config.style_layers,
+                                                    compute_all_features=compute_all_features
                         )
                         features.append(feature)
                         styles.append(style)
@@ -190,7 +192,8 @@ class PerceptualLoss(torch.nn.Module):
                     feature, style = self.forward_net_single_img(
                                                         (x[:, i_var, :, :]+1)/2,
                                                         feature_layers = self.config.feature_layers,
-                                                        style_layers = self.config.style_layers
+                                                        style_layers = self.config.style_layers,
+                                                        compute_all_features=compute_all_features
                             )
                     features.append(feature)
                     styles.append(style)
@@ -199,7 +202,8 @@ class PerceptualLoss(torch.nn.Module):
                 features, styles = self.forward_net_single_img(
                                                         (x+1)/2,
                                                         feature_layers = self.config.feature_layers,
-                                                        style_layers = self.config.style_layers
+                                                        style_layers = self.config.style_layers,
+                                                        compute_all_features=compute_all_features
                             )
 
 
@@ -215,13 +219,12 @@ class PerceptualLoss(torch.nn.Module):
 
         loss = 0.0
         for i, _ in enumerate(self.blocks):
-            
-            x = features_input_img[i]
-            y = features_target_img[i]
-            loss_features = torch.nn.functional.l1_loss(x, y)
-            # print('loss_features', loss_features)
-            loss += alpha_feature*loss_features
-
+            if i in feature_layers:
+                x = features_input_img[i]
+                y = features_target_img[i]
+                loss_features = torch.nn.functional.l1_loss(x, y)
+                # print('loss_features', loss_features)
+                loss += alpha_feature*loss_features
             if i in style_layers: 
                 gram_x = styles_input_img[i]
                 gram_y = styles_target_img[i]

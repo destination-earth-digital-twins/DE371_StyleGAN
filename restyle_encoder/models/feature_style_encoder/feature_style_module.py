@@ -54,7 +54,8 @@ class FeatureStyleModule(nn.Module):
     def forward(self,
                 x,
                 feature_scale=0.0001,
-                train=True
+                train=True,
+                return_latent=False
     ):
         
         # generate synthetic images
@@ -97,8 +98,10 @@ class FeatureStyleModule(nn.Module):
         )
 
         
-
-        return concat_img, fea, fea_recon, x_recon, x_recon_2
+        if return_latent :
+            return concat_img, fea, fea_recon, x_recon, x_recon_2, w_recon
+        else :
+            return concat_img, fea, fea_recon, x_recon, x_recon_2
 
     def set_config(self, config):
         self.config = config
