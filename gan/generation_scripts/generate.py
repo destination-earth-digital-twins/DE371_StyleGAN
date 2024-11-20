@@ -80,7 +80,7 @@ if __name__ == "__main__":
     )
 
     args = parser.parse_args()
-
+    print(f'{str(step).zfill(6)}.pt','PATH')
     args.latent = 512
     args.n_mlp = 8
 

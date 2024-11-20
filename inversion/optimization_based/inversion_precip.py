@@ -176,8 +176,8 @@ def optimize(batch_dir,Ens_r,batch_idx, g_ema, latent_mean, device, params,scena
     pbar = tqdm(range(params.invstep))
 
     latent_path = []
-    if params.lambda_lpips and params.lambda_vgg:
-        raise NotImplementedError
+    # if params.lambda_lpips and params.lambda_vgg:
+    #     raise NotImplementedError
     
     if params.lambda_vgg>0 :
         VGG_loss = VGGPerceptualLoss(

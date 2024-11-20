@@ -1,5 +1,5 @@
 import torch
-import perturbation.inversion as inv
+import perturbation.inversion as inversion_test_bug
 import perturbation.inversion_wo_noise as inv_wonoise
 import argparse
 from gan.model.stylegan2 import Generator

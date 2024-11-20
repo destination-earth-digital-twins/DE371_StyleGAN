@@ -18,72 +18,18 @@ module load Apptainer/1.2.4-GCCcore-12.3.0
 
 
 
-apptainer exec --nv /project/scratch/p200177/DE_371/resources/apptainer_container/container.sif python3 main_inversion_precip_scenarios.py \
-        --lambda_pixel=0\
+apptainer exec --nv /project/scratch/p200177/DE_371/resources/apptainer_container/container.sif python3 main_inversion_perso.py \
         --invstep=2000\
-        --vgg_computation='sol2'\
-        --device='cuda:1'\
-        --output_dir='./plot_gan_imgs'\ 
-        --pack_dir='./'\ 
+        --pixel_loss="amse"\
+        --lambda_vgg=0\
+        --device='cuda:0'\
 
-# --pixel_rr_vgg_others 
-        # --optimize_features_computation\
-
-
-# ['mse', 'mae','wmse','amse','wamse','sum_pixel_loss','sum_pixel_loss_mae','mul_pixel_loss_mae','mul_pixel_loss_mse']
-      #  --noise_optimize\
-
-# apptainer exec --nv /project/scratch/p200177/DE_371/resources/apptainer_container/container.sif python3 main_inversion_precip_scenarios.py \
-#         --pixel_loss_type='wamse'\
+# apptainer exec --nv /project/scratch/p200177/DE_371/resources/apptainer_container/container.sif python3 main_inversion_perso.py \
+#         --invstep=2000\
+#         --lambda_pixel=0\
+#         --lambda_lpips=0\
 #         --vgg_computation='sol2'\
-#         --invstep=1500\
 #         --device='cuda:1'\
-#         --output_dir='/project/scratch/p200177/DE_371/angeliquebonamy/results/scenarios/BONS/VGG/rdm/sol2/wamse/inversion/'\
-#         --pack_dir='/project/scratch/p200177/DE_371/angeliquebonamy/results/scenarios/BONS/VGG/rdm/sol2/wamse/pack/'\
-#         --optimize_features_computation\
-
-# apptainer exec --nv /project/scratch/p200177/DE_371/resources/apptainer_container/container.sif python3 main_inversion_precip_scenarios.py \
-#         --pixel_loss_type='wmse'\
-#         --invstep=1500\
-#         --lambda_vgg=0\
-#         --device='cuda:1'\
-#         --output_dir='/project/scratch/p200177/DE_371/angeliquebonamy/results/scenarios/BONS/wmse/inversion/'\
-#         --pack_dir='/project/scratch/p200177/DE_371/angeliquebonamy/results/scenarios/BONS/wmse/pack/'\
-        # --optimize_features_computation\
-
-# apptainer exec --nv /project/scratch/p200177/DE_371/resources/apptainer_container/container.sif python3 main_inversion_precip_scenarios.py \
-#         --pixel_loss_type='amse'\
-#         --lambda_vgg=0\
-#         --invstep=1500\
-#         --device='cuda:1'\
-#         --output_dir='/project/scratch/p200177/DE_371/angeliquebonamy/results/scenarios/BONS/amse/inversion/'\
-#         --pack_dir='/project/scratch/p200177/DE_371/angeliquebonamy/results/scenarios/BONS/amse/pack/'\
-        # --optimize_features_computation\
-
-# apptainer exec --nv /project/scratch/p200177/DE_371/resources/apptainer_container/container.sif python3 main_inversion_precip_scenarios.py \
-#         --pixel_loss_type='wamse'\
-#         --lambda_vgg=0\
-#         --invstep=1500\
-#         --device='cuda:1'\
-#         --output_dir='/project/scratch/p200177/DE_371/angeliquebonamy/results/scenarios/BONS/wamse/inversion/'\
-#         --pack_dir='/project/scratch/p200177/DE_371/angeliquebonamy/results/scenarios/BONS/wamse/pack/'\
-#         #--optimize_features_computation\
-
-# apptainer exec --nv /project/scratch/p200177/DE_371/resources/apptainer_container/container.sif python3 main_inversion_precip_scenarios.py \
-#         --pixel_loss_type='mul_pixel_loss_mse'\
-#         --invstep=1500\
-#         --device='cuda:2'\
-#         --output_dir='/project/scratch/p200177/DE_371/angeliquebonamy/results/scenarios/BONS/mul_pixel_loss_mse/inversion/'\
-#         --pack_dir='/project/scratch/p200177/DE_371/angeliquebonamy/results/scenarios/BONS/mul_pixel_loss_mse/pack/'\
-#         --optimize_features_computation\
-
-# apptainer exec --nv /project/scratch/p200177/DE_371/resources/apptainer_container/container.sif python3 main_inversion_precip_scenarios.py \
-#         --pixel_loss_type='mul_pixel_loss_mae'\
-#         --invstep=1500\
-#         --device='cuda:2'\
-#         --output_dir='/project/scratch/p200177/DE_371/angeliquebonamy/results/scenarios/BONS/mul_pixel_loss_mae/inversion/'\
-#         --pack_dir='/project/scratch/p200177/DE_371/angeliquebonamy/results/scenarios/BONS/mul_pixel_loss_mae/pack/'\
-#         --optimize_features_computation\
 
 
 

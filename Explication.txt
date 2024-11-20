@@ -1,1 +1,0 @@
-A compléter pour expliquer comment entrainer gan sur meluxina, comment faire importance sampling, parler des observations, et comment inverser et générer ou plots des samples du GAN 
