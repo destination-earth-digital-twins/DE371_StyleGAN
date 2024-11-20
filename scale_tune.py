@@ -58,17 +58,17 @@ parser.add_argument("--invert_step",type=int, default=1000)
 
 ########################### Directories ###########################
 parser.add_argument("--fake_data_dir", type=str, 
-                    default='/scratch/mrmn/brochetc/GAN_2D/Exp_StyleGAN_final/Inversion_Val/')
+                    default='/project/scratch/p200177/DE_371/angeliquebonamy/results/dates/VGG_sol2_2_sem/inversion/inversion/')
 parser.add_argument("--real_data_dir", type=str, 
-                    default='/scratch/mrmn/brochetc/GAN_2D/datasets_full_indexing/IS_1_1.0_0_0_0_0_0_256_large_lt_done2/IS_1_1.0_0_0_0_0_0_256_large_lt_done/')
+                    default='/project/home/p200177/DE_371/datasets/dataset_Meteo_France_rr_u_v_t2m/data/IS_rr_debug_1_1.0_0_0_0_0_0_256_large_lt/')
 parser.add_argument("--ensemble_data_dir", type=str, 
-                    default='/scratch/mrmn/brochetc/GAN_2D/Exp_StyleGAN_final/Pack_Val/')
+                    default='/project/scratch/p200177/DE_371/angeliquebonamy/results/dates/VGG_sol2_2_sem/pack/')
 parser.add_argument("--ckpt_dir", type=str, 
-                    default='/scratch/mrmn/brochetc/GAN_2D/Exp_StyleGAN_final/Set_1/stylegan2_stylegan_dom_256_lat-dim_512_bs_4_0.002_0.002_ch-mul_2_vars_u_v_t2m_noise_True/Instance_14/models/000024.pt')
+                    default='/project/scratch/p200177/DE_371/angeliquebonamy/GAN_training/gan_training_new_dataset/exp_train_ep_with_Noise_Injection/models/102000.pt')
 parser.add_argument("--eigendir", type=str, 
-                    default='/scratch/mrmn/brochetc/GAN_2D/Exp_StyleGAN_final/Eigenvalues/')
+                    default='/project/scratch/p200177/DE_371/angeliquebonamy/GAN_training/gan_training_new_dataset/exp_train_ep_with_Noise_Injection/Eigenvalues/')
 parser.add_argument("--output_dir", type=str, 
-                    default='/scratch/mrmn/brochetc/GAN_2D/Exp_StyleGAN_final/ScaleTune/')
+                    default='/project/scratch/p200177/DE_371/angeliquebonamy/GAN_training/gan_training_new_dataset/exp_train_ep_with_Noise_Injection/ScaleTune/')
 
 args = parser.parse_args()
 
@@ -79,7 +79,7 @@ instances = len(glob(output_dir + "Instance_*/"))
 print("instances already existing", instances)
 os.makedirs(output_dir + f"Instance_{instances+1}/",exist_ok=True)
 output_dir = output_dir + f"Instance_{instances+1}/"
-df = pd.read_csv(args.real_data_dir + 'Large_lt_val_labels.csv')
+df = pd.read_csv(args.real_data_dir + 'IS_boostrap_no_duplicate_rr_cumul_correct_train.csv')
 df_date = df.copy()
 
 liste_dates = df_date['Date'].unique().tolist()

@@ -30,6 +30,8 @@ import matplotlib.pyplot as plt
 
 torch.manual_seed(42) #reproducibility of runs
 
+
+
 if __name__=="__main__" :
     
     parser = argparse.ArgumentParser()
@@ -40,18 +42,18 @@ if __name__=="__main__" :
                         #default ='/scratch/mrmn/brochetc/GAN_2D/tests/Set_UseNoiseFalse/stylegan2_stylegan_dom_256_lat-dim_512_bs_8_0.002_0.002_ch-mul_2_vars_rr_u_v_t2m_noise_False/Instance_2/models/216000.pt')
     #Avec EP et noise true 
     parser.add_argument('--ckpt_dir', type = str, 
-                        default ='/project/scratch/p200177/DE_371/angeliquebonamy/gan_training/exp_train_ep_with_Noise_Injection/models/138000.pt')
+                        default ='/project/scratch/p200177/DE_371/angeliquebonamy/GAN_training/gan_training_new_dataset/exp_train_ep_with_Noise_Injection/models/102000.pt')
     # Real Data Directory - PATH to samples of the dataset
     # parser.add_argument('--real_data_dir', type = str, 
     #                     default='/project/home/p200177/DE_371/datasets/dataset_Meteo_France/IS_1_1.0_0_0_0_0_0_256_large_lt_done/')
     parser.add_argument('--real_data_dir', type = str, 
-                        default='/project/home/p200177/DE_371/datasets/dataset_Meteo_France/IS_1_1.0_0_0_0_0_0_256_large_lt_done/')
+                        default='/project/home/p200177/DE_371/datasets/dataset_Meteo_France_rr_u_v_t2m/data/IS_rr_debug_1_1.0_0_0_0_0_0_256_large_lt/')
     # Output Directory - PATH where the output of the inversion will be saved
     parser.add_argument('--output_dir',type = str, 
-                        default ='/project/scratch/p200177/DE_371/angeliquebonamy/results/dates/VGG_sol2_2_sem/inversion/')
+                        default ='/project/scratch/p200177/DE_371/angeliquebonamy/results/dates/vallid_inv/inversion/')
     # Pack Directory - PATH where the packed ensembles will be saved
     parser.add_argument("--pack_dir", type=str, 
-                        default = '/project/scratch/p200177/DE_371/angeliquebonamy/results/dates/VGG_sol2_2_sem/pack/') # storing "packed" (normalized) real data
+                        default = '/project/scratch/p200177/DE_371/angeliquebonamy/results/dates/vallid_inv/pack/') # storing "packed" (normalized) real data
     
     # Dataset information
     parser.add_argument("--normalization", type=str, default="minmax", choices=["minmax", "meanmax"])
@@ -103,10 +105,10 @@ if __name__=="__main__" :
     parser.add_argument("--inv_checkpoints", type=utils.str2intlist, default=[250,500,1000,1500,2000])
 
     ########################## CONTROL of Data to invert ######################
-    parser.add_argument("--dates_file", type=str, default = 'Large_lt_test_labels.csv')
-    parser.add_argument("--date_start", type=str, default = "2021-06-16")
-    parser.add_argument("--date_stop", type=str, default = "2021-07-02")
-    parser.add_argument("--leadtimes", type=utils.str2intlist, default=[3,18,33,45])
+    parser.add_argument("--dates_file", type=str, default = 'IS_boostrap_no_duplicate_rr_cumul_correct_valid.csv')
+    parser.add_argument("--date_start", type=str, default = "2020-06-16")
+    parser.add_argument("--date_stop", type=str, default = "2021-11-02")
+    parser.add_argument("--leadtimes", type=utils.str2intlist, default=[1,3,8,12,15,19,22,25,28,31,34,37,40,45])
     
     parser.add_argument("--seed", type=int, default=42)
       # LPIPS
@@ -219,54 +221,54 @@ if __name__=="__main__" :
     #     # Ens_r = torch.tensor(-1. + 2*(Ens_r - Mins) / (Maxs-Mins), dtype = torch.float32)
     #     np.save(params.pack_dir+f'{j}', Ens_r.numpy().astype(np.float32))
     #     inv.optimize(Ens_r, G, latent_mean, params.device, params,j)
-# PLOT GENERATOR ::
-    # device = params.device if torch.cuda.is_available() else 'cpu'
+# #PLOT GENERATOR ::
+#     device = params.device if torch.cuda.is_available() else 'cpu'
 
-    # nber_imgs = 10
-    # latent_z = torch.empty(nber_imgs, 512).normal_().to(device)  # Single latent vector        
-    # with torch.no_grad():
-    #     styles = G.style(latent_z)  # Get styles
-    #     print("Shape of latent_z:", latent_z.shape)
-    #     print("Shape of styles:", styles.shape)
-    #     generated_image = G([styles])  # Generate image
-    # print(f"Length of generated_image tuple: {len(generated_image)}")
-    # for i, img in enumerate(generated_image):
-    #     print(f"Element {i} type: {type(img)}")
-    #     if isinstance(img, torch.Tensor):
-    #         print(f"Element {i} shape: {img.shape}")
-    # # Extract the image tensor from the tuple
+#     nber_imgs = 10
+#     latent_z = torch.empty(nber_imgs, 512).normal_().to(device)  # Single latent vector        
+#     with torch.no_grad():
+#         styles = G.style(latent_z)  # Get styles
+#         print("Shape of latent_z:", latent_z.shape)
+#         print("Shape of styles:", styles.shape)
+#         generated_image = G([styles])  # Generate image
+#     print(f"Length of generated_image tuple: {len(generated_image)}")
+#     for i, img in enumerate(generated_image):
+#         print(f"Element {i} type: {type(img)}")
+#         if isinstance(img, torch.Tensor):
+#             print(f"Element {i} shape: {img.shape}")
+#     # Extract the image tensor from the tuple
 
-    # image_tensor = generated_image[0]
-    # print(f"Shape of image_tensor: {image_tensor.shape}")
+#     image_tensor = generated_image[0]
+#     print(f"Shape of image_tensor: {image_tensor.shape}")
 
 
-    #     # Remove the batch dimension
-    # image_tensor = image_tensor.squeeze(0)  # Shape is now [4, 256, 256]
+#         # Remove the batch dimension
+#     image_tensor = image_tensor.squeeze(0)  # Shape is now [4, 256, 256]
 
-    #     # Convert the tensor to numpy for plotting
-    # image_np = image_tensor.detach().cpu().numpy()
+#         # Convert the tensor to numpy for plotting
+#     image_np = image_tensor.detach().cpu().numpy()
 
-    #     # Set up the figure with 4 subplots (one for each variable)
-    # fig, axs = plt.subplots(1, 4, figsize=(20, 5))  # 1 row, 4 columns
+#         # Set up the figure with 4 subplots (one for each variable)
+#     fig, axs = plt.subplots(1, 4, figsize=(20, 5))  # 1 row, 4 columns
 
-    #     # Loop over the 4 channels and plot each one
-    # for j in range(nber_imgs):
-    #     for i in range(4):
-    #         if i==3:
-    #             axs[i].imshow(image_np[j][i], cmap='coolwarm',origin='lower')  # Plot in grayscale (assuming each variable is grayscale)
-    #             axs[i].axis('off')  # Turn off the axis
-    #             axs[i].set_title(f'Variable {i+1}')  # Set title for each variable
-    #             fig.savefig(f'{os.path.join(params.output_dir)}/generated_image_{j}.png')
-    #         else:
+#         # Loop over the 4 channels and plot each one
+#     for j in range(nber_imgs):
+#         for i in range(4):
+#             if i==3:
+#                 axs[i].imshow(image_np[j][i], cmap='coolwarm',origin='lower')  # Plot in grayscale (assuming each variable is grayscale)
+#                 axs[i].axis('off')  # Turn off the axis
+#                 axs[i].set_title(f'Variable {i+1}')  # Set title for each variable
+#                 fig.savefig(f'{os.path.join(params.output_dir)}/generated_image_{j}.png')
+#             else:
                     
-    #             axs[i].imshow(image_np[j][i], cmap='viridis',origin='lower')  # Plot in grayscale (assuming each variable is grayscale)
-    #             axs[i].axis('off')  # Turn off the axis
-    #             axs[i].set_title(f'Variable {i+1}')  # Set title for each variable
-    #             fig.savefig(f'{os.path.join(params.output_dir)}/generated_image_{j}.png')
+#                 axs[i].imshow(image_np[j][i], cmap='viridis',origin='lower')  # Plot in grayscale (assuming each variable is grayscale)
+#                 axs[i].axis('off')  # Turn off the axis
+#                 axs[i].set_title(f'Variable {i+1}')  # Set title for each variable
+#                 fig.savefig(f'{os.path.join(params.output_dir)}/generated_image_{j}.png')
 
 
 # End plots generator 
-    ################### main loop ##################
+    ################## main loop ##################
     for date_ in list_dates:
         print(date_)
         print((df_extract['Date']==date_).sum())

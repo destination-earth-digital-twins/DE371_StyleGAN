@@ -129,13 +129,13 @@ def get_expe_parameters():
     parser = argparse.ArgumentParser()
 
     # Paths
-    parser.add_argument('--data_dir', type=str, default="/project/home/p200177/DE_371/datasets/dataset_Meteo_France/IS_1_1.0_0_0_0_0_0_256_large_lt_done/")
+    parser.add_argument('--data_dir', type=str, default="/project/home/p200177/DE_371/datasets/dataset_Meteo_France_rr_u_v_t2m/data/IS_rr_debug_1_1.0_0_0_0_0_0_256_large_lt/")
     #parser.add_argument('--data_dir', type=str, default="/scratch/mrmn/brochetc/GAN_2D/datasets_full_indexing/IS_1_1.0_0_0_0_0_0_256_large_lt_done/")
     parser.add_argument('--mean_file', type=str, default=None )
     parser.add_argument('--std_file', type=str, default=None )
     parser.add_argument('--max_file', type=str, default=None )
     parser.add_argument('--min_file', type=str, default=None )
-    parser.add_argument('--id_file', type=str, default="Large_lt_test_labels.csv")
+    parser.add_argument('--id_file', type=str, default="IS_0.001_500.csv")
     parser.add_argument('--pretrained_model', type=int, default=-1)
     parser.add_argument('--output_dir', type=str, default='./results/')
     #parser.add_argument('--output_dir', type=str, default='/scratch/mrmn/sanchezv/project/results/gan_trained/')
@@ -285,6 +285,7 @@ config = get_expe_parameters().parse_args()
 #     config[param] = params[param]
 
 if not os.path.exists(config.output_dir):
+    print(config.output_dir)
     os.mkdir(config.output_dir)
 if not os.path.exists(config.output_dir + "/log"):
     os.mkdir(config.output_dir + "/log")

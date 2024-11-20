@@ -45,11 +45,13 @@ if __name__=="__main__" :
     # Checkpoint directory - PATH to generator's weight
     parser.add_argument('--ckpt_dir', type = str, 
                         default ='/project/scratch/p200177/DE_371/angeliquebonamy/stylegan2_stylegan_dom_256_lat-dim_512_bs_8_0.002_0.002_ch-mul_2_vars_rr_u_v_t2m_noise_True/model/222000.pt')
+    #/project/scratch/p200177/DE_371/angeliquebonamy/gan_training/exp_train_ep_with_Noise_Injection/models/138000.pt
+    #'/project/scratch/p200177/DE_371/angeliquebonamy/stylegan2_stylegan_dom_256_lat-dim_512_bs_8_0.002_0.002_ch-mul_2_vars_rr_u_v_t2m_noise_True/model/222000.pt'
     parser.add_argument('--real_data_dir', type = str, 
                         default ='/project/scratch/p200177/DE_371/angeliquebonamy/data_basile_inv/samples_AROME_for_AE_1/batchs/')
     parser.add_argument('--output_dir',type = str, 
-                        default ='/project/scratch/p200177/DE_371/angeliquebonamy/results/scenarios/VGG/rdm/TEST/sol5_noise/VGG_seul/inversion/')
-    parser.add_argument("--pack_dir", type=str, default = '/project/scratch/p200177/DE_371/angeliquebonamy/results/scenarios/VGG/rdm/TEST/sol5_noise/VGG_seul/pack/') # storing "packed" (normalized) real data
+                        default ='/home/users/u101957/DE371_StyleGAN/TEST/amse/inversion/')
+    parser.add_argument("--pack_dir", type=str, default = '/home/users/u101957/DE371_StyleGAN/TEST/amse/pack') # storing "packed" (normalized) real data
     parser.add_argument("--stat_dir", type=str, default = '/project/scratch/p200177/DE_371/angeliquebonamy/data_basile_inv/samples_AROME_for_AE_1/stat/stat_file/')
     parser.add_argument('--min_file', type=str, default='min_rr_log.npy')
     parser.add_argument('--max_file', type=str, default='max_rr_log.npy')
@@ -162,6 +164,7 @@ if __name__=="__main__" :
 
         Maxs = np.load(f'{params.stat_dir}{params.max_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
         ################ loading network #################
+        print('LES STATISTIQUES', Mins,Maxs)
 
         device = params.device if torch.cuda.is_available() else 'cpu'
 
@@ -208,48 +211,48 @@ if __name__=="__main__" :
             latent_mean = torch.tensor(lm, dtype = torch.float32)
 
 # PLOT GENERATOR ::
-        nber_imgs = 10
-        latent_z = torch.empty(nber_imgs, 512).normal_().to(device)  # Single latent vector
+    #     nber_imgs = 10
+    #     latent_z = torch.empty(nber_imgs, 512).normal_().to(device)  # Single latent vector
         
-        with torch.no_grad():
-            styles = G.style(latent_z)  # Get styles
-            print("Shape of latent_z:", latent_z.shape)
-            print("Shape of styles:", styles.shape)
-            generated_image = G([styles])  # Generate image
-        print(f"Length of generated_image tuple: {len(generated_image)}")
-        for i, img in enumerate(generated_image):
-            print(f"Element {i} type: {type(img)}")
-            if isinstance(img, torch.Tensor):
-                print(f"Element {i} shape: {img.shape}")
-    # Extract the image tensor from the tuple
+    #     with torch.no_grad():
+    #         styles = G.style(latent_z)  # Get styles
+    #         print("Shape of latent_z:", latent_z.shape)
+    #         print("Shape of styles:", styles.shape)
+    #         generated_image = G([styles])  # Generate image
+    #     print(f"Length of generated_image tuple: {len(generated_image)}")
+    #     for i, img in enumerate(generated_image):
+    #         print(f"Element {i} type: {type(img)}")
+    #         if isinstance(img, torch.Tensor):
+    #             print(f"Element {i} shape: {img.shape}")
+    # # Extract the image tensor from the tuple
 
-        image_tensor = generated_image[0]
-        print(f"Shape of image_tensor: {image_tensor.shape}")
+    #     image_tensor = generated_image[0]
+    #     print(f"Shape of image_tensor: {image_tensor.shape}")
 
 
-        # Remove the batch dimension
-        image_tensor = image_tensor.squeeze(0)  # Shape is now [4, 256, 256]
+    #     # Remove the batch dimension
+    #     image_tensor = image_tensor.squeeze(0)  # Shape is now [4, 256, 256]
 
-        # Convert the tensor to numpy for plotting
-        image_np = image_tensor.detach().cpu().numpy()
+    #     # Convert the tensor to numpy for plotting
+    #     image_np = image_tensor.detach().cpu().numpy()
 
-        # Set up the figure with 4 subplots (one for each variable)
-        fig, axs = plt.subplots(1, 4, figsize=(20, 5))  # 1 row, 4 columns
+    #     # Set up the figure with 4 subplots (one for each variable)
+    #     fig, axs = plt.subplots(1, 4, figsize=(20, 5))  # 1 row, 4 columns
 
-        # Loop over the 4 channels and plot each one
-        for j in range(nber_imgs):
-            for i in range(4):
-                if i==3:
-                    axs[i].imshow(image_np[j][i], cmap='coolwarm',origin='lower')  # Plot in grayscale (assuming each variable is grayscale)
-                    axs[i].axis('off')  # Turn off the axis
-                    axs[i].set_title(f'Variable {i+1}')  # Set title for each variable
-                    fig.savefig(f'{os.path.join(params.output_dir, batch_dir)}/generated_image_{j}.png')
-                else:
+    #     # Loop over the 4 channels and plot each one
+    #     for j in range(nber_imgs):
+    #         for i in range(4):
+    #             if i==3:
+    #                 axs[i].imshow(image_np[j][i], cmap='coolwarm',origin='lower')  # Plot in grayscale (assuming each variable is grayscale)
+    #                 axs[i].axis('off')  # Turn off the axis
+    #                 axs[i].set_title(f'Variable {i+1}')  # Set title for each variable
+    #                 fig.savefig(f'{os.path.join(params.output_dir, batch_dir)}/generated_image_{j}.png')
+    #             else:
                     
-                    axs[i].imshow(image_np[j][i], cmap='viridis',origin='lower')  # Plot in grayscale (assuming each variable is grayscale)
-                    axs[i].axis('off')  # Turn off the axis
-                    axs[i].set_title(f'Variable {i+1}')  # Set title for each variable
-                    fig.savefig(f'{os.path.join(params.output_dir, batch_dir)}/generated_image_{j}.png')
+    #                 axs[i].imshow(image_np[j][i], cmap='viridis',origin='lower')  # Plot in grayscale (assuming each variable is grayscale)
+    #                 axs[i].axis('off')  # Turn off the axis
+    #                 axs[i].set_title(f'Variable {i+1}')  # Set title for each variable
+    #                 fig.savefig(f'{os.path.join(params.output_dir, batch_dir)}/generated_image_{j}.png')
 
 
 ## End plots generator 
@@ -278,8 +281,8 @@ if __name__=="__main__" :
                     #     print('LA1')
                     inv.optimize(batch_dir,batch,batch_idx, G, latent_mean, device, params,scenario)
                     # else:
-                    #     print('LA')
-                    #     inv_wonoise.optimize(batch, G, latent_mean, device, params,scenarios)
+                        # print('LA')
+                        # inv_wonoise.optimize(batch, G, latent_mean, device, params,scenarios)
     # ################## loading dates and file names ##
     # df = pd.read_csv(params.real_data_dir + params.dates_file)
     # df_date = df.copy()
