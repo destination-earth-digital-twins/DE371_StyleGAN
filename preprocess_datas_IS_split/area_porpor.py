@@ -3,54 +3,52 @@ import numpy as np
 import os
 import matplotlib.pyplot as plt
 
-# Chemins à adapter
-chemin_csv = '/project/home/p200177/DE_371/datasets/dataset_Meteo_France_rr_u_v_t2m/datasaved5_0.001_500_prem/INST1/labels.csv'  # Le chemin vers ton fichier CSV
-dossier_samples = '/project/home/p200177/DE_371/datasets/dataset_Meteo_France_rr_u_v_t2m/data/IS_rr_debug_1_1.0_0_0_0_0_0_256_large_lt/'  # Le dossier contenant les fichiers des samples
+# Paths to adjust
+chemin_csv = 'path to labels.csv'  # The path to your CSV file
+dossier_samples = 'path to dataset '  # The folder containing the sample files
 
-# Lire le fichier CSV contenant les noms des samples
+# Read the CSV file containing the sample names
 samples_csv = pd.read_csv(chemin_csv)
 
-# Liste pour stocker toutes les données des samples
+# List to store all the sample data
 all_samples_data = []
 
-# Parcourir chaque nom de sample dans le CSV
+# Loop through each sample name in the CSV
 for sample_name in samples_csv['Name']:
-    # Construire le chemin vers le fichier de données pour ce sample
+    # Build the path to the data file for this sample
     chemin_sample = os.path.join(dossier_samples, f'{sample_name}.npy')
-    # Lire les données du sample (on suppose que chaque fichier sample est un CSV)
+    # Read the sample data (assuming each sample file is a .npy file)
     try:
         data_sample = np.load(chemin_sample)
-        print('SHAPE SAMPLE', data_sample.shape)
-        # Si le fichier contient plusieurs colonnes, on peut soit les sélectionner, soit prendre une moyenne
-        # Pour l'exemple, on utilise la première colonne
-        all_samples_data.append(data_sample[0])  # On ajoute la première colonne de données du sample
+        # If the file contains multiple columns, you can either select one or take an average
+        # For this example, we use the first column
+        all_samples_data.append(data_sample[0])  # We add the first column of the sample data
         print(data_sample[0].shape)
     except FileNotFoundError:
-        print(f"Le fichier pour le sample {sample_name} est introuvable.")
+        print(f"The file for the sample {sample_name} is not found.")
         continue
 
-# Combiner toutes les données des samples en un seul DataFrame
+# Combine all the sample data into a single DataFrame
 combined_data = pd.concat(all_samples_data, axis=1)
 
-# Calculer la valeur minimale et maximale des données
+# Calculate the minimum and maximum value of the data
 val_min = combined_data.min().min()
 val_max = combined_data.max().max()
 
-# Générer une série de seuils entre la valeur minimale et maximale
+# Generate a series of thresholds between the minimum and maximum values
 seuils = np.linspace(val_min, val_max, 100)
 
-# Calculer la proportion des samples > chaque seuil
+# Calculate the proportion of samples > each threshold
 proportions = [(combined_data > seuil).mean().mean() for seuil in seuils]
 
-
-
-# Configuration du graphique
+# Graph configuration
 plt.figure(figsize=(10, 6))
 plt.plot(seuils, proportions, marker='o')
-plt.title("Proportion des samples dépassant un seuil")
-plt.xlabel("Seuil")
-plt.ylabel("Proportion des samples > seuil")
+plt.title("Proportion of samples exceeding a threshold")
+plt.xlabel("Threshold")
+plt.ylabel("Proportion of samples > threshold")
 plt.grid(True)
 
-# Enregistrer le graphique dans un fichier (par exemple "graphique.png")
+# Save the graph to a file (e.g., "graphique.png")
 plt.savefig("graphique.png")
+

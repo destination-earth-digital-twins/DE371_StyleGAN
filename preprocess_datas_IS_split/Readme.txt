@@ -1,19 +1,16 @@
-A compléter pour expliquer comment entrainer gan sur meluxina, comment faire importance sampling, parler des observations, et comment inverser et générer ou plots des samples du GAN 
-Avant d'entrainer un dataset contenant des précipitations, il est important d'utiliser l'échnatillonnage préférentiel (EP) --> importance sampling. 
-Comme résumé ci-dessous, cela nous permet d'éviter une sur représentation des samples sans précipitations. 
+TO COMPLETE TO EXPLAIN HOW TRAIN A GAN IN MEKLUXINA, HOW TO DO IMPORTANCE SAMPLING , INVERSION PROCESS AND PERTURBATION 
 
-L'importance sampling qu'est ce que c'est :  L’idée est de hiérarchiser
-les données utilisées en leur conférant une "importance" au regard de leur contribution, par exemple, à
-la variance totale du jeu de données. Les données les plus importantes sont sélectionnées avec une plus
-grande probabilité et utilisées a posteriori pour l’entraînement du réseau. En résumé, cela sert à supprimer les samples qui 
-contiennt peu ou pas de précipitations pour forcer le réseau à apprendre à reproduire les précipitations. 
+Before training a dataset containing precipitation data, it is important to use preferential sampling (EP) → importance sampling.
 
-Pour se faire il faut faire un pré-processing du dataset, pour rassembler nos samples en Gigafile (batchs):
-                        " pre_pro_for_is.py"
-Ensuite il faut utiliser le fichier : " called/process_is.py " afin d'appliquer l'EP. 
+What is importance sampling? The idea is to prioritize the data used by assigning them an "importance" based on their contribution to, for example, the total variance of the dataset. The most important data points are selected with a higher probability and later used for training the network. In summary, it helps to eliminate samples that contain little or no precipitation, forcing the network to learn to replicate precipitation patterns.
 
-Nous allons reproduire n fois ce processus, c'est ce qu'on appelle le bootstrap, pour obtenir plusieurs fichihers csv résultants de différents EP. 
+To achieve this, we need to pre-process the dataset to group our samples into Gigafile (batches):
+"pre_pro_for_is.py"
 
-Ensuite, nous allons assembler ces différents csv pour agrandir notre train set: " bootrstaps.py"
+Then, we need to use the file: "called/process_is.py" to apply the importance sampling (EP).
 
-Enfin on divise le dataset en train/test/valid set. 
+We will repeat this process multiple times, which is called bootstrap, to obtain several CSV files resulting from different EPs.
+
+Next, we will combine these different CSVs to enlarge our training set: "bootstraps.py"
+
+Finally, we divide the dataset into training, testing, and validation sets.
