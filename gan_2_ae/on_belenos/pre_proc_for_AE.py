@@ -3,7 +3,7 @@ import random
 import subprocess
 from multiprocessing import Pool
 from pathlib import Path
-
+import os
 import numpy as np
 import yaml
 from tqdm import tqdm
@@ -128,6 +128,7 @@ def process_arome(real_sample_dir, real_sample_export_dir, nb_batch=1):
     for batch in range(nb_batch):
         print(f'Loading real samples for batch {batch + 1}...')
         rr_npy, real_files = load_r_sample(real_files)
+        print('BATCH TYPE',type(batch),batch.size)
         np.save(real_sample_export_dir / f'batch_{batch + 1}' , rr_npy)
 
 def load_r_sample(real_files):
@@ -198,13 +199,13 @@ if __name__ == '__main__':
     generation_characteristics_args = parser.add_argument_group('Generation characteristics for one step')
     generation_characteristics_args.add_argument('-n', '--nb_fake_samples', type=int, default=131072, help='Number of sample generated')
     generation_characteristics_args.add_argument('--nb_batch', type=int, default=1024, help='Number of batch')
-    generation_characteristics_args.add_argument('--source', type=str, choices=['AROME', 'GAN'], default='GAN', help='Select the source of the samples')
+    generation_characteristics_args.add_argument('--source', type=str, choices=['AROME', 'GAN'], default='AROME', help='Select the source of the samples')
     generation_characteristics_args.add_argument('--nb_batch_render', type=int, default=1, help='Number of render batch of nb_fake_samples files')
 
     args = parser.parse_args()
 
-    root_set_dir = Path(f'/scratch/work/gandonb')
-    real_sample_dir = root_set_dir / 'data/cropped_120_376_540_796'
+    root_set_dir = Path(f'/project/home/p200177/DE_371/datasets/dataset_Meteo_France_rr_u_v_t2m/')
+    real_sample_dir = root_set_dir / 'data/IS_rr_debug_1_1.0_0_0_0_0_0_256_large_lt'
     real_sample_export_dir = root_set_dir / f'samples_AROME_for_AE_{args.name}'
     real_sample_export_dir.mkdir(parents=True, exist_ok=True)
 
@@ -238,6 +239,7 @@ if __name__ == '__main__':
         detransformer = Detransform(data_transform_config)
     
     if args.source == 'AROME':
+        print('DIR',len(os.listdir(real_sample_dir)))
         process_arome(real_sample_dir, real_sample_export_dir, args.nb_batch_render)
     else:
         process_gan_output(fake_sample_dir, args.step, args.nb_batch, args.nb_fake_samples, detransformer, fake_sample_detransformed_dir, args.nb_batch_render)

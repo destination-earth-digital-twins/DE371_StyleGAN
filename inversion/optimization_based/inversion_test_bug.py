@@ -8,15 +8,13 @@ import torch.nn.functional as F
 import numpy as np
 import pickle
 from tqdm import tqdm
-from inversion.perceptual_loss.perceptual_loss import PerceptualLoss
+from inversion.vgg_perceptual_loss import VGGPerceptualLoss
+# from inversion.patch_vgg_perceptual_loss import PatchVGGPerceptualLoss
 from inversion.plotter import online_inv_plot_2, online_inv_plot
 from inversion.ssim import ssim, ms_ssim, SSIM, MS_SSIM
-from inversion.focal_frequency_loss import FocalFrequencyLoss
 
 import time
 from torch.autograd import Variable
-
-torch.autograd.set_detect_anomaly(True)
 
 def noise_regularize(noises):
     r'''
@@ -81,7 +79,7 @@ def latent_noise(latent, strength):
     noise = torch.randn_like(latent) * strength
     return latent + noise
 
-def optimize(Ens_r, g_ema, latent_mean, device, params, hybrid=False):
+def optimize(Ens_r, g_ema, latent_mean, device, params):
 
     """
 
@@ -107,38 +105,28 @@ def optimize(Ens_r, g_ema, latent_mean, device, params, hybrid=False):
 
 
     """
-    np.save(params.pack_dir+'ENS.npy', Ens_r.numpy().astype(np.float32))
-
     Ens_r = Ens_r.to(device) # torch.Size([B, CH, 256, 256])
-    print('JE SUIS ENSR', Ens_r.shape, type(Ens_r))
     latent_mean = latent_mean.to(device) # torch.Size([512])
-    if hybrid : 
-        if len(latent_mean.shape) == 2 :
-            latent_in = latent_mean.detach().clone().unsqueeze(0).repeat(Ens_r.shape[0], 1) # torch.Size([B, 512])
-            latent_in = latent_mean.detach().clone().unsqueeze(0).repeat(Ens_r.shape[0], 1) # (B, 512)
-            latent_in = latent_in.unsqueeze(1).repeat(1, g_ema.n_latent, 1) # (B, 14, 512)
-            latent_in.requires_grad = True
-        else :
-            latent_in = latent_mean
-            
-    else :
-            latent_in = latent_mean.detach().clone().unsqueeze(0).repeat(Ens_r.shape[0], 1) # torch.Size([B, 512])
-            latent_in = latent_mean.detach().clone().unsqueeze(0).repeat(Ens_r.shape[0], 1) # (B, 512)
-            latent_in = latent_in.unsqueeze(1).repeat(1, g_ema.n_latent, 1) # (B, 14, 512)
-            latent_in.requires_grad = True
+    latent_in = latent_mean.detach().clone().unsqueeze(0).repeat(Ens_r.shape[0], 1) # torch.Size([B, 512])
+
     with torch.no_grad():
         noise_sample = torch.randn(Ens_r.shape[0], 512, device=device) # torch.Size([B,512]) (z)
         latent_out = g_ema.style(noise_sample) # torch.Size([B,512]) (w)
         latent_mean = latent_out.mean(0)
         latent_std = ((latent_out - latent_mean).pow(2).sum() / Ens_r.shape[0]) ** 0.5
 
-    # print(f'########## Latent vector optimisation {params.date_index} {params.lt_index} #############')
+    print(f'########## Latent vector optimisation {params.date_index} {params.lt_index} #############')
 
     noises_single = g_ema.make_noise() # list of noise maps, with shapes from (1,1,4,4) to (1,1,256,256)
     if params.fixed_noise or params.noise_optimize :
         noises = [] # per pixel noise to inject in each layer. with shapes from (B,1,4,4) to (B,1,256,256)
         for i, noise in enumerate(noises_single):
             noises.append(noise.repeat(Ens_r.shape[0], 1, 1, 1).normal_())
+
+    latent_in = latent_mean.detach().clone().unsqueeze(0).repeat(Ens_r.shape[0], 1) # (B, 512)
+    latent_in = latent_in.unsqueeze(1).repeat(1, g_ema.n_latent, 1) # (B, 14, 512)
+    latent_in.requires_grad = True
+
     if params.noise_optimize:
         for noise in noises:
             noise.requires_grad = True
@@ -152,22 +140,16 @@ def optimize(Ens_r, g_ema, latent_mean, device, params, hybrid=False):
     latent_path = []
 
     #### Perceptual Loss ####
-    if params.lambda_perceptual_loss>0:
-        perceptual_loss_class = PerceptualLoss(
-                                        config=params,
-                                        device=device,
-                                        multi_scale=params.multi_scale_perceptual_loss
-                                        ).to(device).eval()
-        perceptual_loss_class.compute_perceptual_features(img=Ens_r)
+    if params.lambda_vgg>0:
+        VGG_loss = VGGPerceptualLoss(params=params, device=device).to(device).eval()
+        if params.optimize_features_computation :    
+            VGG_loss.compute_perceptual_features(img=Ens_r)
         
     # MS-SSIM module for MS-SSIM loss
     # ssim_module = SSIM(data_range=1, size_average=True, channel=1)
     if params.lambda_ms_ssim :
         ms_ssim_module = MS_SSIM(data_range=1, size_average=True, channel=3)
 
-    ### Focal Frequency Loss ###
-    if params.lambda_focal_frequency_loss:
-        focal_frequency_loss_module = FocalFrequencyLoss()
 
     list_perceptual_loss = []
     list_pixel_loss = []
@@ -188,26 +170,22 @@ def optimize(Ens_r, g_ema, latent_mean, device, params, hybrid=False):
             Gen = g_ema([latent_n], input_is_latent=True, noise=None)
 
         img_gen = Gen[0] # generated samples
-    
-            
-        
-        print('ICI CESTLA DIMENSION',img_gen.shape)
 
-        #print('ACTUELLEMENT LA',img_gen.shape,img_gen[0].shape,img_gen[0][0].shape,torch.min(img_gen[0][0]),10**torch.max(img_gen[0][0])-1)
-        # normalise samples and save in pack dir. obs! make sure normalization is done correctly (according to how model was trained)
-    
         batch, channel, height, width = img_gen.shape
         # print('img_gen shape :', img_gen.shape)
         if params.noise_optimize:
             noise_loss = noise_regularize(noises)
         else :
             noise_loss = 0
-
-       # compute vgg/perceptual loss
+        
+        # compute vgg/perceptual loss
         perceptual_loss = torch.tensor(0.).to(device)
-        if params.lambda_perceptual_loss>0:
+        if (i >= params.vgg_loss_after_step and (params.lambda_vgg>0.)) or params.lambda_ms_ssim>0:
                 t0 = time.time()
-                perceptual_loss = perceptual_loss_class(img_gen=img_gen)
+                if not params.optimize_features_computation:
+                    perceptual_loss = VGG_loss(input_img=Ens_r, img_gen=img_gen)
+                else :
+                    perceptual_loss = VGG_loss(img_gen=img_gen)
                 list_time_to_compute_vgg_loss.append(time.time()-t0)
                 list_perceptual_loss.append(perceptual_loss.cpu().detach().numpy())
         else :
@@ -219,77 +197,42 @@ def optimize(Ens_r, g_ema, latent_mean, device, params, hybrid=False):
         if params.lambda_ms_ssim>0. : 
             ms_ssim_loss = 1 - ms_ssim_module((img_gen+1)/2, (Ens_r+1)/2)
 
-        # compute ffl loss
-        ffl_loss = torch.tensor(0.).to(device)
-        if params.lambda_focal_frequency_loss:
-            ffl_loss = focal_frequency_loss_module(img_gen, Ens_r)
-
         # compute mae/mse pixel loss
         if params.pixel_loss_type=='mse' :
             t0 = time.time()
             pixel_loss = F.mse_loss(img_gen, Ens_r)
-            print(pixel_loss, 'EXEMPLE')
             list_time_to_compute_mse_loss.append(time.time()-t0)
             list_pixel_loss.append(pixel_loss.cpu().detach().numpy())
-            print('MSE',pixel_loss, 'EXEMPLE mse', type(pixel_loss))
 
         elif params.pixel_loss_type=='mae':
             pixel_loss = F.l1_loss(img_gen, Ens_r)
-        
-        elif params.pixel_loss_type=='wmse':
-            t0 = time.time()
-            pixel_loss = (F.mse_loss(img_gen, Ens_r)*torch.min(Ens_r+1,torch.tensor(20))).mean()
-            list_time_to_compute_mse_loss.append(time.time()-t0)
-            list_pixel_loss.append(pixel_loss.cpu().detach().numpy())
-            print('WMSE',pixel_loss, 'EXEMPLE wmse', type(pixel_loss))
-        elif params.pixel_loss_type=='amse':
-            t0 = time.time()
-            pixel_loss = F.mse_loss(img_gen, Ens_r) + torch.max(torch.min(Ens_r,torch.tensor(20))-img_gen,torch.tensor(0)).mean()
-            list_time_to_compute_mse_loss.append(time.time()-t0)
-            list_pixel_loss.append(pixel_loss.cpu().detach().numpy())
-        
-        elif params.pixel_loss_type=='wamse':
-            t0 = time.time()
-            pixel_loss = F.mse_loss(img_gen, Ens_r) + torch.max(torch.min(Ens_r,torch.tensor(20))-img_gen,torch.tensor(0)).mean()*torch.min(Ens_r+1,torch.tensor(20)).mean()
-            list_time_to_compute_mse_loss.append(time.time()-t0)
-            list_pixel_loss.append(pixel_loss.cpu().detach().numpy())
-            
-        elif params.pixel_loss_type =='mul_pixel_loss_mse':
-            t0 = time.time()
-            pixel_loss_mse = F.mse_loss(img_gen, Ens_r)
-            x = Ens_r.contiguous()
-            y = img_gen.contiguous()
-            pixel_loss_sum = torch.abs((x-y).sum())
-            pixel_loss = pixel_loss_mse + pixel_loss_sum * 0.0002 
-
 
         else:
             raise ValueError(f"unknown pixel_loss_type: {params.pixel_loss_type}")
 
-        if params.lambda_perceptual_loss>0. :
-            weighted_perceptual_loss = params.lambda_perceptual_loss*perceptual_loss
+        if params.lambda_vgg>0. :
+            weighted_perceptual_loss = params.lambda_vgg*perceptual_loss
         else :
             weighted_perceptual_loss=0
 
         # compute total loss
         if not params.progressive_loss_mode :
-            loss = params.noise_optimize*params.lambda_noise*noise_loss + params.lambda_pixel*pixel_loss + params.lambda_ms_ssim*ms_ssim_loss + weighted_perceptual_loss + ffl_loss * params.lambda_focal_frequency_loss
+            loss = params.noise_optimize*params.lambda_noise*noise_loss + params.lambda_pixel*pixel_loss + params.lambda_ms_ssim*ms_ssim_loss + weighted_perceptual_loss
         else :
-            loss = params.noise_optimize*params.lambda_noise*noise_loss + params.lambda_pixel*pixel_loss+weighted_perceptual_loss+params.lambda_ms_ssim*ms_ssim_loss + ffl_loss * params.lambda_focal_frequency_loss*t
+            loss = params.noise_optimize*params.lambda_noise*noise_loss + params.lambda_pixel*pixel_loss*(1-t) + (weighted_perceptual_loss+params.lambda_ms_ssim*ms_ssim_loss)*t
 
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
+
         if params.fixed_noise or params.noise_optimize :
             noise_normalize_(noises)
 
         display = f'lr: {lr:.4f}'
         if params.lambda_ms_ssim>0. : 
             display += f" || ms_ssim_loss: {ms_ssim_loss.item():.6f}"
-        if params.lambda_perceptual_loss>0. : 
+        if params.lambda_vgg>0. : 
             display += f" || perceptual_loss: {perceptual_loss.item():.6f}"
-        if params.lambda_focal_frequency_loss>0. :
-            display += f" || focal_frequency_loss: {ffl_loss.item():.6f}"
         # if weighted_perceptual_loss: 
         #     display += f" || weighted_perceptual_loss: {weighted_perceptual_loss:.6f}"
         # if params.lambda_pixel>0. : 
@@ -307,14 +250,22 @@ def optimize(Ens_r, g_ema, latent_mean, device, params, hybrid=False):
             latent_path.append(latent_in.detach().clone())
 
         if i+1 in params.inv_checkpoints:
-            print(f"--saving checkpoint {i+1}:", params.output_dir+'w_{j}_{}_{}.npy')#.format(params.date_index,params.lt_index,i+1))
-            np.save(params.output_dir+'w_{}_{}_{}.npy'.format(params.date_index,params.lt_index,i+1),latent_in.cpu().detach().numpy())#.format(params.date_index,params.lt_index,i+1),latent_in.cpu().detach().numpy())
+            print(f"--saving checkpoint {i+1}:", params.output_dir+'w_{}_{}_{}.npy'.format(params.date_index,params.lt_index,i+1))
+            np.save(params.output_dir+'w_{}_{}_{}.npy'.format(params.date_index,params.lt_index,i+1),latent_in.cpu().detach().numpy())
             if params.fixed_noise or params.noise_optimize :
-                with open(params.output_dir+'noise_{}_{}_{}.p'.format(params.date_index,params.lt_index,i+1),'wb') as f: #.format(params.date_index,params.lt_index,i+1), 'wb') as f:
-                    pickle.dump({z : n.cpu().detach().numpy() for z,n in enumerate(noises)},f)
-            np.save(params.output_dir+'invertFsemble_{}_{}_{}.npy'.format(params.date_index,params.lt_index,i+1),img_gen.cpu().detach().numpy())#.format(params.date_index,params.lt_index,i+1),img_gen.cpu().detach().numpy())
+                with open(params.output_dir+'noise_{}_{}_{}.p'.format(params.date_index,params.lt_index,i+1), 'wb') as f:
+                    pickle.dump({j : n.cpu().detach().numpy() for j,n in enumerate(noises)},f)
+
+            np.save(params.output_dir+'invertFsemble_{}_{}_{}.npy'.format(params.date_index,params.lt_index,i+1),img_gen.cpu().detach().numpy())
+
             if params.plot_checkpoint :
                 figname = params.output_dir + f"{params.date_index}_{params.lt_index}_step_{i+1}.png"
                 print(f"--plotting checkpoint {i+1}: {figname}")
                 figtitle = f"{params.date_index}_{params.lt_index}_step_{i+1}"
                 online_inv_plot_2(Ens_r.cpu().detach().numpy(), img_gen.cpu().detach().numpy(), figtitle=figtitle, figname=figname)
+                
+            # print(f"--saving loss_function {i+1}: {figname}")
+            # np.save(params.output_dir+'MSE_loss_{}_{}.npy'.format(params.date_index,params.lt_index),list_pixel_loss)
+            # np.save(params.output_dir+'Perceptual_loss_{}_{}.npy'.format(params.date_index,params.lt_index),list_perceptual_loss)
+            # np.save(params.output_dir+'Time_Perceptual_loss_{}_{}.npy'.format(params.date_index,params.lt_index),list_time_to_compute_vgg_loss)
+            # np.save(params.output_dir+'Time_MSE_loss_{}_{}.npy'.format(params.date_index,params.lt_index),list_time_to_compute_mse_loss)
