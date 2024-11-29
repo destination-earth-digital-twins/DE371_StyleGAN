@@ -8,7 +8,6 @@ from multiprocessing.pool import ThreadPool as Pool
 from time import perf_counter
 
 import matplotlib
-#import seaborn as sns
 
 matplotlib.use("Agg")
 import numpy as np

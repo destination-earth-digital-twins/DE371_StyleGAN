@@ -1,26 +1,26 @@
 import pandas as pd
 import glob
 
-"Permet de prendre n csv files, et retourne un csv file sans duplicats"
-# Chemin où sont stockés les fichiers CSV (remplacez 'path/to/csv_files/' par votre chemin réel)
-chemin_dossier = '/project/home/p200177/DE_371/datasets/dataset_Meteo_France_rr_u_v_t2m/bootstraps/*.csv'
+#Allows to take n csv files, and returns a csv file without duplicates.
+# Path where CSV files are stored (replace 'path/to/csv_files/' with your actual path)
+chemin_dossier = '/*.csv'
 
-# Liste pour stocker les DataFrames de chaque fichier CSV
+# List to store DataFrames for each CSV file
 dataframes = []
 
-# Charger tous les fichiers CSV et les ajouter à la liste `dataframes`
+# Load all CSV files and add them to the `dataframes` list
 for fichier in glob.glob(chemin_dossier):
     print(fichier)
     df = pd.read_csv(fichier)
     dataframes.append(df)
 
-# Combiner tous les DataFrames en un seul
+# Combien all DF into one
 df_combined = pd.concat(dataframes, ignore_index=True)
 
-# Supprimer les doublons basés sur la colonne 'Name'
+# Delete duplicates based on the 'Name' column
 df_unique = df_combined.drop_duplicates(subset=['Name'])
 
-# Sauvegarder le DataFrame final dans un fichier CSV
-df_unique.to_csv('IS_boostrap_rr_cumul_correct.csv', index=False)
+# Save the final DataFrame as a CSV file
+df_unique.to_csv('name_of_new_csv_file', index=False)
 
-print("Le fichier CSV final sans doublons a été créé avec succès.")
+print("The final CSV file without duplicates has been successfully created.")

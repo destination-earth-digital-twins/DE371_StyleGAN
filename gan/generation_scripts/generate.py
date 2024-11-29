@@ -56,7 +56,7 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
-        "--output_dir", type=str, default="/scratch/mrmn/poulainauzeaul/Exp_StyleGAN/Set_1/stylegan2_stylegan_512_32_0.002_0.002/Instance_3/samples/" # change with your path
+        "--output_dir", type=str, default="",help="path to the output directory" # change with your path
     )
 
     parser.add_argument("--truncation", type=float, default=1, help="truncation ratio")
@@ -69,7 +69,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--ckpt",
         type=str,
-        default="/scratch/mrmn/poulainauzeaul/Exp_StyleGAN/Set_1/stylegan2_stylegan_512_32_0.002_0.002/Instance_3/models/", # change with your path
+        default="", # change with your path
         help="path to the model checkpoint",
     )
     parser.add_argument(
@@ -95,5 +95,5 @@ if __name__ == "__main__":
                 mean_latent = g_ema.mean_latent(args.truncation_mean)
         else:
             mean_latent = None
-
+            
         generate(args, g_ema, mean_latent, step)
