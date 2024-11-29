@@ -12,7 +12,7 @@ from inversion.vgg_perceptual_loss import VGGPerceptualLoss
 from inversion.plotter import online_inv_plot_2, online_inv_plot
 # import inversion.PerceptualSimilarity.lpips as lpips
 from inversion.ssim import ssim, ms_ssim, SSIM, MS_SSIM
-from inversion.hd_vgg_perceptual_loss import VGG16ConvLoss
+#from inversion.hd_vgg_perceptual_loss import VGG16ConvLoss
 import time
 from torch.autograd import Variable
 
@@ -264,8 +264,8 @@ def optimize(Ens_r, g_ema, latent_mean, device, params):
         if (i >= params.vgg_loss_after_step and (params.lambda_vgg>0. or params.lambda_lpips>0.)) or params.lambda_ms_ssim>0:
                 t0 = time.time()
                 if not params.optimize_features_computation : 
-                    if not params.hd_vgg :
-                        raise NotImplementedError
+                    #if not params.hd_vgg :
+                    #    raise NotImplementedError
                     if params.vgg_computation=='sol1':
                         for i_mem in range(img_gen.shape[0]):
                             for i_var in range(img_gen.shape[1]):

@@ -67,17 +67,19 @@ if __name__=="__main__" :
     parser.add_argument('--ckpt_dir', type = str, 
                             default ='/project/scratch/p200177/DE_371/victorsanchez/models/trained_generator/000024.pt')
     parser.add_argument('--latent_vectors_dir', type = str, 
-                        default='/project/home/p200177/DE_371/experiments_WP1/inversion_process_analysis/inversion/exp34/inversion')
+                        default='/project/home/p200177/DE_371/experiments_WP2/temporal_downscaling_experiments/inversion_autumn')
     parser.add_argument('--output_dir',type = str, 
-                        default ='/project/scratch/p200177/DE_371/temporal_downscaling_experiments/u101834/2021-07-16')
-    parser.add_argument("--date", type=str, default = "2021-07-16")
-    parser.add_argument("--input_leadtimes", type=utils.str2intlist, default=[3,9,15,21,27,33,39])
-    parser.add_argument("--ref_leadtimes", type=utils.str2intlist, default=[6,12,18,24,30,36])
-    parser.add_argument("--invstep", type=int, default=2000, help="optimize iterations")
+                        default ='/project/home/p200177/DE_371/experiments_WP2/temporal_downscaling_experiments/latent_space_linear_interpolation_autumn')
+    parser.add_argument("--date", type=str, default = "2021-10-02")
+    parser.add_argument("--input_leadtimes", type=utils.str2intlist, default=[6,12])
+    parser.add_argument("--ref_leadtimes", type=utils.str2intlist, default=[6,7,8,9,10,11,12])
+    parser.add_argument("--invstep", type=int, default=1000, help="optimize iterations")
     params = parser.parse_args()
 
     G = load_network(params)
     input_latent_vectors = []
+
+    weights = np.linspace(0, 1, len(params.ref_leadtimes))
 
     for input_leadtime in params.input_leadtimes:
         latent_vector = np.load(f"{params.latent_vectors_dir}/w_{params.date}_{input_leadtime}_{params.invstep}.npy")
@@ -98,6 +100,14 @@ if __name__=="__main__" :
             img_generated.cpu().detach().numpy()
             )
 
+    for weight, ref_leadtime in zip(weights, params.ref_leadtimes):
+        interpolated_vector = input_latent_vectors[0] * (1 - weight) + input_latent_vectors[1] * weight
+        img_generated = generate_image_from_latent(interpolated_vector, G, params.device)
+        np.save(
+            f"{params.output_dir}/interpolated_{params.date}_{ref_leadtime}_{params.invstep}.npy", 
+            img_generated.cpu().detach().numpy()
+            )
+"""
     for i, ref_leadtime in zip(range(len(input_latent_vectors)), params.ref_leadtimes):
         if i == len(input_latent_vectors) - 1:
             break
@@ -107,3 +117,4 @@ if __name__=="__main__" :
             f"{params.output_dir}/interpolated_{params.date}_{ref_leadtime}_{params.invstep}.npy", 
             img_generated.cpu().detach().numpy()
             )
+"""
