@@ -23,11 +23,12 @@ def load_batch_from_timestamp(dataframe, date, lt, data_dir, Shape=(4,256,256), 
     df0 = dataframe[(dataframe['Date']==date) & (dataframe['LeadTime']==lt)]
 
     Nb = len(df0)
-
+    print(df0, 'JE SUIS LE TEST POUR LE DF0 D UTILS')
     batch = np.zeros((Nb,) + tuple(Shape))
     print(batch.shape)
     for i,s in enumerate(df0['Name']):
         print(i, s)
+        print('JE SUIS LE TEST2', f'{data_dir}{s}.npy')
         sn = np.load(f'{data_dir}{s}.npy')[var_indices,:,:].astype(np.float32)
 
         batch[i] = sn

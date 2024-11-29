@@ -112,7 +112,7 @@ def compute_perceptual_features(img, VGG_loss, device, params):
     
     
 
-def optimize(Ens_r, g_ema, latent_mean, device, params):
+def optimize(batch_dir,Ens_r,batch_idx, g_ema, latent_mean, device, params,scenario):
     """
     
     Inverting Ens_r and tuning the Generator g_ema
@@ -530,14 +530,14 @@ def optimize(Ens_r, g_ema, latent_mean, device, params):
         data = {'params' : params, 'pixel_loss {}'.format(params.pixel_loss_type) : pixel_scores}
         
         if i+1 in params.inv_checkpoints:
-            np.save(os.path.join(params.output_dir)+'/w_{}_{}_{}.npy'.format(params.date_index,params.lt_index,i+1),latent_in.cpu().detach().numpy())
+            np.save(os.path.join(params.output_dir,batch_dir)+'/w_{}_{}_{}.npy'.format(params.date_index,params.lt_index,i+1),latent_in.cpu().detach().numpy())
             
             # with open(os.path.join(params.output_dir,batch_dir)+'/noise_{}_{}_{}.p'.format(params.date_index,params.lt_index,i+1), 'wb') as f:
             #     pickle.dump({j : n.cpu().detach().numpy() for j,n in enumerate(noises)},f)
             
     
-            np.save(os.path.join(params.output_dir)+'/invertFsemble_{}_{}_{}_{}_.npy'.format(params.date_index,params.lt_index,i+1),img_gen.cpu().detach().numpy())
+            np.save(os.path.join(params.output_dir,scenario)+'/invertFsemble_{}_{}_{}_{}_.npy'.format(params.date_index,params.lt_index,batch_dir,i+1),img_gen.cpu().detach().numpy())
             name = f'step_{i+1}_lr_{params.lr}_noise_{params.noise}_noisereg_{params.noise_regularize}_{params.date_index}{params.lt_index}'
-            with open(os.path.join(params.output_dir) +'/'+ name + '.p', 'wb') as f :
+            with open(os.path.join(params.output_dir,batch_dir) +'/'+ name + '.p', 'wb') as f :
                 pickle.dump(data,f)
         

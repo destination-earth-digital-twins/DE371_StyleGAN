@@ -18,13 +18,15 @@ module load Apptainer/1.2.4-GCCcore-12.3.0
 
 
 
-apptainer exec --nv /project/scratch/p200177/DE_371/resources/apptainer_container/container.sif python3 main_inversion_perso.py \
+apptainer exec --nv /project/scratch/p200177/DE_371/resources/apptainer_container/container.sif python3 main_inversion_precip.py \
         --invstep=2000\
         --pixel_loss="amse"\
         --lambda_vgg=0\
         --device='cuda:0'\
+        --output_dir='/home/users/u101957/DE371_StyleGAN/inv/'\
+        --pack_dir='/home/users/u101957/DE371_StyleGAN/pack/'\
 
-# apptainer exec --nv /project/scratch/p200177/DE_371/resources/apptainer_container/container.sif python3 main_inversion_perso.py \
+# apptainer exec --nv /project/scratch/p200177/DE_371/resources/apptainer_container/container.sif python3 main_inversion_precip.py \
 #         --invstep=2000\
 #         --lambda_pixel=0\
 #         --lambda_lpips=0\

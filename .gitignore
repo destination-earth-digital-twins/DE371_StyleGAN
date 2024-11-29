@@ -1,3 +1,9 @@
+# Portable Network Graphics
+*.png
+*.out
+*.csv
+*.pt
+eigen_val/
 *.pyc
 *regan*
 .idea

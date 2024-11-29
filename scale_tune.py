@@ -1,3 +1,6 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
 import torch
 import numpy as np
 import torch.optim as optim
@@ -57,18 +60,42 @@ parser.add_argument("--convert_ff_t",action="store_true")
 parser.add_argument("--invert_step",type=int, default=1000)
 
 ########################### Directories ###########################
+# parser.add_argument("--fake_data_dir", type=str, 
+#                     default='/project/scratch/p200177/DE_371/angeliquebonamy/results/dates/VGG_sol2_2_sem/inversion/inversion/')
+# parser.add_argument("--real_data_dir", type=str, 
+#                     default='/project/home/p200177/DE_371/datasets/dataset_Meteo_France_rr_u_v_t2m/data/IS_rr_debug_1_1.0_0_0_0_0_0_256_large_lt/')
+# parser.add_argument("--ensemble_data_dir", type=str, 
+#                     default='/project/scratch/p200177/DE_371/angeliquebonamy/results/dates/VGG_sol2_2_sem/pack/')
+# parser.add_argument("--ckpt_dir", type=str, 
+#                     default='/project/scratch/p200177/DE_371/angeliquebonamy/GAN_training/gan_training_new_dataset/exp_train_ep_with_Noise_Injection/models/102000.pt')
+# parser.add_argument("--eigendir", type=str, 
+#                     default='/project/scratch/p200177/DE_371/angeliquebonamy/GAN_training/gan_training_new_dataset/exp_train_ep_with_Noise_Injection/Eigenvalues/')
+# parser.add_argument("--output_dir", type=str, 
+#                     default='/project/scratch/p200177/DE_371/angeliquebonamy/GAN_training/gan_training_new_dataset/exp_train_ep_with_Noise_Injection/ScaleTune/')
+
+
 parser.add_argument("--fake_data_dir", type=str, 
-                    default='/project/scratch/p200177/DE_371/angeliquebonamy/results/dates/VGG_sol2_2_sem/inversion/inversion/')
+                    default='/project/scratch/p200177/DE_371/angeliquebonamy/results/dates/vallid_inv/inversion/')
 parser.add_argument("--real_data_dir", type=str, 
                     default='/project/home/p200177/DE_371/datasets/dataset_Meteo_France_rr_u_v_t2m/data/IS_rr_debug_1_1.0_0_0_0_0_0_256_large_lt/')
 parser.add_argument("--ensemble_data_dir", type=str, 
-                    default='/project/scratch/p200177/DE_371/angeliquebonamy/results/dates/VGG_sol2_2_sem/pack/')
+                    default='/project/scratch/p200177/DE_371/angeliquebonamy/results/dates/vallid_inv/pack/')
 parser.add_argument("--ckpt_dir", type=str, 
-                    default='/project/scratch/p200177/DE_371/angeliquebonamy/GAN_training/gan_training_new_dataset/exp_train_ep_with_Noise_Injection/models/102000.pt')
+                    default='./102000.pt')
 parser.add_argument("--eigendir", type=str, 
-                    default='/project/scratch/p200177/DE_371/angeliquebonamy/GAN_training/gan_training_new_dataset/exp_train_ep_with_Noise_Injection/Eigenvalues/')
+                    default='./Eigenvalues/')
 parser.add_argument("--output_dir", type=str, 
-                    default='/project/scratch/p200177/DE_371/angeliquebonamy/GAN_training/gan_training_new_dataset/exp_train_ep_with_Noise_Injection/ScaleTune/')
+                    default='./ScaleTune/')
+parser.add_argument("--leadtimes", type=list, 
+                    default=[1,3,8,12,15,19,22,25,28,31,34,37,40,45])
+parser.add_argument("--n_var", type=int, 
+                    default=4, help='nber vars')
+parser.add_argument("--date_start", type=str, 
+                    default = "2020-06-22")
+parser.add_argument("--date_stop", type=str, 
+                    default = "2021-11-07")
+parser.add_argument("--dates_file", type=str, 
+                    default = 'IS_boostrap_no_duplicate_rr_cumul_correct_valid.csv')
 
 args = parser.parse_args()
 
@@ -79,14 +106,15 @@ instances = len(glob(output_dir + "Instance_*/"))
 print("instances already existing", instances)
 os.makedirs(output_dir + f"Instance_{instances+1}/",exist_ok=True)
 output_dir = output_dir + f"Instance_{instances+1}/"
-df = pd.read_csv(args.real_data_dir + 'IS_boostrap_no_duplicate_rr_cumul_correct_train.csv')
+df = pd.read_csv(args.real_data_dir + args.dates_file)
+
 df_date = df.copy()
+df_extract = df_date[(df_date['Date']>=args.date_start) & (df_date['Date']<=args.date_stop)]
 
-liste_dates = df_date['Date'].unique().tolist()
+liste_dates = df_extract['Date'].unique().tolist()
 print(liste_dates)
-leadtimes = [3,6,9,12,15,18,21,24,27,30,33,36,39,42,45]
 
-ensemble_dataset = list(product(liste_dates,leadtimes))
+ensemble_dataset = list(product(liste_dates,args.leadtimes))
 print(len(ensemble_dataset))
 print(ensemble_dataset[0])
 
@@ -101,7 +129,7 @@ w0 = torch.load(args.eigendir + 'latent_mean.pt').to(device)
 
 print('loading G')
 
-G = Generator(256, 512,n_mlp=8,nb_var=3)
+G = Generator(256, 512,n_mlp=8,nb_var=args.n_var)
 #print('###########################################"##################################################################################################################')
 ckpt = torch.load(args.ckpt_dir, map_location='cpu')['g_ema']
 if 'module' in list(ckpt.items())[0][0]: #juglling with Pytorch versioning and different module packaging
@@ -135,7 +163,10 @@ for epoch in range(args.n_epochs):
     print("#"*80)
     pbar = tqdm(len(ensemble_dataset))
     for idx, (date,lt) in enumerate(ensemble_dataset):
-        batch_w = torch.tensor(np.load(args.fake_data_dir + f"w_{date[:10]}_{lt}_{args.invert_step}.npy").astype(np.float32)).to(device)
+        path = '/project/scratch/p200177/DE_371/angeliquebonamy/results/dates/vallid_inv/pack/Rsemble_2020-10-30_28.npy'
+        print(os.path.isfile(path))
+        print('CHECK_PATH', os.path.isfile(repr(args.ensemble_data_dir + f"Rsemble_{date[:10]}_{lt}.npy")),os.path.join(args.ensemble_data_dir, f"Rsemble_{date[:10]}_{lt}.npy"),os.path.isfile(os.path.join(args.ensemble_data_dir, f"Rsemble_{date[:10]}_{lt}.npy")),os.path.isfile('/project/scratch/p200177/DE_371/angeliquebonamy/results/dates/vallid_inv/pack/Rsemble_2020-07-22_37.npy'))
+        # batch_w = torch.tensor(np.load(args.fake_data_dir + f"w_{date[:10]}_{lt}_{args.invert_step}.npy").astype(np.float32)).to(device)
         batch_y = torch.tensor(np.load(args.ensemble_data_dir + f"Rsemble_{date[:10]}_{lt}.npy").astype(np.float32)).to(device)
         
         t =  idx / len(ensemble_dataset) 

@@ -106,8 +106,8 @@ if __name__=="__main__" :
 
     ########################## CONTROL of Data to invert ######################
     parser.add_argument("--dates_file", type=str, default = 'IS_boostrap_no_duplicate_rr_cumul_correct_valid.csv')
-    parser.add_argument("--date_start", type=str, default = "2020-06-16")
-    parser.add_argument("--date_stop", type=str, default = "2021-11-02")
+    parser.add_argument("--date_start", type=str, default = "2021-03-07")
+    parser.add_argument("--date_stop", type=str, default = "2021-11-07")
     parser.add_argument("--leadtimes", type=utils.str2intlist, default=[1,3,8,12,15,19,22,25,28,31,34,37,40,45])
     
     parser.add_argument("--seed", type=int, default=42)
@@ -214,60 +214,7 @@ if __name__=="__main__" :
     if params.vgg_loss_after_step >= params.invstep:
         print('The parameters vgg_loss_after_step cannot be superior or equal to the number of optim steps')
         raise ValueError
-    # print(list_dates)
-    # for i,j in enumerate(os.listdir('./datas_clement')):
-    #     print('JJJJJ',j)
-    #     Ens_r = torch.from_numpy(np.load(f'./datas_clement/{j}').astype(np.float32))
-    #     # Ens_r = torch.tensor(-1. + 2*(Ens_r - Mins) / (Maxs-Mins), dtype = torch.float32)
-    #     np.save(params.pack_dir+f'{j}', Ens_r.numpy().astype(np.float32))
-    #     inv.optimize(Ens_r, G, latent_mean, params.device, params,j)
-# #PLOT GENERATOR ::
-#     device = params.device if torch.cuda.is_available() else 'cpu'
 
-#     nber_imgs = 10
-#     latent_z = torch.empty(nber_imgs, 512).normal_().to(device)  # Single latent vector        
-#     with torch.no_grad():
-#         styles = G.style(latent_z)  # Get styles
-#         print("Shape of latent_z:", latent_z.shape)
-#         print("Shape of styles:", styles.shape)
-#         generated_image = G([styles])  # Generate image
-#     print(f"Length of generated_image tuple: {len(generated_image)}")
-#     for i, img in enumerate(generated_image):
-#         print(f"Element {i} type: {type(img)}")
-#         if isinstance(img, torch.Tensor):
-#             print(f"Element {i} shape: {img.shape}")
-#     # Extract the image tensor from the tuple
-
-#     image_tensor = generated_image[0]
-#     print(f"Shape of image_tensor: {image_tensor.shape}")
-
-
-#         # Remove the batch dimension
-#     image_tensor = image_tensor.squeeze(0)  # Shape is now [4, 256, 256]
-
-#         # Convert the tensor to numpy for plotting
-#     image_np = image_tensor.detach().cpu().numpy()
-
-#         # Set up the figure with 4 subplots (one for each variable)
-#     fig, axs = plt.subplots(1, 4, figsize=(20, 5))  # 1 row, 4 columns
-
-#         # Loop over the 4 channels and plot each one
-#     for j in range(nber_imgs):
-#         for i in range(4):
-#             if i==3:
-#                 axs[i].imshow(image_np[j][i], cmap='coolwarm',origin='lower')  # Plot in grayscale (assuming each variable is grayscale)
-#                 axs[i].axis('off')  # Turn off the axis
-#                 axs[i].set_title(f'Variable {i+1}')  # Set title for each variable
-#                 fig.savefig(f'{os.path.join(params.output_dir)}/generated_image_{j}.png')
-#             else:
-                    
-#                 axs[i].imshow(image_np[j][i], cmap='viridis',origin='lower')  # Plot in grayscale (assuming each variable is grayscale)
-#                 axs[i].axis('off')  # Turn off the axis
-#                 axs[i].set_title(f'Variable {i+1}')  # Set title for each variable
-#                 fig.savefig(f'{os.path.join(params.output_dir)}/generated_image_{j}.png')
-
-
-# End plots generator 
     ################## main loop ##################
     for date_ in list_dates:
         print(date_)
@@ -279,7 +226,7 @@ if __name__=="__main__" :
             params.lt_index = lt
             
             
-            # Check if the files already exists (to qave computation time)
+            # Check if the files already exists (to save computation time)
             already_exist = []
             if os.path.isfile(params.pack_dir+f'Rsemble_{datename}_{lt}.npy'):
                 already_exist.append(True)
@@ -308,9 +255,8 @@ if __name__=="__main__" :
                 if len(df0)==0:
                    print("# samples: 0")
                    continue
-                print('JE SUIS LE CSV')
                 Ens_r = utils.load_batch_from_timestamp(df_extract, date_, lt-1, params.real_data_dir, Shape=params.Shape, var_indices=params.var_indices) #, crop_indices=params.crop_indices)
-                print('JE SUIS LE TYPE',type(Ens_r),Ens_r.shape)
+
                 # n_samples = np.min([Ens_r.shape[0], 6])
                 # print(f"extracting {n_samples} samples for inversion\n")
                 # Ens_r = Ens_r[:n_samples]
@@ -322,22 +268,12 @@ if __name__=="__main__" :
                 if params.normalization=="meanmax":
                    Ens_r = torch.tensor(0.95*(Ens_r - Means) / (Maxs), dtype = torch.float32)
                 elif params.normalization=="minmax":
-                   print('NORMALLLLL',Mins,Maxs)
                    Ens_r = torch.tensor(-1. + 2*(Ens_r - Mins) / (Maxs-Mins), dtype = torch.float32)
                 else:
                    raise ValueError(f"Unknown normalization: {params.normalization}")
                 
-                np.save(params.pack_dir+f'Rsemble_{datename}_{lt}.npy', Ens_r.numpy().astype(np.float32))
-                #print('JE SUIS DANS LE MAIN ',  np.shape(Ens_r[0][1].cpu().detach().numpy()),Ens_r[0][1].cpu().detach().numpy().astype(float))
-                print('PARAMETRES1', params)
-                #Ens_r = torch.from_numpy(np.load(f'j').astype(np.float32))
-                # Ens_r = torch.tensor(-1. + 2*(Ens_r - Mins) / (Maxs-Mins), dtype = torch.float32)
-                #np.save(params.pack_dir+f'j', Ens_r.numpy().astype(np.float32))
-                # inv.optimize(Ens_r, G, latent_mean, params.device, params)
-                batch_dir = ''
-                batch_idx= 1
-                scenario = 'inversion'
-                inv.optimize(batch_dir,Ens_r,batch_idx, G, latent_mean, params.device, params,scenario)
+                np.save(params.pack_dir + f'Rsemble_{datename}_{lt}.npy', Ens_r.numpy().astype(np.float32))
+                inv.optimize(Ens_r, G, latent_mean, params.device, params)
 
 
 
