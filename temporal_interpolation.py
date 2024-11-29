@@ -7,6 +7,8 @@ from gan.model.stylegan2 import Generator
 
 import perturbation.utils as utils
 
+from train_interpolator import LatentInterpolator
+
 def load_network(params):
     ################ loading network #################
     G = Generator(params.Shape[1], 512,n_mlp=8, nb_var=params.Shape[0])
@@ -59,7 +61,7 @@ def generate_image_from_latent(latent_vector, g_ema, device, noise=None):
     return img_gen[0]  # Return the generated image (first element in the output list)
 
 
-if __name__=="__main__" :
+def main():
     parser = argparse.ArgumentParser()
 
     parser.add_argument("--Shape", type=tuple, default=(3,256,256), help='size of the samples')
@@ -67,13 +69,15 @@ if __name__=="__main__" :
     parser.add_argument('--ckpt_dir', type = str, 
                             default ='/project/scratch/p200177/DE_371/victorsanchez/models/trained_generator/000024.pt')
     parser.add_argument('--latent_vectors_dir', type = str, 
-                        default='/project/home/p200177/DE_371/experiments_WP2/temporal_downscaling_experiments/inversion_autumn')
+                        default='/project/home/p200177/DE_371/experiments_WP2/temporal_downscaling_experiments/inversion_october/inversion')
     parser.add_argument('--output_dir',type = str, 
-                        default ='/project/home/p200177/DE_371/experiments_WP2/temporal_downscaling_experiments/latent_space_linear_interpolation_autumn')
-    parser.add_argument("--date", type=str, default = "2021-10-02")
-    parser.add_argument("--input_leadtimes", type=utils.str2intlist, default=[6,12])
-    parser.add_argument("--ref_leadtimes", type=utils.str2intlist, default=[6,7,8,9,10,11,12])
+                        default ='/project/home/p200177/DE_371/experiments_WP2/temporal_downscaling_experiments/latent_space_NN_interpolation_autumn')
+    parser.add_argument("--date", type=str, default = "2021-11-01")
+    parser.add_argument("--input_leadtimes", type=utils.str2intlist, default=[9,15])
+    parser.add_argument("--ref_leadtimes", type=utils.str2intlist, default=[9,10,11,12,13,14,15])
     parser.add_argument("--invstep", type=int, default=1000, help="optimize iterations")
+    parser.add_argument('--model_dir',type = str, 
+                        default ='/project/home/p200177/DE_371/experiments_WP2/temporal_downscaling_experiments/interpolation_models/model-3-4096-epoch-25-2024-11-29T19_32.pt')
     params = parser.parse_args()
 
     G = load_network(params)
@@ -104,17 +108,33 @@ if __name__=="__main__" :
         interpolated_vector = input_latent_vectors[0] * (1 - weight) + input_latent_vectors[1] * weight
         img_generated = generate_image_from_latent(interpolated_vector, G, params.device)
         np.save(
-            f"{params.output_dir}/interpolated_{params.date}_{ref_leadtime}_{params.invstep}.npy", 
+            f"{params.output_dir}/interpolated_linear_{params.date}_{ref_leadtime}_{params.invstep}.npy", 
             img_generated.cpu().detach().numpy()
             )
-"""
-    for i, ref_leadtime in zip(range(len(input_latent_vectors)), params.ref_leadtimes):
-        if i == len(input_latent_vectors) - 1:
-            break
-        intepolated_vector = (input_latent_vectors[i] + input_latent_vectors[i + 1]) / 2
-        img_generated = generate_image_from_latent(intepolated_vector, G, params.device)
+
+    # Load the model checkpoint
+    model = LatentInterpolator(hidden_neurons=4096)
+    state_dict = torch.load(params.model_dir, weights_only=True)
+    model.load_state_dict(state_dict)
+    model = model.to(params.device)
+    model.eval()
+
+    timesteps = torch.linspace(0, 1, 7).to(params.device)
+    w0 = torch.tensor(input_latent_vectors[0]).to(params.device)
+    w6 = torch.tensor(input_latent_vectors[1]).to(params.device)
+    print(f"w0 shape: {w0.shape}")
+    print(f"w6 shape: {w6.shape}")
+
+    for t, ref_leadtime in zip(timesteps, params.ref_leadtimes):
+        with torch.no_grad():
+            w_model = model(w0, w6, t.repeat(16))
+        img_generated = generate_image_from_latent(w_model, G, params.device)
         np.save(
-            f"{params.output_dir}/interpolated_{params.date}_{ref_leadtime}_{params.invstep}.npy", 
+            f"{params.output_dir}/interpolated_NN_{params.date}_{ref_leadtime}_{params.invstep}.npy", 
             img_generated.cpu().detach().numpy()
             )
-"""
+
+    print("Interpolation finished!")
+
+if __name__=="__main__" :
+    main()

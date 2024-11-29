@@ -44,6 +44,44 @@ class LatentInterpolator(nn.Module):
         
         return w_predicted.view(batch_size, self.style_dims, self.latent_dims)  # [batch_size, 14, 512]
 
+class LatentInterpolatorCorrector(nn.Module):
+    def __init__(self, style_dims=14, latent_dims=512, hidden_neurons=512, num_layers=3):
+        super(LatentInterpolator, self).__init__()
+        self.style_dims = style_dims
+        self.latent_dims = latent_dims
+        input_dim = 2 * latent_dims * style_dims + 1  # Inputs: w_start, w_end, and t
+        
+        layers = []
+        for i in range(num_layers):
+            in_features = input_dim if i == 0 else hidden_neurons
+            out_features = latent_dims * style_dims if i == num_layers - 1 else hidden_neurons
+            
+            layers.append(nn.Linear(in_features, out_features))
+            if i < num_layers - 1:
+                layers.append(nn.LayerNorm(out_features)) 
+                layers.append(nn.ReLU()) 
+            
+        self.network = nn.Sequential(*layers)
+        
+    def forward(self, w_start, w_end, t):
+        batch_size = w_start.size(0)  # Get batch size
+
+        # Flatten latent space vectors
+        w_start_flat = w_start.view(batch_size, -1)  # [batch_size, 14, 512] -> [batch_size, 7168]
+        w_end_flat = w_end.view(batch_size, -1)      # [batch_size, 14, 512] -> [batch_size, 7168]
+        
+        # Compute linear interpolation
+        w_linear_flat = w_start_flat + t * (w_end_flat - w_start_flat)  # [batch_size, 7168]
+
+        # Expand `t` and concatenate inputs
+        t_expanded = t.view(batch_size, 1)  # Ensure t is [batch_size, 1]
+        x = torch.cat([w_start_flat, w_end_flat, t_expanded], dim=1)  # Concatenate along feature dimension
+
+        # Add correction to linear interpolation
+        w_corrected = w_linear_flat + correction  # [batch_size, 7168]
+        
+        return w_corrected.view(batch_size, self.style_dims, self.latent_dims)  # [batch_size, 14, 512]
+
 class LatentDataset(Dataset):
     def __init__(self, latent_space_vectors, dt=6):
         self.inputs, self.ground_truth = self.build_dataset(latent_space_vectors, dt)
