@@ -1,9 +1,3 @@
-# Portable Network Graphics
-*.png
-*.out
-*.csv
-*.pt
-eigen_val/
 *.pyc
 *regan*
 .idea
@@ -18,6 +12,7 @@ gan/configs/*
 *.pth
 *.code-workspace
 *plotter/
+gan_2_ae/*
 *.sif
 .vscode/
 /test_*.py
