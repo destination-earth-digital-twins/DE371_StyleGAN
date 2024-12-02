@@ -3,157 +3,144 @@ import torch
 import numpy as np
 from collections import OrderedDict
 from tqdm import tqdm
-import time  # Pour mesurer le temps
-import torch
+import time
 import argparse
 from torchvision.utils import save_image
 from gan.model.stylegan2 import Generator
-import json
-from time import perf_counter
-import yaml
-import pandas as pd
-from datetime import date, timedelta, datetime
-import perturbation.utils as utils
-import pickle
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
+import perturbation.utils as utils
+
+torch.manual_seed(42)  # Ensure reproducibility
 
 
-torch.manual_seed(42) #reproducibility of runs
+# Function to load the generator
+def load_generator(ckpt_path, shape, device):
+    """
+    Load the StyleGAN2 generator model with given weights.
 
+    Args:
+        ckpt_path (str): Path to the checkpoint file.
+        shape (tuple): Shape of the generated samples.
+        device (str): Device to load the generator on.
 
+    Returns:
+        Generator: Loaded and ready-to-use generator model.
+    """
+    G = Generator(shape[1], 512, n_mlp=8, nb_var=shape[0])
 
-
-# This file generate n samples from the GAN 
-
-
-
-if __name__=="__main__" :
-    
-    cmapRR = colors.ListedColormap(["white","mediumpurple","blue","dodgerblue","darkseagreen","seagreen","greenyellow","yellow", "navajowhite","sandybrown","darkorange","red","darkred","black"], name='from_list', N=None)
-
-    parser = argparse.ArgumentParser()
-    
-    ########################### Directories ###########################
-    # Checkpoint directory - PATH to generator's weight
-    parser.add_argument('--ckpt_dir', type = str, 
-                        default ='path to ckpt /102000.pt')
-    parser.add_argument('--output_dir',type = str, 
-                        default ='path to the output directory')
-   
-    parser.add_argument('--device', type=str, default='cuda:0')
-
-    ############################ INVERSION PARAMETERS #################    
-
-    parser.add_argument("--var_indices", type=utils.str2intlist, default=[0,1,2,3])
-    parser.add_argument("--Shape", type=tuple, default=(4,256,256), help='size of the samples')
-    
-    parser.add_argument("--seed", type=int, default=42)
-    
-    parser.add_argument("--plot", action='store_true', default=False,help="plots samples or not")
-
-    parser.add_argument("--generate", action='store_true', default=False,help="generate npy samples or not ")
-
-    parser.add_argument("--total_samples", type=int, default=16384)
-
-
-    params = parser.parse_args()
-
-    device = params.device if torch.cuda.is_available() else 'cpu'
-
-
-    G = Generator(params.Shape[1], 512, n_mlp=8, nb_var=params.Shape[0])
-
-
-    # Ckpt loading 
-    ckpt = torch.load(params.ckpt_dir, map_location='cpu')['g_ema']
+    # Load checkpoint
+    ckpt = torch.load(ckpt_path, map_location='cpu')['g_ema']
     if 'module' in list(ckpt.items())[0][0]:  
-        ckpt_adapt = OrderedDict()
-        for k in ckpt.keys():
-            k0 = k[7:]
-            ckpt_adapt[k0] = ckpt[k]
+        ckpt_adapt = OrderedDict((k[7:], v) for k, v in ckpt.items())
         G.load_state_dict(ckpt_adapt)
     else:
         G.load_state_dict(ckpt)
 
     G.eval()
-    G = G.to(device)
+    G.to(device)
+    return G
 
-    # Folders creation 
-    if not os.path.exists(os.path.join(params.output_dir)):
-        os.makedirs(os.path.join(params.output_dir))
 
-    # create or load latent mean 
-    latent_path = f'{os.path.join(params.output_dir)}/latent_mean.npy'
+# Function to generate and save samples
+def generate_samples(generator, output_dir, total_samples, shape, plot=False, generate=False, cmapRR=None):
+    """
+    Generate samples using the generator and save them to disk.
+
+    Args:
+        generator (Generator): Pretrained generator model.
+        output_dir (str): Directory to save the generated samples.
+        total_samples (int): Number of samples to generate.
+        shape (tuple): Shape of the samples.
+        plot (bool): Whether to plot and save the generated images.
+        generate (bool): Whether to save the samples as .npy files.
+        cmapRR: Custom colormap for visualization.
+    """
+    os.makedirs(output_dir, exist_ok=True)
+
+    # Create or load latent mean
+    latent_path = os.path.join(output_dir, 'latent_mean.npy')
     if not os.path.exists(latent_path):
-        latent_z = torch.empty(10000, 512).normal_().to(device)
+        latent_z = torch.empty(10000, 512).normal_().to(generator.device)
         with torch.no_grad():
-            w = G.style(latent_z)
-        latent_mean = w.mean(dim=0).detach().cpu()
+            latent_mean = generator.style(latent_z).mean(dim=0).cpu()
         np.save(latent_path, latent_mean.numpy())
     else:
-        lm = np.load(latent_path).astype(np.float32)
-        latent_mean = torch.tensor(lm, dtype=torch.float32)
-    
-    
-    total_samples = params.total_samples
+        latent_mean = torch.tensor(np.load(latent_path).astype(np.float32), dtype=torch.float32)
 
-    # progession bar 
-    with tqdm(total=total_samples, desc="Samples generation ", unit="sample") as pbar:
+    # Progress bar for sample generation
+    with tqdm(total=total_samples, desc="Samples generation", unit="sample") as pbar:
         start_time = time.time()
+
         for sample_idx in range(total_samples):
-            # create a latent vector 
-            latent_z = torch.empty(1, 512).normal_().to(device)
+            # Create latent vector
+            latent_z = torch.empty(1, 512).normal_().to(generator.device)
             with torch.no_grad():
-                style = G.style(latent_z)
-                generated_image = G([style])
-                
-            if params.generate : 
+                style = generator.style(latent_z)
+                generated_image = generator([style])
 
-                # Save
-                sample_path = os.path.join(params.output_dir, f'sample_{sample_idx}.npy')
-                np.save(sample_path, generated_image[0].squeeze(0).detach().cpu().numpy())  # Sauvegarde chaque sample séparément
+            # Save generated sample as .npy
+            if generate:
+                sample_path = os.path.join(output_dir, f'sample_{sample_idx}.npy')
+                np.save(sample_path, generated_image[0].squeeze(0).cpu().numpy())
 
-                # bar update 
-                pbar.update(1)
-                elapsed_time = time.time() - start_time
-                pbar.set_postfix({"Elapsed time": f"{elapsed_time:.2f} sec"})
-            
+            # Plot and save the image
+            if plot:
+                image_np = generated_image[0].squeeze(0).cpu().numpy()
+                fig, axs = plt.subplots(1, shape[0], figsize=(20, 5))  # 1 row, 4 columns
 
+                for i in range(shape[0]):
+                    cmap = cmapRR if i == 0 else ('coolwarm' if i == 3 else 'viridis')
+                    axs[i].imshow(image_np[i], cmap=cmap, origin='lower')
+                    axs[i].axis('off')
+                    axs[i].set_title(f'Variable {i+1}')
 
-#PLOTS SAMPLES 
-            if params.plot : 
-                image_np = generated_image[0].squeeze(0).detach().cpu().numpy()
+                fig.savefig(os.path.join(output_dir, f'generated_image_{sample_idx}.png'), bbox_inches='tight', dpi=150)
+                plt.close(fig)
 
-            # Set up the figure with 4 subplots (one for each variable)
-                fig, axs = plt.subplots(1, 4, figsize=(20, 5))  # 1 row, 4 columns
-                
-                # Loop over the 4 channels and plot each one
-                for i in range(4):
-                    if i==0:
-                        axs[i].imshow(image_np[i], cmap=cmapRR,origin='lower')  # Plot in grayscale (assuming each variable is grayscale)
-                        #axs[i].axis('off')  # Turn off the axis
-                       # axs[i].set_title(f'Variable {i+1}')  # Set title for each variable
-                       # fig.savefig(f'{os.path.join(params.output_dir)}/generated_image_{sample_idx}.png')
-                            
-                    if i==3:
-                        axs[i].imshow(image_np[i], cmap='coolwarm',origin='lower')  # Plot in grayscale (assuming each variable is grayscale)
-                        # axs[i].axis('off')  # Turn off the axis
-                        # axs[i].set_title(f'Variable {i+1}')  # Set title for each variable
-                        # fig.savefig(f'{os.path.join(params.output_dir)}/generated_image_{sample_idx}.png')
-                    else:
-                                
-                        axs[i].imshow(image_np[i], cmap='viridis',origin='lower')  # Plot in grayscale (assuming each variable is grayscale)
-                        # axs[i].axis('off')  # Turn off the axis
-                        # axs[i].set_title(f'Variable {i+1}')  # Set title for each variable
-                        # fig.savefig(f'{os.path.join(params.output_dir)}/generated_image_{sample_idx}.png')
-                    axs[i].axis('off')  # Masquer l'axe
-                    axs[i].set_title(f'Variable {i+1}')  # Ajouter un titre
-                fig.savefig(f'{os.path.join(params.output_dir)}/generated_image_{sample_idx}.png', bbox_inches='tight', dpi=150)                                # Mise à jour de la barre de progression
-                    
-            pbar.update(1)
+            # Update progress bar
             elapsed_time = time.time() - start_time
+            pbar.update(1)
             pbar.set_postfix({"Elapsed time": f"{elapsed_time:.2f} sec"})
-                            
-        print(f"Complete generation of {total_samples} samples completed.")
 
+    print(f"Complete generation of {total_samples} samples.")
+
+
+# Main entry point
+if __name__ == "__main__":
+    # Custom colormap
+    cmapRR = colors.ListedColormap(
+        ["white", "mediumpurple", "blue", "dodgerblue", "darkseagreen", "seagreen",
+         "greenyellow", "yellow", "navajowhite", "sandybrown", "darkorange", "red", 
+         "darkred", "black"], name='from_list', N=None
+    )
+
+    # Argument parser
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--ckpt_dir', type=str,default="", required=True, help='Path to generator checkpoint.')
+    parser.add_argument('--output_dir', type=str,default="", required=True, help='Output directory for generated samples.')
+    parser.add_argument('--device', type=str, default='cuda:0', help='Device for computation.')
+    parser.add_argument('--var_indices', type=utils.str2intlist, default=[0, 1, 2, 3])
+    parser.add_argument('--Shape', type=tuple, default=(4, 256, 256), help='Size of the samples.')
+    parser.add_argument('--seed', type=int, default=42)
+    parser.add_argument('--plot', action='store_true', default=False, help="Plots samples or not.")
+    parser.add_argument('--generate', action='store_true', default=False, help="Generate .npy samples or not.")
+    parser.add_argument('--total_samples', type=int, default=16384)
+
+    params = parser.parse_args()
+    device = params.device if torch.cuda.is_available() else 'cpu'
+    torch.manual_seed(params.seed)
+
+    # Load generator
+    G = load_generator(params.ckpt_dir, params.Shape, device)
+
+    # Generate samples
+    generate_samples(
+        generator=G,
+        output_dir=params.output_dir,
+        total_samples=params.total_samples,
+        shape=params.Shape,
+        plot=params.plot,
+        generate=params.generate,
+        cmapRR=cmapRR
+    )
