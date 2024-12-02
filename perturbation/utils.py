@@ -37,12 +37,12 @@ def load_batch_from_timestamp(
         date,
         lt,
         data_dir,
-        Shape,
-        var_indices,
-        normalization,
-        Means,
-        Mins,
-        Maxs
+        Shape=(3,256,256),
+        var_indices=[0,1,2],
+        normalization="meanmax",
+        Means=None,
+        Mins=None,
+        Maxs=None
         ):
 
     df0 = dataframe[(dataframe['Date']==date) & (dataframe['LeadTime']==lt)]
@@ -52,6 +52,7 @@ def load_batch_from_timestamp(
     batch = np.zeros((Nb,) + tuple(Shape))
     # print(batch.shape)
     for i,s in enumerate(df0['Name']):
+        # print(i, s)
         sn = np.load(f'{data_dir}{s}.npy')[var_indices,:,:].astype(np.float32)
 
         batch[i] = sn
@@ -226,7 +227,8 @@ def collate_gen_ensemble(data_dir, members, lead_time , var_indices, inv_step, a
 
     if not all_data:
         return dataloaded[members]
-    return dataloaded
+    else :
+        return dataloaded
 
 def correct_lt(lt):
     if lt<=24:
