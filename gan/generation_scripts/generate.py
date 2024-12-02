@@ -2,7 +2,7 @@ import argparse
 
 import torch
 from torchvision import utils
-from model.stylegan2 import Generator
+from gan.model.stylegan2 import Generator
 from numpy import save
 import horovod.torch as hvd
 
@@ -34,7 +34,7 @@ def generate(args, g_ema, mean_latent, step):
 if __name__ == "__main__":
 
     torch.cuda.set_device(hvd.local_rank())
-
+    print(hvd.local_rank())
     parser = argparse.ArgumentParser(description="Generate samples from the generator")
 
     parser.add_argument(
@@ -56,7 +56,7 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
-        "--output_dir", type=str, default="",help="path to the output directory" # change with your path
+        "--output_dir", type=str, default="/home/users/u101957/DE371_StyleGAN/gan/generation_scripts/out/",help="path to the output directory" # change with your path
     )
 
     parser.add_argument("--truncation", type=float, default=1, help="truncation ratio")
@@ -69,7 +69,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--ckpt",
         type=str,
-        default="", # change with your path
+        default="/home/users/u101957/DE371_StyleGAN/102000.pt", # change with your path
         help="path to the model checkpoint",
     )
     parser.add_argument(

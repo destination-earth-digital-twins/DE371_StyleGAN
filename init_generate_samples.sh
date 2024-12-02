@@ -13,12 +13,12 @@ export CUDA_HOME=/usr/local/cuda-12.1
 export NVHPC_CUDA_HOME=/usr/local/cuda-12.1
 export CXX=g++ #the compiler for cpp extensions
 export CC=gcc  #the compiler to access the good cpp standard
-export APPTAINER_BINDPATH="/PATH/TO/datasets:/PATH/TO/datasets/,/PATH/TO/DE_371:/PATH/TO/DE_371/"
+export APPTAINER_BINDPATH="/project/home/p200177/DE_371/datasets:/project/home/p200177/DE_371/datasets/,/project/scratch/p200177/DE_371:/project/scratch/p200177/DE_371/"
 module load Apptainer/1.2.4-GCCcore-12.3.0
 
 
 
-apptainer exec --nv /PATH/TO/apptainer_container/container.sif python3 generate_samples.py \
+apptainer exec --nv /project/scratch/p200177/DE_371/resources/apptainer_container/container.sif python3 /home/users/u101957/DE371_StyleGAN/gan/generation_scripts/generate.py \
                     --generate\
                     
 
