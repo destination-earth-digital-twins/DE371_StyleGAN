@@ -1,13 +1,13 @@
 #!/bin/bash -l
 #SBATCH -J DE371_stylegan
 #SBATCH -A p200177
-#SBATCH -q test
+#SBATCH -q default
 #SBATCH -N 1
 #SBATCH -p gpu
 #SBATCH --ntasks=4
 #SBATCH --ntasks-per-node=4
 #SBATCH --gpus-per-task=1
-#SBATCH --time=00:30:00
+#SBATCH --time=04:00:00
 
 export OMP_NUM_THREADS=1
 export CUDA_HOME=/usr/local/cuda-12.1
@@ -19,26 +19,42 @@ module load Apptainer/1.2.4-GCCcore-12.3.0
 
 apptainer exec --nv /project/scratch/p200177/DE_371/resources/apptainer_container/container.sif python3 train_interpolator.py \
         --device='cuda:0' \
-        --model_name='model-3-512' \
+        --model_name='LatentInterpolator' \
+        --training_description='512-3' \
+        --weight_decay=1e-4 \
+        --learning_rate=1e-3 \
+        --lr_decay=0.9 \
         --num_neurons=512 \
-        --num_layers=3 > training-1.log 2>&1 &
+        --num_layers=3 > training-9.log 2>&1 &
 
 apptainer exec --nv /project/scratch/p200177/DE_371/resources/apptainer_container/container.sif python3 train_interpolator.py \
         --device='cuda:1' \
-        --model_name='model-3-1024' \
+        --model_name='LatentInterpolator' \
+        --training_description='1024-3' \
+        --weight_decay=1e-4 \
+        --learning_rate=1e-3 \
+        --lr_decay=0.9 \
         --num_neurons=1024 \
-        --num_layers=3 > training-2.log 2>&1 &
+        --num_layers=3 > training-10.log 2>&1 &
 
 apptainer exec --nv /project/scratch/p200177/DE_371/resources/apptainer_container/container.sif python3 train_interpolator.py \
         --device='cuda:2' \
-        --model_name='model-3-2048' \
+        --model_name='LatentInterpolator' \
+        --training_description='2048-3' \
+        --weight_decay=1e-4 \
+        --learning_rate=1e-3 \
+        --lr_decay=0.9 \
         --num_neurons=2048 \
-        --num_layers=3 > training-3.log 2>&1 &
+        --num_layers=3 > training-11.log 2>&1 &
 
 apptainer exec --nv /project/scratch/p200177/DE_371/resources/apptainer_container/container.sif python3 train_interpolator.py \
         --device='cuda:3' \
-        --model_name='model-3-4096' \
+        --model_name='LatentInterpolator' \
+        --training_description='4096-3' \
+        --weight_decay=1e-4 \
+        --learning_rate=1e-3 \
+        --lr_decay=0.9 \
         --num_neurons=4096 \
-        --num_layers=3 > training-4.log 2>&1 &
+        --num_layers=3 > training-12.log 2>&1 &
 
 wait
