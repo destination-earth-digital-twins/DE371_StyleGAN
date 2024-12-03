@@ -13,15 +13,15 @@ from collections import OrderedDict
 
 class pSp(nn.Module):
 
-    def __init__(self, config):
+    def __init__(self, config, restyle_mode=True):
         super(pSp, self).__init__()
         self.set_config(config)
         self.n_styles = int(math.log(self.config.output_size, 2)) * 2 - 2
         # Define architecture
         self.encoder = self.set_encoder()
         self.decoder = Generator(self.config.output_size, 512, 8, channel_multiplier=2)
-        self.face_pool = torch.nn.AdaptiveAvgPool2d((128, 128))
 
+        self.restyle_mode = restyle_mode
         # torch.save(self.encoder.state_dict(), '/project/scratch/p200177/DE_371/resources/pretrained_models/resnet34_random.pth')
         # raise NotImplementedError
 
@@ -66,42 +66,45 @@ class pSp(nn.Module):
                 self.decoder.load_state_dict(checkpoint, strict=True)
             self.__load_latent_avg(ckpt, repeat=self.n_styles)
 
-    def forward(self, x, latent=None, resize=False, latent_mask=None, input_code=False, randomize_noise=True,
-                inject_latent=None, return_latents=False, alpha=None, average_code=False, input_is_full=False):
+    def forward(self,
+                x,
+                latent=None,
+                input_code=False,
+                randomize_noise=True,
+                return_latents=False, 
+                average_code=False
+                ):
+        
         if input_code:
             codes = x
         else:
             codes = self.encoder(x)
-            # residual step
-            if x.shape[1] == 6 and latent is not None:
-                # learn error with respect to previous iteration
-                codes = codes + latent
-            else:
-                # first iteration is with respect to the avg latent code
-                codes = codes + self.latent_avg.repeat(codes.shape[0], 1, 1)
 
-        if latent_mask is not None:
-            for i in latent_mask:
-                if inject_latent is not None:
-                    if alpha is not None:
-                        codes[:, i] = alpha * inject_latent[:, i] + (1 - alpha) * codes[:, i]
-                    else:
-                        codes[:, i] = inject_latent[:, i]
+            if self.restyle_mode:
+                # residual step
+                if x.shape[1] == 6 and latent is not None:
+                    # learn error with respect to previous iteration
+                    codes = codes + latent
                 else:
-                    codes[:, i] = 0
+                    # first iteration is with respect to the avg latent code
+                    codes = codes + self.latent_avg.repeat(codes.shape[0], 1, 1)
+            else :
+                if self.config.start_from_latent_avg:
+                    codes = codes + self.latent_avg.repeat(codes.shape[0], 1, 1)
 
-        if average_code:
-            input_is_latent = True
-        else:
-            input_is_latent = (not input_code) or (input_is_full)
+        if self.restyle_mode:
+            if average_code :
+                input_is_latent = True
+            else:
+                input_is_latent = not input_code
+        else :
+            input_is_latent = not input_code
 
         images, result_latent, _ = self.decoder([codes],
                                              input_is_latent=input_is_latent,
                                              randomize_noise=randomize_noise,
-                                             return_latents=return_latents)
-
-        if resize:
-            images = self.face_pool(images)
+                                             return_latents=return_latents
+                                             )
 
         if return_latents:
             return images, result_latent

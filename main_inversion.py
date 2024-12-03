@@ -86,6 +86,9 @@ if __name__=="__main__" :
 
     # Noise optimization and loss noise parameter
     parser.add_argument("--noise_optimize", action='store_true', help="joint optimization of noise and latent code (1) or latent code optimization only (0)?")
+    parser.add_argument("--feature_optimize", action='store_true', help="to enable optimization of feature map")
+    parser.add_argument("--feature_id", type=int, default=5, help="features to optimize")
+    
     parser.add_argument("--lambda_noise", type=float, default=1e5, help="weight of the noise regularization")
     # In case noise_optimize=0, the lambda_noise is not taken into account in the loss computation
     parser.add_argument("--fixed_noise", action='store_true', help="Fixing the noise during optimization")
@@ -95,7 +98,7 @@ if __name__=="__main__" :
     parser.add_argument("--lambda_pixel", type=float, default=10.0, help="weight of the (mae/mse) pixel loss")
     
     # Focal Frequency Loss
-    parser.add_argument("--lambda_focal_frequency_loss", type=float, default=1.0, help="weight of the vgg (perceptual) loss")
+    parser.add_argument("--lambda_focal_frequency_loss", type=float, default=0.0, help="weight of the vgg (perceptual) loss")
 
     # Perceptual Loss
     parser.add_argument("--lambda_perceptual_loss", type=float, default=1.0, help="weight of the vgg (perceptual) loss")
@@ -289,7 +292,7 @@ if __name__=="__main__" :
                         np.save(params.pack_dir+f'Rsemble_sequence_{datename}.npy', Ens_r.numpy().astype(np.float32))
 
                 
-                inv.optimize(Ens_r, G, latent_mean, params.device, params)
+                inv.optimize(Ens_r=Ens_r, g_ema=G, latent_mean=latent_mean, device=params.device, params=params)
 
 
 

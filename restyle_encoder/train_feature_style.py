@@ -12,7 +12,7 @@ sys.path.append("..")
 
 print(sys.path)
 
-from options.train_options import TrainOptions, createNamesFromLosses
+from restyle_encoder.options.train_options import TrainOptions, createNamesFromLosses
 from restyle_encoder.training.coach_feature_style import Coach
 
 

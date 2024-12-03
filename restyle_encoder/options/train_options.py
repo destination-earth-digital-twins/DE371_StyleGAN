@@ -26,17 +26,10 @@ class TrainOptions:
         self.parser.add_argument('--learning_rate', default=0.001, type=float, help='Optimizer learning rate')
         self.parser.add_argument('--optim_name', default='ranger', type=str, help='Which optimizer to use')
         self.parser.add_argument('--train_decoder', default=False, type=bool,help='Whether to train the decoder model')
-        self.parser.add_argument('--start_from_latent_avg', action='store_true',help='Whether to add average latent vector to generate codes from encoder.')
         self.parser.add_argument('--weight_decay', default = 0.0, type =float,help = 'Adding weight decay to the encoder')
 
         # loss lambdas
-        self.parser.add_argument('--l2_lambda_features', default=1, type=float,help='Loss on features')
-        self.parser.add_argument('--lpips_lambda', default=0, type=float,help='LPIPS loss multiplier factor')
         self.parser.add_argument('--l2_lambda', default=1, type=float,help='L2 loss multiplier factor')
-        self.parser.add_argument('--w_norm_lambda', default=0, type=float,help='W-norm loss multiplier factor')
-        self.parser.add_argument('--moco_lambda', default=0, type=float,help='Moco feature loss multiplier factor')
-        self.parser.add_argument('--scat_lambda', default=0, type=float,help='Scattering loss multiplier factor')
-        self.parser.add_argument('--swd_lambda', default=0, type=float,help='Sliced Wasserstein Distance loss multiplier factor')
         self.parser.add_argument('--perceptual_lambda', default=1, type=float,help='L2 loss multiplier factor')
         self.parser.add_argument('--ffl_lambda', default=0, type=float,help='Focal Frequency Loss')
 
@@ -67,8 +60,7 @@ class TrainOptions:
         self.parser.add_argument('--val_interval', default=500, type=int,help='Validation interval')
         self.parser.add_argument('--save_interval', default=100, type=int,help='Model checkpoint interval')
 
-        # arguments for iterative encoding
-        self.parser.add_argument('--n_iters_per_batch', default=5, type=int,help='Number of forward passes per batch during training')
+        
 
     def parse(self):
         config = self.parser.parse_args()

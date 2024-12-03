@@ -1,17 +1,16 @@
 from restyle_encoder.options.train_options import TrainOptions
 
-class inDomainTrainOptions(TrainOptions):
+class pSpTrainOptions(TrainOptions):
 
     def __init__(self):
-        super(inDomainTrainOptions, self).__init__()
+        super(pSpTrainOptions, self).__init__()
 
     def initialize(self):
-        super(inDomainTrainOptions, self).initialize()
+        super(pSpTrainOptions, self).initialize()
+        self.parser.add_argument('--fake_image_on_batch', action='store_true',help='Whether to add fake image on batch for encoder')
+        self.parser.add_argument('--l2_lambda_features', default=1, type=float,help='Loss on features')
 
-        self.parser.add_argument('--train_discriminator', action='store_true', help='Whether to train the discriminator')
-        self.parser.add_argument('--adv_lambda', default=0.1, type=float,help='Adversarial Loss')
-        self.parser.add_argument('--start_from_latent_avg', action='store_true',help='Whether to add average latent vector to generate codes from encoder.')
-    
+
     def parse(self):
         config = self.parser.parse_args()
         return config
@@ -22,8 +21,7 @@ def createNamesFromLosses(config) :
     
     config_dict = vars(config)
     mspl = ''
-    train_discriminator=''
-    start_from_latent_avg=''
+    start_from_latent_avg = ''
     encoder_type = ''
 
     for arg, value in config_dict.items() :
@@ -45,19 +43,14 @@ def createNamesFromLosses(config) :
                 resnet = 'trained'
         
         if 'multi_scale_perceptual_loss' in arg :
-            if value :
-                mspl = '_multi_scale_PL'
-        
-        if 'train_discriminator' in arg :
-            if value :
-                train_discriminator='_train_discriminator'
+            mspl = '_multi_scale_PL'
         
         if 'start_from_latent_avg' in arg:
             start_from_latent_avg = value
         
         if 'encoder_type' in arg:
             encoder_type = value
-
-    name = f'{name}_resnet={resnet}_network_type={network_type}{mspl}{train_discriminator}_start_from_latent_avg={start_from_latent_avg}_encoder_type={encoder_type}/'
+            
+    name = f'{name}_resnet={resnet}_network_type={network_type}{mspl}_start_from_latent_avg={start_from_latent_avg}_encoder_type={encoder_type}/'
     
     return name

@@ -21,7 +21,6 @@ class inDomain(nn.Module):
         self.encoder = self.set_encoder()
         self.decoder = Generator(self.config.output_size, 512, 8, channel_multiplier=2)
         self.discriminator = Discriminator(self.config.output_size, channel_multiplier=2)
-        self.face_pool = torch.nn.AdaptiveAvgPool2d((128, 128))
 
         # torch.save(self.encoder.state_dict(), '/project/scratch/p200177/DE_371/resources/pretrained_models/resnet34_random.pth')
         # raise NotImplementedError
@@ -79,53 +78,28 @@ class inDomain(nn.Module):
 
             self.__load_latent_avg(ckpt, repeat=self.n_styles)
 
-    def forward(self, x, latent=None, resize=False, latent_mask=None, input_code=False, randomize_noise=True,
-                inject_latent=None, return_latents=False, alpha=None, average_code=False, input_is_full=False):
-        if input_code:
-            codes = x
-        else:
-            codes = self.encoder(x)
-            # residual step
-            if x.shape[1] == 6 and latent is not None:
-                # learn error with respect to previous iteration
-                codes = codes + latent
-            else :
-                # first iteration is with respect to the avg latent code
-                codes = codes + self.latent_avg.repeat(codes.shape[0], 1, 1)
+    def forward(self,
+                x,
+                return_latents=False
+                ):
+        
+        codes = self.encoder(x)
+        if self.config.start_from_latent_avg:
+            codes = codes + self.latent_avg.repeat(codes.shape[0], 1, 1)
 
-        if latent_mask is not None:
-            for i in latent_mask:
-                if inject_latent is not None:
-                    if alpha is not None:
-                        codes[:, i] = alpha * inject_latent[:, i] + (1 - alpha) * codes[:, i]
-                    else:
-                        codes[:, i] = inject_latent[:, i]
-                else:
-                    codes[:, i] = 0
-
-        if average_code:
-            input_is_latent = True
-        else:
-            input_is_latent = (not input_code) or (input_is_full)
 
         images, result_latent, _ = self.decoder([codes],
-                                             input_is_latent=input_is_latent,
-                                             randomize_noise=randomize_noise,
+                                             input_is_latent=True,
+                                             randomize_noise=True,
                                              return_latents=return_latents)
-        if not input_code:
-            if self.config.train_discriminator:
+
+        if self.config.train_discriminator:
+            discrim_out_real = self.discriminator(x)
+            discrim_out_fake = self.discriminator(images)
+        else :
+            with torch.no_grad():
                 discrim_out_real = self.discriminator(x)
                 discrim_out_fake = self.discriminator(images)
-            else :
-                with torch.no_grad():
-                    discrim_out_real = self.discriminator(x)
-                    discrim_out_fake = self.discriminator(images)
-        else :
-            discrim_out_fake=None
-            discrim_out_real=None
-
-        if resize:
-            images = self.face_pool(images)
 
         if return_latents:
             return images, result_latent, discrim_out_real, discrim_out_fake

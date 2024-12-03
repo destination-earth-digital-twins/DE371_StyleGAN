@@ -33,10 +33,6 @@ class FeatureStyleModule(nn.Module):
             self.decoder.load_state_dict(self.__get_keys(ckpt, 'decoder'), strict=True)
             self.__load_latent_avg(ckpt)
         else:
-            # encoder_ckpt = self.__get_encoder_checkpoint()
-            # if encoder_ckpt is not None:
-            #     print(f'Loading encoder weights from resnet50: {self.config.stylegan_weights}')
-            #     self.encoder.load_state_dict(encoder_ckpt, strict=False)
             
             print(f'Loading decoder weights from pretrained path: {self.config.stylegan_weights}')
             ckpt = torch.load(self.config.stylegan_weights)
@@ -57,20 +53,23 @@ class FeatureStyleModule(nn.Module):
                 train=True,
                 return_latent=False
     ):
-        
-        # generate synthetic images
-        z = torch.randn((x.shape[0], 512), device=self.config.device).detach()
-        synthetic_img, synthetic_w, _ = self.decoder([z], return_latents=True, randomize_noise=False)
-        synthetic_img = synthetic_img.detach()
-        
-        # Concat synthetic and real data
-        concat_img = torch.cat([synthetic_img, x], dim=0).detach()
+        if self.config.fake_image_on_batch :
+            # generate synthetic images
+            z = torch.randn((x.shape[0], 512), device=self.config.device).detach()
+            synthetic_img, synthetic_w, _ = self.decoder([z], return_latents=True, randomize_noise=False)
+            synthetic_img = synthetic_img.detach()
+            
+            # Concat synthetic and real data
+            img = torch.cat([synthetic_img, x], dim=0).detach()
+        else :
+            img = x
       
         # Reconstruction
-        w_recon, fea = self.encoder(concat_img)
-        w_recon = w_recon + self.latent_avg.repeat(w_recon.shape[0], 1, 1)
+        w_recon, fea = self.encoder(img)
+        if self.config.start_from_latent_avg:
+            w_recon = w_recon + self.latent_avg.repeat(w_recon.shape[0], 1, 1)
 
-        if train:
+        if train: # Find out why
             features = None
         else :
             features = [None]*self.idx_k + [fea] + [None]*(13-self.idx_k) 
@@ -99,9 +98,9 @@ class FeatureStyleModule(nn.Module):
 
         
         if return_latent :
-            return concat_img, fea, fea_recon, x_recon, x_recon_2, w_recon
+            return img, fea, fea_recon, x_recon, x_recon_2, w_recon
         else :
-            return concat_img, fea, fea_recon, x_recon, x_recon_2
+            return img, fea, fea_recon, x_recon, x_recon_2
 
     def set_config(self, config):
         self.config = config

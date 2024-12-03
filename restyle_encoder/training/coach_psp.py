@@ -9,11 +9,8 @@ from torch.utils.data import DataLoader
 import torch.nn.functional as F
 from tqdm import tqdm
 from restyle_encoder.utils import common, train_utils
-from restyle_encoder.criteria import w_norm, moco_loss, scattering_loss
-from restyle_encoder.criteria.SWD_loss import SwdLoss
 from restyle_encoder.configs import data_configs
 from restyle_encoder.datasets.arome_dataset import AromeDataset
-from restyle_encoder.criteria.lpips.lpips import LPIPS
 from restyle_encoder.models.psp import pSp
 from restyle_encoder.training.ranger import Ranger
 from inversion.perceptual_loss.perceptual_loss import PerceptualLoss
@@ -30,35 +27,15 @@ class Coach:
         self.config.device = self.device
 
         # Initialize network
-        self.net = pSp(self.config).to(self.device)
+        self.net = pSp(self.config, restyle_mode=False).to(self.device)
 
         # Estimate latent_avg via dense sampling if latent_avg is not available
         if self.net.latent_avg is None:
             self.net.latent_avg = self.net.decoder.mean_latent(int(1e5))[0].detach()
 
-		# get the image corresponding to the latent average
-        self.avg_sample = self.net(self.net.latent_avg.unsqueeze(0),
-                                   input_code=True,
-                                   randomize_noise=False,return_latents=False,
-                                   average_code=True)[0]
-        
-        self.avg_sample = self.avg_sample.to(self.device).float().detach()
-            
-        np.save(os.path.join(self.config.exp_dir, 'avg_sample.pth'), self.avg_sample.cpu().numpy())
-
 		# Initialize loss
         
         self.mse_loss = nn.MSELoss().to(self.device).eval()
-        if self.config.lpips_lambda > 0:
-            self.lpips_loss = LPIPS(net_type='discrim').to(self.device).eval()
-        if self.config.w_norm_lambda > 0:
-            self.w_norm_loss = w_norm.WNormLoss(start_from_latent_avg=self.config.start_from_latent_avg)
-        if self.config.moco_lambda > 0:
-            self.moco_loss = moco_loss.MocoLoss(self.device)
-        if self.config.scat_lambda > 0:
-            self.scat_loss = scattering_loss.ScatteringLoss(device=self.device)
-        if self.config.swd_lambda > 0 :
-            self.swd_loss = SwdLoss((256,256), device = self.device)
         if self.config.perceptual_lambda > 0 :
             self.perceptual_loss = PerceptualLoss(config=self.config, device=self.device, multi_scale=self.config.multi_scale_perceptual_loss).to(self.device).eval()
         if self.config.ffl_lambda > 0 :
@@ -251,27 +228,6 @@ class Coach:
             loss_l2 = F.mse_loss(y_hat, y)
             loss_dict['loss_l2'] = float(loss_l2)
             loss += loss_l2 * self.config.l2_lambda
-        if self.config.lpips_lambda > 0:
-            loss_lpips = self.lpips_loss(y_hat, y)
-            loss_dict['loss_lpips'] = float(loss_lpips)
-            loss += loss_lpips * self.config.lpips_lambda
-        if self.config.w_norm_lambda > 0:
-            loss_w_norm = self.w_norm_loss(latent, self.net.latent_avg)
-            loss_dict['loss_w_norm'] = float(loss_w_norm)
-            loss += loss_w_norm * self.config.w_norm_lambda
-        if self.config.moco_lambda > 0:
-            loss_moco, sim_improvement, id_logs = self.moco_loss(y_hat, y, x)
-            loss_dict['loss_moco'] = float(loss_moco)
-            loss_dict['id_improve'] = float(sim_improvement)
-            loss += loss_moco * self.config.moco_lambda
-        if self.config.scat_lambda > 0 :  # Scattering loss
-            loss_scat = self.scat_loss(y_hat, y)
-            loss_dict['scat_loss'] = float(loss_scat)
-            loss += loss_scat * self.config.scat_lambda
-        if self.config.swd_lambda > 0 :  # Scattering loss
-            loss_swd = self.swd_loss.End2End(y_hat, y)
-            loss_dict['swd_loss'] = float(loss_swd)
-            loss += loss_swd * self.config.swd_lambda
         
         if self.config.perceptual_lambda > 0 :
             perceptual_loss = self.perceptual_loss(y_hat, y)

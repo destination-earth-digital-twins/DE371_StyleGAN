@@ -79,6 +79,13 @@ def latent_noise(latent, strength):
     noise = torch.randn_like(latent) * strength
     return latent + noise
 
+def feature_noise(feature, strength):
+    r'''
+    Adding noise to feature
+    '''
+    noise = torch.randn_like(feature) * strength
+    return feature + noise
+
 def optimize(Ens_r, g_ema, latent_mean, device, params, hybrid=False):
 
     """
@@ -109,40 +116,49 @@ def optimize(Ens_r, g_ema, latent_mean, device, params, hybrid=False):
     latent_mean = latent_mean.to(device) # torch.Size([512])
     if hybrid : 
         if len(latent_mean.shape) == 2 :
-            latent_in = latent_mean.detach().clone().unsqueeze(0).repeat(Ens_r.shape[0], 1) # torch.Size([B, 512])
             latent_in = latent_mean.detach().clone().unsqueeze(0).repeat(Ens_r.shape[0], 1) # (B, 512)
             latent_in = latent_in.unsqueeze(1).repeat(1, g_ema.n_latent, 1) # (B, 14, 512)
             latent_in.requires_grad = True
         else :
             latent_in = latent_mean
+            latent_in.requires_grad = True
             
     else :
-            latent_in = latent_mean.detach().clone().unsqueeze(0).repeat(Ens_r.shape[0], 1) # torch.Size([B, 512])
-            latent_in = latent_mean.detach().clone().unsqueeze(0).repeat(Ens_r.shape[0], 1) # (B, 512)
-            latent_in = latent_in.unsqueeze(1).repeat(1, g_ema.n_latent, 1) # (B, 14, 512)
-            latent_in.requires_grad = True
+        latent_in = latent_mean.detach().clone().unsqueeze(0).repeat(Ens_r.shape[0], 1) # (B, 512)
+        latent_in = latent_in.unsqueeze(1).repeat(1, g_ema.n_latent, 1) # (B, 14, 512)
+        latent_in.requires_grad = True
+        if params.feature_optimize : 
+            _, features, _ = g_ema([latent_in], input_is_latent=True, return_features=True)
+            # print([feature.shape for feature in features])
+            # np.save(f'{params.output_dir}features_mean.npy',np.array(features))
+            feature = features[params.feature_id].detach().clone().to(device)
+            feature.requires_grad = True
+
     with torch.no_grad():
         noise_sample = torch.randn(Ens_r.shape[0], 512, device=device) # torch.Size([B,512]) (z)
         latent_out = g_ema.style(noise_sample) # torch.Size([B,512]) (w)
         latent_mean = latent_out.mean(0)
         latent_std = ((latent_out - latent_mean).pow(2).sum() / Ens_r.shape[0]) ** 0.5
 
-    print(f'########## Latent vector optimisation {params.date_index} {params.lt_index} #############')
 
-    noises_single = g_ema.make_noise() # list of noise maps, with shapes from (1,1,4,4) to (1,1,256,256)
+    print(f'########## Latent vector optimisation {params.date_index} {params.lt_index} #############')
     if params.fixed_noise or params.noise_optimize :
+        noises_single = g_ema.make_noise() # list of noise maps, with shapes from (1,1,4,4) to (1,1,256,256)
         noises = [] # per pixel noise to inject in each layer. with shapes from (B,1,4,4) to (B,1,256,256)
         for i, noise in enumerate(noises_single):
             noises.append(noise.repeat(Ens_r.shape[0], 1, 1, 1).normal_())
 
-
+    params_to_optimize = [latent_in]
     if params.noise_optimize:
         for noise in noises:
             noise.requires_grad = True
 
-        optimizer = optim.Adam([latent_in] + noises, lr=params.lr)
-    else:
-        optimizer = optim.Adam([latent_in], lr=params.lr)
+        params_to_optimize += noises
+    
+    if params.feature_optimize : 
+        params_to_optimize += [feature]
+    
+    optimizer = optim.Adam(params_to_optimize, lr=params.lr)    
 
     pbar = tqdm(range(params.invstep))
 
@@ -170,19 +186,27 @@ def optimize(Ens_r, g_ema, latent_mean, device, params, hybrid=False):
     list_pixel_loss = []
     list_time_to_compute_vgg_loss=[]
     list_time_to_compute_mse_loss=[]
+    features_in = None
 
     for i in pbar:
         t = i / params.invstep
-        lr = get_lr(t, params.lr, params.lr_rampdown, params.lr_rampup)
+        if params.lr_rampdown ==0 and params.lr_rampup == 0:
+            lr = params.lr
+        else:
+            lr = get_lr(t, params.lr, params.lr_rampdown, params.lr_rampup)
+
         optimizer.param_groups[0]["lr"] = lr
 
         noise_strength = latent_std * params.noise_strength * max(0, 1 - t / params.noise_ramp) ** 2
         latent_n = latent_noise(latent_in, noise_strength.item())
 
+        if params.feature_optimize : 
+            features_in = [None]*(params.feature_id)+ [feature] + [None]*(13-(params.feature_id)) 
+
         if params.fixed_noise or params.noise_optimize :
-            Gen = g_ema([latent_n], input_is_latent=True, noise=noises)
+            Gen = g_ema([latent_n], input_is_latent=True, noise=noises, features_in=features_in, feature_scale=1)
         else :
-            Gen = g_ema([latent_n], input_is_latent=True, noise=None)
+            Gen = g_ema([latent_n], input_is_latent=True, noise=None, features_in=features_in, feature_scale=1)
 
         img_gen = Gen[0] # generated samples
 
@@ -282,10 +306,3 @@ def optimize(Ens_r, g_ema, latent_mean, device, params, hybrid=False):
                 print(f"--plotting checkpoint {i+1}: {figname}")
                 figtitle = f"{params.date_index}_{params.lt_index}_step_{i+1}"
                 online_inv_plot_2(Ens_r.cpu().detach().numpy(), img_gen.cpu().detach().numpy(), figtitle=figtitle, figname=figname)
-                
-            # print(f"--saving loss_function {i+1}: {figname}")
-            # np.save(params.output_dir+'MSE_loss_{}_{}.npy'.format(params.date_index,params.lt_index),list_pixel_loss)
-            # np.save(params.output_dir+'Perceptual_loss_{}_{}.npy'.format(params.date_index,params.lt_index),list_perceptual_loss)
-            # np.save(params.output_dir+'Time_Perceptual_loss_{}_{}.npy'.format(params.date_index,params.lt_index),list_time_to_compute_vgg_loss)
-            # np.save(params.output_dir+'Time_MSE_loss_{}_{}.npy'.format(params.date_index,params.lt_index),list_time_to_compute_mse_loss)
-

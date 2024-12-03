@@ -12,13 +12,13 @@ sys.path.append("..")
 
 print(sys.path)
 
-from options.train_options import TrainOptions, createNamesFromLosses
+from restyle_encoder.options.pSp_train_options import pSpTrainOptions, createNamesFromLosses
 from restyle_encoder.training.coach_psp import Coach
 
 
 def main(namesFromLosses=False):
     
-    config = TrainOptions().parse()
+    config = pSpTrainOptions().parse()
     
     if namesFromLosses : 
         config.exp_dir = config.exp_dir  + 'pSp_training/' + createNamesFromLosses(config)

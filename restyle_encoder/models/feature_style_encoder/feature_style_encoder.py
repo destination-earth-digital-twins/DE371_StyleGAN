@@ -13,20 +13,13 @@ from restyle_encoder.models.feature_style_encoder.iresnet import iresnet50
 
 
 class fs_encoder(nn.Module):
-    def __init__(self, n_styles=18, video_input=False, stride=(1, 1)):
+    def __init__(self, n_styles=18, stride=(1, 1)):
         super(fs_encoder, self).__init__()  
 
         resnet50 = iresnet50()
         # resnet50.load_state_dict(torch.load(opts.arcface_model_path))
 
-        # input conv layer
-        if video_input:
-            self.conv = nn.Sequential(
-                nn.Conv2d(6, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False),
-                *list(resnet50.children())[1:3]
-            )
-        else:
-            self.conv = nn.Sequential(*list(resnet50.children())[:3])
+        self.conv = nn.Sequential(*list(resnet50.children())[:3])
         
         # define layers
         self.block_1 = list(resnet50.children())[3] # 15-18
@@ -57,8 +50,6 @@ class fs_encoder(nn.Module):
         features.append(self.avg_pool(x))
         x = self.block_3(x)
         content = self.content_layer(x)
-        # print('content.shape',content.shape)
-        # content = nn.functional.interpolate(content, scale_factor=0.5) # added to match the size of Feature space for K=5
         features.append(self.avg_pool(x))
         x = self.block_4(x)
         features.append(self.avg_pool(x))

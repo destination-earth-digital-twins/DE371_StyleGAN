@@ -1,4 +1,4 @@
-from options.train_options import TrainOptions
+from restyle_encoder.options.train_options import TrainOptions
 import perturbation.utils as utils
 
 class e4eTrainOptions(TrainOptions):

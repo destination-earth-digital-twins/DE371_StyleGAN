@@ -21,14 +21,12 @@ module load Apptainer/1.2.4-GCCcore-12.3.0
 apptainer exec --nv /project/scratch/p200177/DE_371/resources/apptainer_container/container.sif python3 main_inversion.py \
         --ckpt_dir='/project/scratch/p200177/DE_371/victorsanchez/models/trained_generator/000024.pt' \
         --real_data_dir='/project/home/p200177/DE_371/datasets/dataset_Meteo_France/IS_1_1.0_0_0_0_0_0_256_large_lt_done/' \
-        --output_dir='/project/scratch/p200177/DE_371/victorsanchez/results/member_inversion/test_feature_layers_4_random/' \
+        --output_dir='/project/scratch/p200177/DE_371/victorsanchez/results/member_inversion/optimization_inversion/test_optim_latent_fea13_rd/inversion/' \
         --pack_dir='' \
         --device='cuda' \
         --network_type='vgg16' \
         --lambda_perceptual_loss=1 \
         --channel_computation='sol2' \
-        --lambda_noise=1e5 \
-        --noise_optimize \
         --invstep=1000 \
         --inv_checkpoints='[250,500,750,1000]' \
         --date_start=2021-07-01 \
@@ -36,4 +34,6 @@ apptainer exec --nv /project/scratch/p200177/DE_371/resources/apptainer_containe
         --leadtimes='[3]' \
         --plot_checkpoint \
         --features_after_relu \
-        --feature_layers='[4]' \
+        --feature_layers='[0,1,2,3]' \
+        --feature_optimize \
+        --feature_id=13 \

@@ -37,23 +37,9 @@ class Coach:
         if self.net.latent_avg is None:
             self.net.latent_avg = self.net.decoder.mean_latent(int(1e5))[0].detach()
 
-        self.avg_sample, _, _ = self.net.decoder([self.net.latent_avg.unsqueeze(0)], input_is_latent=True, randomize_noise=False)
-        self.avg_sample = self.avg_sample.to(self.device).float().detach()
-        # self.noise = self.net.decoder.make_noise()
-
 		# Initialize loss
         
         self.mse_loss = nn.MSELoss().to(self.device).eval()
-        if self.config.lpips_lambda > 0:
-            self.lpips_loss = LPIPS(net_type='discrim').to(self.device).eval()
-        if self.config.w_norm_lambda > 0:
-            self.w_norm_loss = w_norm.WNormLoss(start_from_latent_avg=self.config.start_from_latent_avg)
-        if self.config.moco_lambda > 0:
-            self.moco_loss = moco_loss.MocoLoss(self.device)
-        if self.config.scat_lambda > 0:
-            self.scat_loss = scattering_loss.ScatteringLoss(device=self.device)
-        if self.config.swd_lambda > 0 :
-            self.swd_loss = SwdLoss((256,256), device = self.device)
         if self.config.perceptual_lambda > 0 :
             self.perceptual_loss = PerceptualLoss(config=self.config, device=self.device, multi_scale=self.config.multi_scale_perceptual_loss).to(self.device).eval()
         if self.config.ffl_lambda > 0 :
@@ -102,11 +88,10 @@ class Coach:
                 x, y = x.to(self.device).float(), y.to(self.device).float()
                 
                 feature_scale = min(1.0, 0.0001*self.global_step)
-                # y = torch.cat([self.avg_sample, y], dim=0)
 
-                concat_img, fea, fea_recon, y_hat, y_hat_hat = self.net.forward(y, feature_scale=feature_scale)
+                img, fea, fea_recon, y_hat, y_hat_hat = self.net.forward(y, feature_scale=feature_scale)
                 
-                loss, loss_dict = self.calc_loss(x, y, concat_img, fea, fea_recon, y_hat, y_hat_hat)
+                loss, loss_dict = self.calc_loss(x, y, img, fea, fea_recon, y_hat, y_hat_hat)
 
                 loss.backward()
                 self.optimizer.step()
@@ -121,9 +106,11 @@ class Coach:
                 
                 if self.global_step % self.config.image_interval == 0: # or (self.global_step < 1000 and self.global_step % 25 == 0):
                     print('plotting for train')
-                    b = concat_img.size(0)//2  
-                    # self.parse_and_log_images(x, concat_img[:b], y_hat[:b], title='samples/train_fake')
-                    self.parse_and_log_images(x, y, y_hat_hat[b:], title='samples/train')
+                    if self.config.fake_image_on_batch :
+                        b = img.size(0)//2  
+                        self.parse_and_log_images(x, y, y_hat_hat[b:], title='samples/train')
+                    else :
+                        self.parse_and_log_images(x, y, y_hat_hat, title='samples/train')
                     
                 if self.global_step % self.config.board_interval == 0:
                     self.log_metrics(self.global_step, loss_dict,  prefix='train')
@@ -163,18 +150,19 @@ class Coach:
             with torch.no_grad():
                 x, y = x.to(self.device).float(), y.to(self.device).float()
                 feature_scale = min(1.0, 0.0001*self.global_step)
-                # y = torch.cat([self.avg_sample, y], dim=0)
                 
-                concat_img, fea, fea_recon, y_hat, y_hat_hat = self.net.forward(y, feature_scale=feature_scale, train=False)
-                # print(y.shape, concat_img.shape, y_hat.shape, y_hat_hat.shape)
-                loss, loss_dict = self.calc_loss(x, y, concat_img, fea, fea_recon, y_hat, y_hat_hat)
+                img, fea, fea_recon, y_hat, y_hat_hat = self.net.forward(y, feature_scale=feature_scale, train=False)
+                # print(y.shape, img.shape, y_hat.shape, y_hat_hat.shape)
+                loss, loss_dict = self.calc_loss(x, y, img, fea, fea_recon, y_hat, y_hat_hat)
             agg_loss_dict.append(loss_dict)
 
 			# Logging related
             if batch_idx % 50 == 0:
-                b = concat_img.size(0)//2  
-                # self.parse_and_log_images(x, y, y_hat[:b], title='samples/test_fake', subscript='{:04d}'.format(batch_idx))
-                self.parse_and_log_images(x, y, y_hat_hat[b:], title='samples/test', subscript='{:04d}'.format(batch_idx))
+                if self.config.fake_image_on_batch :
+                    b = img.size(0)//2  
+                    self.parse_and_log_images(x, y, y_hat_hat[b:], title='samples/test', subscript='{:04d}'.format(batch_idx))
+                else :
+                    self.parse_and_log_images(x, y, y_hat_hat, title='samples/test', subscript='{:04d}'.format(batch_idx))
 
 			# For first step just do sanity test on small amount of data
             if self.global_step == 0 and batch_idx >= 4:
@@ -250,50 +238,33 @@ class Coach:
         print("Number of test samples: {}".format(len(test_dataset)))
         return train_dataset, test_dataset
 
-    def calc_loss(self, x, y, concat_img, fea, fea_recon, y_hat, y_hat_hat, option ='train'):
+    def calc_loss(self, x, y, img, fea, fea_recon, y_hat, y_hat_hat, option ='train'):
         loss_dict = {}
         loss = 0.0
 
-        b = concat_img.size(0)//2        
+           
         if self.config.l2_lambda_features and (fea is not None and fea_recon is not None) :
             loss_l2_features = F.mse_loss(fea, fea_recon)
             # print('loss_l2_features', loss_l2_features)
             loss_dict['loss_l2_features'] = float(loss_l2_features)
             loss += loss_l2_features * self.config.l2_lambda_features
         if self.config.l2_lambda > 0:
-            loss_l2 =  F.mse_loss(concat_img[:b], y_hat[:b]) # l2 loss only on synthetic data
+            if self.config.fake_image_on_batch :
+                b = img.size(0)//2     
+                loss_l2 =  F.mse_loss(img[:b], y_hat[:b]) # l2 loss only on synthetic data
+            else :
+                loss_l2 =  F.mse_loss(img, y_hat)
             # print('loss_l2', loss_l2)
             loss_dict['loss_l2'] = float(loss_l2)
             loss += loss_l2 * self.config.l2_lambda
-        # if self.config.lpips_lambda > 0:
-        #     loss_lpips = self.lpips_loss(y_hat, y)
-        #     loss_dict['loss_lpips'] = float(loss_lpips)
-        #     loss += loss_lpips * self.config.lpips_lambda
-        # if self.config.w_norm_lambda > 0:
-        #     loss_w_norm = self.w_norm_loss(latent, self.net.latent_avg)
-        #     loss_dict['loss_w_norm'] = float(loss_w_norm)
-        #     loss += loss_w_norm * self.config.w_norm_lambda
-        # if self.config.moco_lambda > 0:
-        #     loss_moco, sim_improvement, id_logs = self.moco_loss(y_hat, y, x)
-        #     loss_dict['loss_moco'] = float(loss_moco)
-        #     loss_dict['id_improve'] = float(sim_improvement)
-        #     loss += loss_moco * self.config.moco_lambda
-        # if self.config.scat_lambda > 0 :  # Scattering loss
-        #     loss_scat = self.scat_loss(y_hat, y)
-        #     loss_dict['scat_loss'] = float(loss_scat)
-        #     loss += loss_scat * self.config.scat_lambda
-        # if self.config.swd_lambda > 0 :  # Scattering loss
-        #     loss_swd = self.swd_loss.End2End(y_hat, y)
-        #     loss_dict['swd_loss'] = float(loss_swd)
-        #     loss += loss_swd * self.config.swd_lambda
         
         if self.config.perceptual_lambda > 0 :
-            perceptual_loss = self.perceptual_loss(concat_img, y_hat)
+            perceptual_loss = self.perceptual_loss(img, y_hat)
             # print('perceptual_loss', perceptual_loss)
             loss_dict['perceptual_loss_concat_img_y_hat'] = float(perceptual_loss)
             loss += perceptual_loss * self.config.perceptual_lambda
 
-            perceptual_loss = self.perceptual_loss(concat_img, y_hat_hat)
+            perceptual_loss = self.perceptual_loss(img, y_hat_hat)
             # print('perceptual_loss', perceptual_loss)
             loss_dict['perceptual_loss_concat_img_y_hat_y_hat'] = float(perceptual_loss)
             loss += perceptual_loss * self.config.perceptual_lambda

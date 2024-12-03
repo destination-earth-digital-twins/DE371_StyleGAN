@@ -35,16 +35,6 @@ class Coach:
         if self.net.latent_avg is None:
             self.net.latent_avg = self.net.decoder.mean_latent(int(1e5))[0].detach()
 
-		# get the image corresponding to the latent average
-        self.avg_sample = self.net(self.net.latent_avg.unsqueeze(0),
-                                   input_code=True,
-                                   randomize_noise=False,return_latents=False,
-                                   average_code=True)[0]
-        
-        self.avg_sample = self.avg_sample.to(self.device).float().detach()
-            
-        np.save(os.path.join(self.config.exp_dir, 'avg_sample.pth'), self.avg_sample.cpu().numpy())
-
 		# Initialize loss
         
         self.mse_loss = nn.MSELoss().to(self.device).eval()
@@ -167,10 +157,6 @@ class Coach:
                 x, y = x.to(self.device).float(), y.to(self.device).float()
                 y_hat, latent, discrim_out_real, discrim_out_fake = self.net.forward(y, return_latents=True)
                 _, cur_loss_dict = self.calc_loss_encoder(x, y, y_hat, latent, discrim_out_real, discrim_out_fake)
-                
-                # if self.config.train_discriminator :
-                #     _, loss_discriminator_dict = self.calc_loss_discriminator(x, y, y_hat, latent, discrim_out_real, discrim_out_fake)
-                #     agg_loss_dict.append(loss_discriminator_dict)
 
             agg_loss_dict.append(cur_loss_dict)
 
