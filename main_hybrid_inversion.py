@@ -15,16 +15,16 @@ import os
 import numpy as np
 import yaml
 import pandas as pd
-from restyle_encoder.utils import common, train_utils
+from encoders.utils import common, train_utils
 import matplotlib.pyplot as plt
 import matplotlib
 matplotlib.use('Agg')
 import perturbation.utils as utils
-from restyle_encoder.models.psp import pSp
+from encoders.models.psp import pSp
 from inversion.hybrid_based.inversion import init_latent_restyle, init_latent_psp_e4e, init_latent_featureStyle, init_latent_inDomain
-from restyle_encoder.models.e4e import e4e
-from restyle_encoder.models.in_domain import inDomain
-from restyle_encoder.models.feature_style_encoder.feature_style_module import FeatureStyleModule
+from encoders.models.e4e import e4e
+from encoders.models.in_domain import inDomain
+from encoders.models.feature_style_encoder.feature_style_module import FeatureStyleModule
 from generate_sample import humanbytes
 from time import time
 from inversion.encoder_based.utils import log_images_diff
