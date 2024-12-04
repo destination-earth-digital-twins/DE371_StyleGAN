@@ -261,7 +261,7 @@ class Coach:
         if self.config.perceptual_lambda > 0 :
             perceptual_loss = self.perceptual_loss(img, y_hat)
             # print('perceptual_loss', perceptual_loss)
-            loss_dict['perceptual_loss_concat_img_y_hat'] = float(perceptual_loss)
+            loss_dict['perceptual_loss_concat_img_y_hat'] = float(perceptual_loss) # Understand why double loss
             loss += perceptual_loss * self.config.perceptual_lambda
 
             perceptual_loss = self.perceptual_loss(img, y_hat_hat)
