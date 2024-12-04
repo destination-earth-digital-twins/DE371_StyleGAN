@@ -35,12 +35,14 @@ class Coach:
 
 		# Initialize loss
         
-        self.mse_loss = nn.MSELoss().to(self.device).eval()
-        if self.config.perceptual_lambda > 0 :
+        if self.config.perceptual_lambda > 0 or self.config.perceptual_lambda_on_fake_samples > 0:
             self.perceptual_loss = PerceptualLoss(config=self.config, device=self.device, multi_scale=self.config.multi_scale_perceptual_loss).to(self.device).eval()
         if self.config.ffl_lambda > 0 :
             self.ffl_loss = FocalFrequencyLoss().to(self.device)
-                            
+
+        if not self.config.training_on_real_samples and not self.config.training_on_fake_samples :     
+            raise NotImplementedError
+                
 		# Initialize optimizer
         self.optimizer = self.configure_optimizers()
         self.pbar = None
@@ -82,10 +84,14 @@ class Coach:
                 x, y = batch
                 # x, y 
                 x, y = x.to(self.device).float(), y.to(self.device).float()
+                if not self.config.training_on_fake_samples:
+                    y_hat, latent = self.net.forward(x, return_latents=True)
+                    loss, loss_dict = self.calc_loss(x, y, y_hat, latent)
                 
-                y_hat, latent = self.net.forward(x, return_latents=True)
-                
-                loss, loss_dict = self.calc_loss(x, y, y_hat, latent)
+                else :
+                    y_hat, latent, fake_img, fake_w, estimated_fake_img, estimated_fake_w = self.net.forward(x, return_latents=True)
+                    loss, loss_dict = self.calc_loss(x, y, y_hat, latent, fake_img, fake_w, estimated_fake_img, estimated_fake_w)
+
                 loss.backward()
                 self.optimizer.step()
 
@@ -99,7 +105,12 @@ class Coach:
                 
                 if self.global_step % self.config.image_interval == 0: # or (self.global_step < 1000 and self.global_step % 25 == 0):
                     print('plotting for train')
-                    self.parse_and_log_images(x, y, y_hat, title='samples/train')
+                    if not self.config.training_on_real_samples :
+                        self.parse_and_log_images(fake_img, fake_img, estimated_fake_img, title='samples/train')
+                    else :
+                        self.parse_and_log_images(x, y, y_hat, title='samples/train')
+
+                    
                     
                 if self.global_step % self.config.board_interval == 0:
                     self.log_metrics(self.global_step, loss_dict,  prefix='train')
@@ -138,12 +149,19 @@ class Coach:
             
             with torch.no_grad():
                 x, y = x.to(self.device).float(), y.to(self.device).float()
-                y_hat, latent = self.net.forward(y, return_latents=True)
-                _, cur_loss_dict = self.calc_loss(x, y, y_hat, latent)
+                if not self.config.training_on_fake_samples:
+                    y_hat, latent = self.net.forward(y, return_latents=True)
+                    _, cur_loss_dict = self.calc_loss(x, y, y_hat, latent)
+                else :
+                    y_hat, latent, fake_img, fake_w, estimated_fake_img, estimated_fake_w = self.net.forward(y, return_latents=True)
+                    _, cur_loss_dict = self.calc_loss(x, y, y_hat, latent, fake_img, fake_w, estimated_fake_img, estimated_fake_w)
+
             agg_loss_dict.append(cur_loss_dict)
 
 			# Logging related
             if batch_idx % 50 == 0:
+                if not self.config.training_on_real_samples :
+                    self.parse_and_log_images(fake_img, fake_img, estimated_fake_img, title='samples/test_fake_img', subscript='{:04d}'.format(batch_idx))
                 self.parse_and_log_images(x, y, y_hat, title='samples/test', subscript='{:04d}'.format(batch_idx))
 
 			# For first step just do sanity test on small amount of data
@@ -220,33 +238,43 @@ class Coach:
         print("Number of test samples: {}".format(len(test_dataset)))
         return train_dataset, test_dataset
 
-    def calc_loss(self, x, y, y_hat, latent, option ='train'):
+    def calc_loss(self, x, y, y_hat, latent, fake_img=None, fake_w=None, estimated_fake_img=None, estimated_fake_w=None, option ='train'):
         loss_dict = {}
         loss = 0.0
-        id_logs = None
-        if self.config.l2_lambda > 0:
-            loss_l2 = F.mse_loss(y_hat, y)
-            loss_dict['loss_l2'] = float(loss_l2)
-            loss += loss_l2 * self.config.l2_lambda
-        
-        if self.config.perceptual_lambda > 0 :
-            perceptual_loss = self.perceptual_loss(y_hat, y)
-            loss_dict['perceptual_loss'] = float(perceptual_loss)
-            loss += perceptual_loss * self.config.perceptual_lambda
-
-        if self.config.ffl_lambda > 0 :
-            ffl_loss = self.ffl_loss(y_hat, y)
-            loss_dict['ffl_loss'] = float(ffl_loss)
-            loss += ffl_loss * self.config.ffl_lambda
-
-        if option != 'train' :
-            if self.config.l2_lambda==0 :
+        if self.config.training_on_real_samples or option =='validation':
+            if self.config.l2_lambda > 0:
                 loss_l2 = F.mse_loss(y_hat, y)
                 loss_dict['loss_l2'] = float(loss_l2)
+                loss += loss_l2 * self.config.l2_lambda
             
-            loss_mae = F.l1_loss(y_hat,y)
-            loss_dict['loss_mae'] = float(loss_mae)
+            if self.config.perceptual_lambda > 0 :
+                perceptual_loss = self.perceptual_loss(y_hat, y)
+                loss_dict['perceptual_loss'] = float(perceptual_loss)
+                loss += perceptual_loss * self.config.perceptual_lambda
+
+            if self.config.ffl_lambda > 0 :
+                ffl_loss = self.ffl_loss(y_hat, y)
+                loss_dict['ffl_loss'] = float(ffl_loss)
+                loss += ffl_loss * self.config.ffl_lambda
+
+            if option != 'train' :
+                if self.config.l2_lambda==0 :
+                    loss_l2 = F.mse_loss(y_hat, y)
+                    loss_dict['loss_l2'] = float(loss_l2)
+                
+                loss_mae = F.l1_loss(y_hat,y)
+                loss_dict['loss_mae'] = float(loss_mae)
             
+        if self.config.training_on_fake_samples or option =='validation':
+            if self.config.perceptual_lambda_on_fake_samples > 0 :
+                perceptual_loss_on_fake_samples = self.perceptual_loss(estimated_fake_img, fake_img)
+                loss_dict['perceptual_loss_on_fake_samples'] = float(perceptual_loss_on_fake_samples)
+                loss += perceptual_loss_on_fake_samples * self.config.perceptual_lambda_on_fake_samples
+            if self.config.l2_lambda_on_fake_latent > 0:
+                loss_l2_on_fake_latent = F.mse_loss(estimated_fake_w, fake_w)
+                loss_dict['loss_l2_on_fake_latent'] = float(loss_l2_on_fake_latent)
+                loss += loss_l2_on_fake_latent * self.config.l2_lambda_on_fake_latent
+
 
         loss_dict['loss_total'] = float(loss)
         return loss, loss_dict

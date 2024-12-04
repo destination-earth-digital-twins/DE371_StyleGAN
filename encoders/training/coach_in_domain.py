@@ -36,8 +36,6 @@ class Coach:
             self.net.latent_avg = self.net.decoder.mean_latent(int(1e5))[0].detach()
 
 		# Initialize loss
-        
-        self.mse_loss = nn.MSELoss().to(self.device).eval()
         if self.config.perceptual_lambda > 0 :
             self.perceptual_loss = PerceptualLoss(config=self.config, device=self.device, multi_scale=self.config.multi_scale_perceptual_loss).to(self.device).eval()
        
@@ -288,7 +286,7 @@ class Coach:
             loss += perceptual_loss * self.config.perceptual_lambda
 
         if self.config.adv_lambda > 0:
-            adv_loss = -F.softplus(discrim_out_fake.sum())
+            adv_loss = F.softplus(discrim_out_fake.sum())
             loss_dict['adv_loss'] = float(adv_loss)
             loss += adv_loss * self.config.adv_lambda
 

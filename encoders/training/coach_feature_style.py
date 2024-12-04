@@ -242,12 +242,13 @@ class Coach:
         loss_dict = {}
         loss = 0.0
 
-           
+        
         if self.config.l2_lambda_features and (fea is not None and fea_recon is not None) :
             loss_l2_features = F.mse_loss(fea, fea_recon)
             # print('loss_l2_features', loss_l2_features)
             loss_dict['loss_l2_features'] = float(loss_l2_features)
             loss += loss_l2_features * self.config.l2_lambda_features
+
         if self.config.l2_lambda > 0:
             if self.config.fake_image_on_batch :
                 b = img.size(0)//2     
@@ -259,10 +260,11 @@ class Coach:
             loss += loss_l2 * self.config.l2_lambda
         
         if self.config.perceptual_lambda > 0 :
-            perceptual_loss = self.perceptual_loss(img, y_hat)
-            # print('perceptual_loss', perceptual_loss)
-            loss_dict['perceptual_loss_concat_img_y_hat'] = float(perceptual_loss) # Understand why double loss
-            loss += perceptual_loss * self.config.perceptual_lambda
+            if self.config.reconstruction_loss_on_fake_sample :
+                perceptual_loss = self.perceptual_loss(img, y_hat)
+                # print('perceptual_loss', perceptual_loss)
+                loss_dict['perceptual_loss_concat_img_y_hat'] = float(perceptual_loss)
+                loss += perceptual_loss * self.config.perceptual_lambda
 
             perceptual_loss = self.perceptual_loss(img, y_hat_hat)
             # print('perceptual_loss', perceptual_loss)
@@ -270,7 +272,7 @@ class Coach:
             loss += perceptual_loss * self.config.perceptual_lambda
 
         if self.config.ffl_lambda > 0 :
-            ffl_loss = self.ffl_loss(concat_img, y_hat)
+            ffl_loss = self.ffl_loss(img, y_hat)
             loss_dict['ffl_loss'] = float(ffl_loss)
             loss += ffl_loss * self.config.ffl_lambda
 

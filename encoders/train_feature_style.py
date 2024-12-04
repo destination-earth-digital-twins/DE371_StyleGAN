@@ -12,13 +12,13 @@ sys.path.append("..")
 
 print(sys.path)
 
-from encoders.options.train_options import TrainOptions, createNamesFromLosses
+from encoders.options.feature_style_train_options import FeatureStyleTrainOptions, createNamesFromLosses
 from encoders.training.coach_feature_style import Coach
 
 
 def main(namesFromLosses=False):
     
-    config = TrainOptions().parse()
+    config = FeatureStyleTrainOptions().parse()
     
     if namesFromLosses : 
         config.exp_dir = config.exp_dir  + 'feature_Style_training/' + createNamesFromLosses(config)

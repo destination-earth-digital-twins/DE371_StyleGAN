@@ -69,7 +69,7 @@ class FeatureStyleModule(nn.Module):
         if self.config.start_from_latent_avg:
             w_recon = w_recon + self.latent_avg.repeat(w_recon.shape[0], 1, 1)
 
-        if train: # Find out why
+        if train: 
             features = None
         else :
             features = [None]*self.idx_k + [fea] + [None]*(13-self.idx_k) 
