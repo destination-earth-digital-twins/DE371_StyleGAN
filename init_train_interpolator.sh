@@ -20,49 +20,57 @@ module load Apptainer/1.2.4-GCCcore-12.3.0
 apptainer exec --nv /project/scratch/p200177/DE_371/resources/apptainer_container/container.sif python3 train_interpolator.py \
         --device='cuda:0' \
         --model_name='LatentInterpolatorCorrector' \
-        --training_description='1024-3-latent100' \
+        --training_description='1024-3-pixel0' \
         --weight_decay=1e-5 \
         --learning_rate=1e-3 \
         --lr_decay=0.9 \
         --latent_loss_weight=1.0 \
         --pixel_loss_weight=0.0 \
         --num_neurons=1024 \
-        --num_layers=3 > training-1.log 2>&1 &
+        --normalization="Layer" \
+        --dropout=0.0 \
+        --num_layers=3 > training-9.log 2>&1 &
 
 apptainer exec --nv /project/scratch/p200177/DE_371/resources/apptainer_container/container.sif python3 train_interpolator.py \
         --device='cuda:1' \
         --model_name='LatentInterpolatorCorrector' \
-        --training_description='1024-3-pixel050' \
+        --training_description='1024-3-pixel500' \
         --weight_decay=1e-5 \
         --learning_rate=1e-3 \
         --lr_decay=0.9 \
         --latent_loss_weight=0.5 \
-        --pixel_loss_weight=0.5 \
+        --pixel_loss_weight=500.0 \
         --num_neurons=1024 \
-        --num_layers=3 > training-2.log 2>&1 &
+        --normalization="Layer" \
+        --dropout=0.0 \
+        --num_layers=3 > training-10.log 2>&1 &
 
 apptainer exec --nv /project/scratch/p200177/DE_371/resources/apptainer_container/container.sif python3 train_interpolator.py \
         --device='cuda:2' \
         --model_name='LatentInterpolatorCorrector' \
-        --training_description='1024-3-pixel075' \
+        --training_description='1024-3-pixel750' \
         --weight_decay=1e-5 \
         --learning_rate=1e-3 \
         --lr_decay=0.9 \
         --latent_loss_weight=0.25 \
-        --pixel_loss_weight=0.75 \
+        --pixel_loss_weight=750.0 \
         --num_neurons=1024 \
-        --num_layers=3 > training-3.log 2>&1 &
+        --normalization="Layer" \
+        --dropout=0.0 \
+        --num_layers=3 > training-11.log 2>&1 &
 
 apptainer exec --nv /project/scratch/p200177/DE_371/resources/apptainer_container/container.sif python3 train_interpolator.py \
         --device='cuda:3' \
         --model_name='LatentInterpolatorCorrector' \
-        --training_description='1024-3-pixel100' \
+        --training_description='1024-3-pixel1000' \
         --weight_decay=1e-5 \
         --learning_rate=1e-3 \
         --lr_decay=0.9 \
         --latent_loss_weight=0.0 \
-        --pixel_loss_weight=1.0 \
+        --pixel_loss_weight=1000.0 \
         --num_neurons=1024 \
-        --num_layers=3 > training-4.log 2>&1 &
+        --normalization="Layer" \
+        --dropout=0.0 \
+        --num_layers=3 > training-12.log 2>&1 &
 
 wait

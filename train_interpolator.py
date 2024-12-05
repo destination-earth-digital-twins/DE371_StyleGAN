@@ -14,21 +14,26 @@ from gan.model.stylegan2 import Generator
 from inversion.vgg_perceptual_loss import VGGPerceptualLoss
 
 class LatentInterpolator(nn.Module):
-    def __init__(self, style_dims=14, latent_dims=512, hidden_neurons=512, num_layers=3):
+    def __init__(self, args, style_dims=14, latent_dims=512):
         super(LatentInterpolator, self).__init__()
         self.style_dims = style_dims
         self.latent_dims = latent_dims
         input_dim = 2 * latent_dims * style_dims + 1  # Inputs: w_start, w_end, and t
 
         layers = []
-        for i in range(num_layers):
-            in_features = input_dim if i == 0 else hidden_neurons
-            out_features = latent_dims * style_dims if i == num_layers - 1 else hidden_neurons
+        for i in range(args.num_layers):
+            in_features = input_dim if i == 0 else args.num_neurons
+            out_features = latent_dims * style_dims if i == args.num_layers - 1 else args.num_neurons
 
             layers.append(nn.Linear(in_features, out_features))
-            if i < num_layers - 1:
-                layers.append(nn.LayerNorm(out_features))
+            if i < args.num_layers - 1:
+                if args.normalization == "Layer":
+                    layers.append(nn.LayerNorm(out_features))
+                elif args.normalization == "Batch":
+                    layers.append(nn.BatchNorm1d(out_features))
                 layers.append(nn.ReLU())
+                if args.dropout > 0:
+                    layers.append(nn.Dropout(p=args.dropout)) 
 
         self.network = nn.Sequential(*layers)
 
@@ -49,21 +54,26 @@ class LatentInterpolator(nn.Module):
         return w_predicted.view(batch_size, self.style_dims, self.latent_dims)  # [batch_size, 14, 512]
 
 class LatentInterpolatorCorrector(nn.Module):
-    def __init__(self, style_dims=14, latent_dims=512, hidden_neurons=512, num_layers=3):
+    def __init__(self, args, style_dims=14, latent_dims=512):
         super(LatentInterpolatorCorrector, self).__init__()
         self.style_dims = style_dims
         self.latent_dims = latent_dims
         input_dim = 2 * latent_dims * style_dims + 1  # Inputs: w_start, w_end, and t
 
         layers = []
-        for i in range(num_layers):
-            in_features = input_dim if i == 0 else hidden_neurons
-            out_features = latent_dims * style_dims if i == num_layers - 1 else hidden_neurons
+        for i in range(args.num_layers):
+            in_features = input_dim if i == 0 else args.num_neurons
+            out_features = latent_dims * style_dims if i == args.num_layers - 1 else args.num_neurons
 
             layers.append(nn.Linear(in_features, out_features))
-            if i < num_layers - 1:
-                layers.append(nn.LayerNorm(out_features))
+            if i < args.num_layers - 1:
+                if args.normalization == "Layer":
+                    layers.append(nn.LayerNorm(out_features))
+                elif args.normalization == "Batch":
+                    layers.append(nn.BatchNorm1d(out_features))
                 layers.append(nn.ReLU())
+                if args.dropout > 0:
+                    layers.append(nn.Dropout(p=args.dropout)) 
 
         self.network = nn.Sequential(*layers)
 
@@ -418,6 +428,12 @@ def main():
         '--num_layers', type=int, default=3, help="Number of hidden layers."
     )
     parser.add_argument(
+        '--normalization', type=str, default="Layer", help="Layer, Batch normalization or none."
+    )
+    parser.add_argument(
+        '--dropout', type=float, default=0.0, help="Dropout probability."
+    )
+    parser.add_argument(
         '--weight_decay', type=float, default=1e-4, help="Weight decay parameter."
     )
     parser.add_argument(
@@ -458,8 +474,6 @@ def main():
     device = args.device
     model_name = args.model_name
     training_description = args.training_description
-    hidden_neurons = args.num_neurons
-    num_layers = args.num_layers
     weight_decay = args.weight_decay
     lr = args.learning_rate
     lr_decay = args.lr_decay
@@ -517,7 +531,7 @@ def main():
 
     # Initialize model, loss function and optimizer
     if model_name in model_classes:
-        model = model_classes[model_name](hidden_neurons=hidden_neurons, num_layers=num_layers).to(device)
+        model = model_classes[model_name](args).to(device)
     else:
         raise ValueError(f"Model '{model_name}' is not supported.")
     print(f"Model architecture: {model}\n")

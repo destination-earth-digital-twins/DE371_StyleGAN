@@ -28,8 +28,7 @@ def main():
     parser.add_argument("--ref_leadtimes", type=utils.str2intlist, default=[6,7,8,9,10,11,12])
     parser.add_argument("--invstep", type=int, default=1000, help="optimize iterations")
     parser.add_argument('--model_dir',type = str,
-        default ='/project/home/p200177/DE_371/experiments_WP2/temporal_downscaling_experiments/interpolation_models/2024-04-12/LatentInterpolatorCorrector-1024-3-lr1e-3-epoch-10-2024-12-04T14_13.pt'
-)
+        default ='/project/home/p200177/DE_371/experiments_WP2/temporal_downscaling_experiments/interpolation_models/2024-12-05/LatentInterpolatorCorrector-1024-3-pixel050-epoch-10-2024-12-05T18_01.pt')
     args = parser.parse_args()
     print(args)
     device = args.device
@@ -42,6 +41,13 @@ def main():
     ref_leadtimes = args.ref_leadtimes
     date = args.date
     invstep = args.invstep
+
+    # Load the model checkpoint
+    model = LatentInterpolatorCorrector(hidden_neurons=1024, num_layers=3)
+    checkpoint = torch.load(model_dir, map_location=device)
+    model.load_state_dict(checkpoint)
+    model = model.to(device)
+    model.eval()
 
     sample_start, sample_end = load_samples(
         basename=f"{inv_dir}/w",
@@ -76,13 +82,6 @@ def main():
         )
 
     print("Generating interpolated samples...")
-
-    # Load the model checkpoint
-    model = LatentInterpolatorCorrector(hidden_neurons=1024, num_layers=3)
-    checkpoint = torch.load(model_dir, map_location=device)
-    model.load_state_dict(checkpoint)
-    model = model.to(device)
-    model.eval()
 
     timesteps = torch.linspace(0, 1, len(ref_leadtimes)).to(device)
     print(f"Selected timesteps: {timesteps}")
