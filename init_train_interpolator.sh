@@ -19,19 +19,19 @@ module load Apptainer/1.2.4-GCCcore-12.3.0
 
 apptainer exec --nv /project/scratch/p200177/DE_371/resources/apptainer_container/container.sif python3 train_interpolator.py \
         --device='cuda:0' \
-        --model_name='LatentInterpolator' \
-        --training_description='512-3' \
-        --weight_decay=1e-4 \
+        --model_name='LatentInterpolatorCorrector' \
+        --training_description='1024-3-gamma-1' \
+        --weight_decay=1e-5 \
         --learning_rate=1e-3 \
-        --lr_decay=0.9 \
-        --num_neurons=512 \
+        --lr_decay=1.0 \
+        --num_neurons=1024 \
         --num_layers=3 > training-9.log 2>&1 &
 
 apptainer exec --nv /project/scratch/p200177/DE_371/resources/apptainer_container/container.sif python3 train_interpolator.py \
         --device='cuda:1' \
-        --model_name='LatentInterpolator' \
-        --training_description='1024-3' \
-        --weight_decay=1e-4 \
+        --model_name='LatentInterpolatorCorrector' \
+        --training_description='1024-3-gamma-09' \
+        --weight_decay=1e-5 \
         --learning_rate=1e-3 \
         --lr_decay=0.9 \
         --num_neurons=1024 \
@@ -39,22 +39,22 @@ apptainer exec --nv /project/scratch/p200177/DE_371/resources/apptainer_containe
 
 apptainer exec --nv /project/scratch/p200177/DE_371/resources/apptainer_container/container.sif python3 train_interpolator.py \
         --device='cuda:2' \
-        --model_name='LatentInterpolator' \
-        --training_description='2048-3' \
-        --weight_decay=1e-4 \
+        --model_name='LatentInterpolatorCorrector' \
+        --training_description='1024-3-gamma-08' \
+        --weight_decay=1e-5 \
         --learning_rate=1e-3 \
-        --lr_decay=0.9 \
-        --num_neurons=2048 \
+        --lr_decay=0.8 \
+        --num_neurons=1024 \
         --num_layers=3 > training-11.log 2>&1 &
 
 apptainer exec --nv /project/scratch/p200177/DE_371/resources/apptainer_container/container.sif python3 train_interpolator.py \
         --device='cuda:3' \
-        --model_name='LatentInterpolator' \
-        --training_description='4096-3' \
-        --weight_decay=1e-4 \
+        --model_name='LatentInterpolatorCorrector' \
+        --training_description='1024-3-gamma-07' \
+        --weight_decay=1e-5 \
         --learning_rate=1e-3 \
-        --lr_decay=0.9 \
-        --num_neurons=4096 \
+        --lr_decay=0.7 \
+        --num_neurons=1024 \
         --num_layers=3 > training-12.log 2>&1 &
 
 wait

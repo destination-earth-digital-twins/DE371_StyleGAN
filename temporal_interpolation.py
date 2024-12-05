@@ -1,139 +1,112 @@
-import torch
 import argparse
+
+import torch
 import numpy as np
-from collections import OrderedDict
 
 from gan.model.stylegan2 import Generator
 
 import perturbation.utils as utils
 
-from train_interpolator import LatentInterpolator
+from train_interpolator import LatentInterpolatorCorrector, load_generator, generate_image_from_latent, linear_interpolation, load_samples
 
-def load_network(params):
-    ################ loading network #################
-    G = Generator(params.Shape[1], 512,n_mlp=8, nb_var=params.Shape[0])
-    ckpt = torch.load(params.ckpt_dir, map_location='cpu')['g_ema']
-
-    if 'module' in list(ckpt.items())[0][0]: #juglling with Pytorch versioning and different module packaging
-        ckpt_adapt = OrderedDict()
-        for k in ckpt.keys():
-            k0 = k[7:]
-            ckpt_adapt[k0] = ckpt[k]
-        G.load_state_dict(ckpt_adapt)
-    else:
-        G.load_state_dict(ckpt)
-
-    G.eval()
-    G = G.to(params.device)
-
-    return G
-
-def generate_image_from_latent(latent_vector, g_ema, device, noise=None):
-    """
-    Generates an image from a specific latent vector using a StyleGAN generator.
-
-    Inputs:
-        latent_vector : torch.tensor, shape B x (2 log2(H) - 2) x 512
-            The latent codes to be used for image generation.
-        
-        g_ema : stylegan Generator
-            The pre-trained StyleGAN generator.
-        
-        device : str or torch.device
-            The device to run the computation on.
-        
-        noise : list of torch.Tensor or None
-            Optional noise maps for each layer. If None, the generator will create its own noise.
-
-    Returns:
-        img_gen : torch.tensor, shape B x C x H x W
-            The generated images.
-    """
-    latent_vector = latent_vector.to(device)  # Move latent vector to the specified device
-
-    # Generate the image using the latent vector
-    with torch.no_grad():
-        if noise is not None:
-            img_gen = g_ema([latent_vector], input_is_latent=True, noise=noise)
-        else:
-            img_gen = g_ema([latent_vector], input_is_latent=True)
-
-    return img_gen[0]  # Return the generated image (first element in the output list)
-
+def save_image(output_path, img_generated):
+    np.save(output_path, img_generated.cpu().detach().numpy())
 
 def main():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("--Shape", type=tuple, default=(3,256,256), help='size of the samples')
+    parser.add_argument("--shape", type=tuple, default=(3,256,256), help='size of the samples')
     parser.add_argument('--device', type=str, default='cuda')
-    parser.add_argument('--ckpt_dir', type = str, 
+    parser.add_argument('--ckpt_dir', type = str,
                             default ='/project/scratch/p200177/DE_371/victorsanchez/models/trained_generator/000024.pt')
-    parser.add_argument('--latent_vectors_dir', type = str, 
+    parser.add_argument('--inv_dir', type = str,
                         default='/project/home/p200177/DE_371/experiments_WP2/temporal_downscaling_experiments/inversion_october/inversion')
-    parser.add_argument('--output_dir',type = str, 
-                        default ='/project/home/p200177/DE_371/experiments_WP2/temporal_downscaling_experiments/latent_space_NN_interpolation_autumn')
-    parser.add_argument("--date", type=str, default = "2021-11-01")
-    parser.add_argument("--input_leadtimes", type=utils.str2intlist, default=[9,15])
-    parser.add_argument("--ref_leadtimes", type=utils.str2intlist, default=[9,10,11,12,13,14,15])
+    parser.add_argument('--output_dir',type = str,
+        default ='/project/home/p200177/DE_371/experiments_WP2/temporal_downscaling_experiments/interpolation')
+    parser.add_argument("--date", type=str, default = "2021-10-31")
+    parser.add_argument("--input_leadtimes", type=utils.str2intlist, default=[6,12])
+    parser.add_argument("--ref_leadtimes", type=utils.str2intlist, default=[6,7,8,9,10,11,12])
     parser.add_argument("--invstep", type=int, default=1000, help="optimize iterations")
-    parser.add_argument('--model_dir',type = str, 
-                        default ='/project/home/p200177/DE_371/experiments_WP2/temporal_downscaling_experiments/interpolation_models/model-3-4096-epoch-25-2024-11-29T19_32.pt')
-    params = parser.parse_args()
+    parser.add_argument('--model_dir',type = str,
+        default ='/project/home/p200177/DE_371/experiments_WP2/temporal_downscaling_experiments/interpolation_models/2024-04-12/LatentInterpolatorCorrector-1024-3-lr1e-3-epoch-10-2024-12-04T14_13.pt'
+)
+    args = parser.parse_args()
+    print(args)
+    device = args.device
+    output_shape = args.shape
+    ckpt_dir = args.ckpt_dir
+    inv_dir = args.inv_dir
+    output_dir = args.output_dir
+    model_dir = args.model_dir
+    input_leadtimes = args.input_leadtimes
+    ref_leadtimes = args.ref_leadtimes
+    date = args.date
+    invstep = args.invstep
 
-    G = load_network(params)
-    input_latent_vectors = []
+    sample_start, sample_end = load_samples(
+        basename=f"{inv_dir}/w",
+        lead_times=input_leadtimes,
+        start_date=date,
+        end_date=date,
+        invstep=invstep
+    )
+    print(f"Shape of the start and end samples: {sample_start.shape}, {sample_end.shape}")
+    sample_start = sample_start.to(device)
+    sample_end = sample_end.to(device)
 
-    weights = np.linspace(0, 1, len(params.ref_leadtimes))
+    ref_samples = load_samples(
+        basename=f"{inv_dir}/w",
+        lead_times=ref_leadtimes,
+        start_date=date,
+        end_date=date,
+        invstep=invstep
+    )
+    print(f"Shape of the reference samples: {ref_samples.shape}")
 
-    for input_leadtime in params.input_leadtimes:
-        latent_vector = np.load(f"{params.latent_vectors_dir}/w_{params.date}_{input_leadtime}_{params.invstep}.npy")
-        latent_vector = torch.from_numpy(latent_vector)
-        input_latent_vectors.append(latent_vector)
-        img_generated = generate_image_from_latent(latent_vector, G, params.device)
-        np.save(
-            f"{params.output_dir}/inv_{params.date}_{input_leadtime}_{params.invstep}.npy", 
-            img_generated.cpu().detach().numpy()
-            )
-    
-    for ref_leadtime in params.ref_leadtimes:
-        latent_vector = np.load(f"{params.latent_vectors_dir}/w_{params.date}_{ref_leadtime}_{params.invstep}.npy")
-        latent_vector = torch.from_numpy(latent_vector)
-        img_generated = generate_image_from_latent(latent_vector, G, params.device)
-        np.save(
-            f"{params.output_dir}/inv_{params.date}_{ref_leadtime}_{params.invstep}.npy", 
-            img_generated.cpu().detach().numpy()
-            )
+    print("Loading the generator...")
+    generator = load_generator(output_shape, ckpt_dir, device)
 
-    for weight, ref_leadtime in zip(weights, params.ref_leadtimes):
-        interpolated_vector = input_latent_vectors[0] * (1 - weight) + input_latent_vectors[1] * weight
-        img_generated = generate_image_from_latent(interpolated_vector, G, params.device)
-        np.save(
-            f"{params.output_dir}/interpolated_linear_{params.date}_{ref_leadtime}_{params.invstep}.npy", 
-            img_generated.cpu().detach().numpy()
-            )
+    print("Generating reference inverted samples...")
+    for ref_sample, ref_leadtime in zip(ref_samples, ref_leadtimes):
+        ref_sample = ref_sample.to(device)
+        img_generated = generate_image_from_latent(ref_sample, generator, device)
+        save_image(
+            f"{output_dir}/inv_{date}_{ref_leadtime}_{invstep}.npy",
+            img_generated
+        )
+
+    print("Generating interpolated samples...")
 
     # Load the model checkpoint
-    model = LatentInterpolator(hidden_neurons=4096)
-    state_dict = torch.load(params.model_dir, weights_only=True)
-    model.load_state_dict(state_dict)
-    model = model.to(params.device)
+    model = LatentInterpolatorCorrector(hidden_neurons=1024, num_layers=3)
+    checkpoint = torch.load(model_dir, map_location=device)
+    model.load_state_dict(checkpoint)
+    model = model.to(device)
     model.eval()
 
-    timesteps = torch.linspace(0, 1, 7).to(params.device)
-    w0 = torch.tensor(input_latent_vectors[0]).to(params.device)
-    w6 = torch.tensor(input_latent_vectors[1]).to(params.device)
-    print(f"w0 shape: {w0.shape}")
-    print(f"w6 shape: {w6.shape}")
+    timesteps = torch.linspace(0, 1, len(ref_leadtimes)).to(device)
+    print(f"Selected timesteps: {timesteps}")
 
-    for t, ref_leadtime in zip(timesteps, params.ref_leadtimes):
+    for t, ref_leadtime in zip(timesteps, ref_leadtimes):
+        w_latent_linear_interpolation = linear_interpolation(
+            sample_start, sample_end, t
+        )
+        img_generated_linear = generate_image_from_latent(
+            w_latent_linear_interpolation, generator, device)
+        save_image(
+            f"{output_dir}/interpolated_linear_{date}_{ref_leadtime}_{invstep}.npy",
+            img_generated_linear
+        )
+
+        t_tensor = t.expand(sample_start.shape[0], 1)
         with torch.no_grad():
-            w_model = model(w0, w6, t.repeat(16))
-        img_generated = generate_image_from_latent(w_model, G, params.device)
-        np.save(
-            f"{params.output_dir}/interpolated_NN_{params.date}_{ref_leadtime}_{params.invstep}.npy", 
-            img_generated.cpu().detach().numpy()
-            )
-
+            w_model = model(sample_start, sample_end, t_tensor)
+        img_generated_nn = generate_image_from_latent(
+            w_model, generator, device)
+        save_image(
+            f"{output_dir}/interpolated_NN_{date}_{ref_leadtime}_{invstep}.npy",
+            img_generated_nn
+        )
     print("Interpolation finished!")
 
 if __name__=="__main__" :

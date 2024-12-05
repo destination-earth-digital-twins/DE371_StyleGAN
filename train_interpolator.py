@@ -1,4 +1,7 @@
 import argparse
+from collections import OrderedDict
+from datetime import datetime, timedelta
+
 import numpy as np
 import torch
 import torch.nn as nn
@@ -7,9 +10,6 @@ import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader, Subset
 from tqdm import tqdm
 
-from datetime import datetime, timedelta
-
-from collections import OrderedDict
 from gan.model.stylegan2 import Generator
 import perturbation.utils as utils
 
@@ -19,33 +19,33 @@ class LatentInterpolator(nn.Module):
         self.style_dims = style_dims
         self.latent_dims = latent_dims
         input_dim = 2 * latent_dims * style_dims + 1  # Inputs: w_start, w_end, and t
-        
+
         layers = []
         for i in range(num_layers):
             in_features = input_dim if i == 0 else hidden_neurons
             out_features = latent_dims * style_dims if i == num_layers - 1 else hidden_neurons
-            
+
             layers.append(nn.Linear(in_features, out_features))
             if i < num_layers - 1:
-                layers.append(nn.LayerNorm(out_features)) 
-                layers.append(nn.ReLU()) 
-            
+                layers.append(nn.LayerNorm(out_features))
+                layers.append(nn.ReLU())
+
         self.network = nn.Sequential(*layers)
-        
+
     def forward(self, w_start, w_end, t):
         batch_size = w_start.size(0)  # Get batch size
 
         # Flatten latent space vectors
         w_start_flat = w_start.view(batch_size, -1)  # [batch_size, 14, 512] -> [batch_size, 7168]
         w_end_flat = w_end.view(batch_size, -1)      # [batch_size, 14, 512] -> [batch_size, 7168]
-        
+
         # Expand `t` and concatenate inputs
         t_expanded = t.view(batch_size, 1)  # Ensure t is [batch_size, 1]
         x = torch.cat([w_start_flat, w_end_flat, t_expanded], dim=1)  # Concatenate along feature dimension
-        
+
         # Pass through the feedforward network
         w_predicted = self.network(x)  # [batch_size, 7168]
-        
+
         return w_predicted.view(batch_size, self.style_dims, self.latent_dims)  # [batch_size, 14, 512]
 
 class LatentInterpolatorCorrector(nn.Module):
@@ -54,26 +54,26 @@ class LatentInterpolatorCorrector(nn.Module):
         self.style_dims = style_dims
         self.latent_dims = latent_dims
         input_dim = 2 * latent_dims * style_dims + 1  # Inputs: w_start, w_end, and t
-        
+
         layers = []
         for i in range(num_layers):
             in_features = input_dim if i == 0 else hidden_neurons
             out_features = latent_dims * style_dims if i == num_layers - 1 else hidden_neurons
-            
+
             layers.append(nn.Linear(in_features, out_features))
             if i < num_layers - 1:
-                layers.append(nn.LayerNorm(out_features)) 
-                layers.append(nn.ReLU()) 
-            
+                layers.append(nn.LayerNorm(out_features))
+                layers.append(nn.ReLU())
+
         self.network = nn.Sequential(*layers)
-        
+
     def forward(self, w_start, w_end, t):
         batch_size = w_start.size(0)  # Get batch size
 
         # Flatten latent space vectors
         w_start_flat = w_start.view(batch_size, -1)  # [batch_size, 14, 512] -> [batch_size, 7168]
         w_end_flat = w_end.view(batch_size, -1)      # [batch_size, 14, 512] -> [batch_size, 7168]
-        
+
         # Compute linear interpolation
         w_linear_flat = w_start_flat + t * (w_end_flat - w_start_flat)  # [batch_size, 7168]
 
@@ -97,21 +97,21 @@ class LatentDataset(Dataset):
         inputs = []
         ground_truth = []
         num_lead_times, num_ensembles, style_dims, latent_dims = latent_space_vectors.shape
-        
+
         for t_start in range(num_lead_times - dt):
             t_end = t_start + dt
             w_start = latent_space_vectors[t_start]  # Shape: (16, 14, 512)
             w_end = latent_space_vectors[t_end]      # Shape: (16, 14, 512)
-            
+
             for ensemble_member in range(num_ensembles):  # Iterate over each ensemble member
-                for t in range(1, dt):
+                for t in range(0, dt + 1): # Use range(1, dt) to only include the intermediate steps
                     intermediate_time = t_start + t
                     w_t = latent_space_vectors[intermediate_time, ensemble_member]  # Shape: (14, 512)
-                    
+
                     # Append input tuple and ground truth
                     inputs.append((w_start[ensemble_member], w_end[ensemble_member], t / dt))  # (14, 512), scalar
                     ground_truth.append(w_t)
-                    
+
         return inputs, ground_truth
 
     def __len__(self):
@@ -120,7 +120,7 @@ class LatentDataset(Dataset):
     def __getitem__(self, idx):
         w_start, w_end, t = self.inputs[idx]  # Shapes: (14, 512), (14, 512), scalar t
         w_t = self.ground_truth[idx]          # Shape: (14, 512)
-        
+
         # Convert to tensors
         w_start = w_start.clone().detach().float()  # Shape: (14, 512)
         w_end = w_end.clone().detach().float()      # Shape: (14, 512)
@@ -138,24 +138,24 @@ class CompleteDataset(Dataset):
         inputs = []
         ground_truth = []
         num_lead_times, num_ensembles, style_dims, latent_dims = latent_space_vectors.shape
-        
+
         for t_start in range(num_lead_times - dt):
             t_end = t_start + dt
             w_start = latent_space_vectors[t_start]  # Shape: (16, 14, 512)
             w_end = latent_space_vectors[t_end]      # Shape: (16, 14, 512)
             r_start = real_samples[t_start]          # Shape: (16, 3, 256, 256)
             r_end = real_samples[t_end]              # Shape: (16, 3, 256, 256)
-            
+
             for ensemble_member in range(num_ensembles):  # Iterate over each ensemble member
-                for t in range(1, dt):
+                for t in range(0, dt + 1): # Use range(1, dt) to only include the intermediate steps
                     intermediate_time = t_start + t
                     w_t = latent_space_vectors[intermediate_time, ensemble_member]  # Shape: (14, 512)
                     r_t = real_samples[intermediate_time, ensemble_member]          # Shape: (3, 256, 256)
-                    
+
                     # Append input tuple and ground truth
                     inputs.append((w_start[ensemble_member], w_end[ensemble_member], t / dt))  # (14, 512), scalar
                     ground_truth.append((w_t, r_start[ensemble_member], r_end[ensemble_member], r_t))
-                    
+
         return inputs, ground_truth
 
     def __len__(self):
@@ -164,7 +164,7 @@ class CompleteDataset(Dataset):
     def __getitem__(self, idx):
         w_start, w_end, t = self.inputs[idx]               # Shapes: (14, 512), (14, 512), scalar t
         w_t, r_start, r_end, r_t = self.ground_truth[idx]  # Shapes: (14, 512), (3, 256, 256)...
-        
+
         # Convert to tensors
         w_start = w_start.clone().detach().float()  # Shape: (14, 512)
         w_end = w_end.clone().detach().float()      # Shape: (14, 512)
@@ -195,7 +195,7 @@ def get_mae(sample, ref):
 def train_loop(dataloader, model, loss_function, optimizer, device, current_epoch, total_epochs):
     model.train()  # Set the model to training mode
     training_loss = 0.0
-    num_batches = len(dataloader) 
+    num_batches = len(dataloader)
 
     # Use tqdm for a progress bar
     progress_bar = tqdm(dataloader, desc=f"Epoch {current_epoch+1}/{total_epochs}", ncols=100)
@@ -203,10 +203,10 @@ def train_loop(dataloader, model, loss_function, optimizer, device, current_epoc
     for w_start, w_end, t, w_t, r_start, r_end, r_t in progress_bar:
         # Move batch to device
         w_start, w_end, t, w_t = (
-            w_start.to(device), 
-            w_end.to(device), 
-            t.to(device), 
-            w_t.to(device), 
+            w_start.to(device),
+            w_end.to(device),
+            t.to(device),
+            w_t.to(device),
         )
 
         # Zero gradients
@@ -229,25 +229,25 @@ def train_loop(dataloader, model, loss_function, optimizer, device, current_epoc
     avg_training_loss = training_loss / num_batches
     print(f"Epoch {current_epoch+1} - Mean training loss: {avg_training_loss:.4f}\n")
 
-def test_loop(dataloader, model, G, loss_function, device, current_epoch, total_epochs):
+def test_loop(dataloader, model, generator, loss_function, device, current_epoch, total_epochs):
     model.eval()
     test_loss = 0.0
     phys_linear_interpolation_mse = torch.tensor([0., 0., 0.])
     latent_linear_interpolation_mse = torch.tensor([0., 0., 0.])
-    latent_NN_interpolation_mse = torch.tensor([0., 0., 0.])
-    num_batches = len(dataloader) 
+    latent_nn_interpolation_mse = torch.tensor([0., 0., 0.])
+    num_batches = len(dataloader)
 
     with torch.no_grad():
         progress_bar = tqdm(dataloader, desc=f"Epoch {current_epoch+1}/{total_epochs}", ncols=100)
         for w_start, w_end, t, w_t, r_start, r_end, r_t in progress_bar:
             # Move batch to device
             w_start, w_end, t, w_t, r_start, r_end, r_t = (
-                w_start.to(device), 
-                w_end.to(device), 
-                t.to(device), 
-                w_t.to(device), 
-                r_start.to(device), 
-                r_end.to(device), 
+                w_start.to(device),
+                w_end.to(device),
+                t.to(device),
+                w_t.to(device),
+                r_start.to(device),
+                r_end.to(device),
                 r_t.to(device)
             )
 
@@ -264,17 +264,17 @@ def test_loop(dataloader, model, G, loss_function, device, current_epoch, total_
 
             # Generate samples
             r_latent_linear_interpolation = generate_image_from_latent(
-                w_latent_linear_interpolation, G, device
+                w_latent_linear_interpolation, generator, device
             )
 
-            r_latent_NN_interpolation = generate_image_from_latent(
-                w_interpolated, G, device
+            r_latent_nn_interpolation = generate_image_from_latent(
+                w_interpolated, generator, device
             )
 
             # Compute metrics
             phys_linear_interpolation_mse += get_mse(r_t, r_phys_interpolated)
             latent_linear_interpolation_mse += get_mse(r_t, r_latent_linear_interpolation)
-            latent_NN_interpolation_mse += get_mse(r_t, r_latent_NN_interpolation)
+            latent_nn_interpolation_mse += get_mse(r_t, r_latent_nn_interpolation)
 
             # Update progress bar with loss information
             progress_bar.set_postfix({'Validation loss': f'{loss.item():.4f}'})
@@ -282,12 +282,14 @@ def test_loop(dataloader, model, G, loss_function, device, current_epoch, total_
     mean_test_loss = test_loss / num_batches
     mean_phys_linear_interpolation_mse = phys_linear_interpolation_mse / num_batches
     mean_latent_linear_interpolation_mse = latent_linear_interpolation_mse / num_batches
-    mean_latent_NN_interpolation_mse = latent_NN_interpolation_mse / num_batches
+    mean_latent_nn_interpolation_mse = latent_nn_interpolation_mse / num_batches
 
     print(f"Epoch {current_epoch+1} - Mean validation loss: {mean_test_loss:.4f}")
-    print(f"Epoch {current_epoch+1} - Physical linear interpolation MSE: {mean_phys_linear_interpolation_mse}")
-    print(f"Epoch {current_epoch+1} - Latent linear interpolation MSE: {mean_latent_linear_interpolation_mse}")
-    print(f"Epoch {current_epoch+1} - Latent NN interpolation MSE: {mean_latent_NN_interpolation_mse}\n")
+    print(f"Epoch {current_epoch+1} - Physical linear interpolation MSE (1000x): {mean_phys_linear_interpolation_mse*1E3}")
+    print(f"Epoch {current_epoch+1} - Latent linear interpolation MSE (1000x): {mean_latent_linear_interpolation_mse*1E3}")
+    print(f"Epoch {current_epoch+1} - Latent NN interpolation MSE (1000x): {mean_latent_nn_interpolation_mse*1E3}")
+    relative_improvement = 100 * (mean_phys_linear_interpolation_mse - mean_latent_nn_interpolation_mse) / mean_phys_linear_interpolation_mse
+    print(f"Epoch {current_epoch+1} - Relative NN interpolation improvement (compared to physical linear, %): {relative_improvement}\n")
 
 def load_samples(basename, lead_times, start_date, end_date, invstep=None, fmt="npy"):
     """
@@ -307,7 +309,7 @@ def load_samples(basename, lead_times, start_date, end_date, invstep=None, fmt="
     # Parse dates
     start = datetime.strptime(start_date, "%Y-%m-%d")
     end = datetime.strptime(end_date, "%Y-%m-%d")
-    
+
     samples = []
 
     # Loop through all dates in the range
@@ -320,18 +322,18 @@ def load_samples(basename, lead_times, start_date, end_date, invstep=None, fmt="
                 file_path = f"{basename}_{date_str}_{lead_time}_{invstep}.{fmt}"
             else:
                 file_path = f"{basename}_{date_str}_{lead_time}.{fmt}"
-            
+
             sample = np.load(file_path)
             samples.append(sample)
-        
+
         # Move to the next day
         current_date += timedelta(days=1)
-    
+
     # Convert samples to a torch tensor
     return torch.tensor(np.array(samples))
 
 def load_generator(output_shape, ckpt_dir, device):
-    G = Generator(output_shape[1], 512,n_mlp=8, nb_var=output_shape[0])
+    generator = Generator(output_shape[1], 512,n_mlp=8, nb_var=output_shape[0])
     ckpt = torch.load(ckpt_dir)['g_ema']
 
     if 'module' in list(ckpt.items())[0][0]: #juglling with Pytorch versioning and different module packaging
@@ -339,14 +341,14 @@ def load_generator(output_shape, ckpt_dir, device):
         for k in ckpt.keys():
             k0 = k[7:]
             ckpt_adapt[k0] = ckpt[k]
-        G.load_state_dict(ckpt_adapt)
+        generator.load_state_dict(ckpt_adapt)
     else:
-        G.load_state_dict(ckpt)
+        generator.load_state_dict(ckpt)
 
-    G.eval()
-    G = G.to(device)
+    generator.eval()
+    generator = generator.to(device)
 
-    return G
+    return generator
 
 def generate_image_from_latent(latent_vector, g_ema, device, noise=None):
     """
@@ -488,18 +490,19 @@ def main():
     scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=lr_decay)
 
     print("Loading the generator...\n")
-    G = load_generator(output_shape, ckpt_dir, device)
+    generator = load_generator(output_shape, ckpt_dir, device)
 
     print("Starting the training...")
     for current_epoch in range(epochs):
+        print(f"Current learning rate: {scheduler.get_last_lr()[0]:.4e}\n")
         train_loop(training_dataloader, model, loss_function, optimizer, device, current_epoch, epochs)
-        test_loop(validation_dataloader, model, G, loss_function, device, current_epoch, epochs)
+        test_loop(validation_dataloader, model, generator, loss_function, device, current_epoch, epochs)
         scheduler.step()
 
     dt = datetime.today().strftime("%Y-%m-%dT%H_%M")
-    torch.save(
-        model.state_dict(), 
-        f"interpolation_models/{model_name}-{training_description}-epoch-{current_epoch+1}-{dt}.pt")
+    output_name = f"interpolation_models/{model_name}-{training_description}-epoch-{current_epoch+1}-{dt}.pt"
+    print(f"Saving the model to {output_name}...")
+    torch.save(model.state_dict(), output_name)
 
     print("Training complete!")
 
