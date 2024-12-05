@@ -11,7 +11,7 @@ from torch.utils.data import Dataset, DataLoader, Subset
 from tqdm import tqdm
 
 from gan.model.stylegan2 import Generator
-import perturbation.utils as utils
+from inversion.vgg_perceptual_loss import VGGPerceptualLoss
 
 class LatentInterpolator(nn.Module):
     def __init__(self, style_dims=14, latent_dims=512, hidden_neurons=512, num_layers=3):
@@ -176,6 +176,12 @@ class CompleteDataset(Dataset):
 
         return w_start, w_end, t, w_t, r_start, r_end, r_t
 
+def combined_pixel_loss(w_interpolated, w_t, r_interpolated, r_t, 
+                        latent_loss_weight=1.0, pixel_loss_weight=0.0):
+    latent_loss = nn.MSELoss()(w_interpolated, w_t)
+    image_loss = nn.MSELoss()(r_interpolated, r_t)
+    return latent_loss_weight * latent_loss + pixel_loss_weight * image_loss
+
 def linear_interpolation(sample_start, sample_end, t):
     # Expects normalized time
     return sample_start + t * (sample_end - sample_start)
@@ -192,21 +198,22 @@ def get_mae(sample, ref):
     t2m_mse = (ref[:, 2] - sample[:, 2]).abs().mean()
     return torch.tensor([u_mse, v_mse, t2m_mse])
 
-def train_loop(dataloader, model, loss_function, optimizer, device, current_epoch, total_epochs):
+def train_loop(dataloader, model, generator, loss_function, optimizer, current_epoch, args):
     model.train()  # Set the model to training mode
     training_loss = 0.0
     num_batches = len(dataloader)
 
     # Use tqdm for a progress bar
-    progress_bar = tqdm(dataloader, desc=f"Epoch {current_epoch+1}/{total_epochs}", ncols=100)
+    progress_bar = tqdm(dataloader, desc=f"Epoch {current_epoch+1}/{args.epochs}", ncols=100)
 
     for w_start, w_end, t, w_t, r_start, r_end, r_t in progress_bar:
         # Move batch to device
-        w_start, w_end, t, w_t = (
-            w_start.to(device),
-            w_end.to(device),
-            t.to(device),
-            w_t.to(device),
+        w_start, w_end, t, w_t, r_t = (
+            w_start.to(args.device),
+            w_end.to(args.device),
+            t.to(args.device),
+            w_t.to(args.device),
+            r_t.to(args.device)
         )
 
         # Zero gradients
@@ -214,7 +221,13 @@ def train_loop(dataloader, model, loss_function, optimizer, device, current_epoc
 
         # Forward pass
         w_interpolated = model(w_start, w_end, t)
-        loss = loss_function(w_interpolated, w_t)
+        r_latent_nn_interpolation = generate_image_from_latent(
+            w_interpolated, generator, args.device
+        )
+        loss = loss_function(w_interpolated, w_t, 
+                                r_latent_nn_interpolation, r_t,
+                                args.latent_loss_weight,
+                                args.pixel_loss_weight)
 
         # Backpropagation
         loss.backward()
@@ -224,12 +237,12 @@ def train_loop(dataloader, model, loss_function, optimizer, device, current_epoc
         training_loss += loss.item()
 
         # Update progress bar with loss information
-        progress_bar.set_postfix({'Training loss': f'{loss.item():.4f}'})
+        progress_bar.set_postfix({'Training loss': f'{loss.item():.4e}'})
 
     avg_training_loss = training_loss / num_batches
-    print(f"Epoch {current_epoch+1} - Mean training loss: {avg_training_loss:.4f}\n")
+    print(f"Epoch {current_epoch+1} - Mean training loss: {avg_training_loss:.4e}\n")
 
-def test_loop(dataloader, model, generator, loss_function, device, current_epoch, total_epochs):
+def test_loop(dataloader, model, generator, loss_function, current_epoch, args):
     model.eval()
     test_loss = 0.0
     phys_linear_interpolation_mse = torch.tensor([0., 0., 0.])
@@ -238,22 +251,29 @@ def test_loop(dataloader, model, generator, loss_function, device, current_epoch
     num_batches = len(dataloader)
 
     with torch.no_grad():
-        progress_bar = tqdm(dataloader, desc=f"Epoch {current_epoch+1}/{total_epochs}", ncols=100)
+        progress_bar = tqdm(dataloader, desc=f"Epoch {current_epoch+1}/{args.epochs}", ncols=100)
         for w_start, w_end, t, w_t, r_start, r_end, r_t in progress_bar:
             # Move batch to device
             w_start, w_end, t, w_t, r_start, r_end, r_t = (
-                w_start.to(device),
-                w_end.to(device),
-                t.to(device),
-                w_t.to(device),
-                r_start.to(device),
-                r_end.to(device),
-                r_t.to(device)
+                w_start.to(args.device),
+                w_end.to(args.device),
+                t.to(args.device),
+                w_t.to(args.device),
+                r_start.to(args.device),
+                r_end.to(args.device),
+                r_t.to(args.device)
             )
 
             # Forward pass
             w_interpolated = model(w_start, w_end, t)
-            loss = loss_function(w_interpolated, w_t)
+            r_latent_nn_interpolation = generate_image_from_latent(
+                w_interpolated, generator, args.device
+            )
+
+            loss = loss_function(w_interpolated, w_t, 
+                                 r_latent_nn_interpolation, r_t,
+                                 args.latent_loss_weight,
+                                 args.pixel_loss_weight)
 
             # Accumulate test loss
             test_loss += loss.item()
@@ -264,11 +284,7 @@ def test_loop(dataloader, model, generator, loss_function, device, current_epoch
 
             # Generate samples
             r_latent_linear_interpolation = generate_image_from_latent(
-                w_latent_linear_interpolation, generator, device
-            )
-
-            r_latent_nn_interpolation = generate_image_from_latent(
-                w_interpolated, generator, device
+                w_latent_linear_interpolation, generator, args.device
             )
 
             # Compute metrics
@@ -277,14 +293,14 @@ def test_loop(dataloader, model, generator, loss_function, device, current_epoch
             latent_nn_interpolation_mse += get_mse(r_t, r_latent_nn_interpolation)
 
             # Update progress bar with loss information
-            progress_bar.set_postfix({'Validation loss': f'{loss.item():.4f}'})
+            progress_bar.set_postfix({'Validation loss': f'{loss.item():.4e}'})
 
     mean_test_loss = test_loss / num_batches
     mean_phys_linear_interpolation_mse = phys_linear_interpolation_mse / num_batches
     mean_latent_linear_interpolation_mse = latent_linear_interpolation_mse / num_batches
     mean_latent_nn_interpolation_mse = latent_nn_interpolation_mse / num_batches
 
-    print(f"Epoch {current_epoch+1} - Mean validation loss: {mean_test_loss:.4f}")
+    print(f"Epoch {current_epoch+1} - Mean validation loss: {mean_test_loss:.4e}")
     print(f"Epoch {current_epoch+1} - Physical linear interpolation MSE (1000x): {mean_phys_linear_interpolation_mse*1E3}")
     print(f"Epoch {current_epoch+1} - Latent linear interpolation MSE (1000x): {mean_latent_linear_interpolation_mse*1E3}")
     print(f"Epoch {current_epoch+1} - Latent NN interpolation MSE (1000x): {mean_latent_nn_interpolation_mse*1E3}")
@@ -410,6 +426,27 @@ def main():
     parser.add_argument(
         '--lr_decay', type=float, default=0.9, help="Learning rate decay parameter."
     )
+    parser.add_argument(
+        '--latent_loss_weight', type=float, default=1.0, help="Weight of latent MSE loss."
+    )
+    parser.add_argument(
+        '--pixel_loss_weight', type=float, default=0.0, help="Weight of real MSE loss."
+    )
+    parser.add_argument(
+        '--epochs', type=int, default=10, help="Number of training epochs."
+    )
+    parser.add_argument(
+        '--batch_size', type=int, default=128, help="Number of batches."
+    )
+    parser.add_argument(
+        '--start_date', type=str, default="2021-10-01", help="Start date."
+    )
+    parser.add_argument(
+        '--end_date', type=str, default="2021-10-28", help="End date."
+    )
+    parser.add_argument(
+        '--training_data_ratio', type=float, default=0.9, help="Ratio of the training data to the total data."
+    )
     # Generation settings
     parser.add_argument(
         '--shape', type=tuple, default=(3,256,256), help='Size of the samples.')
@@ -430,16 +467,16 @@ def main():
     ckpt_dir = args.ckpt_dir
     inv_dir = args.latent_space_vectors_path
     pack_dir = args.real_samples_path
+    epochs = args.epochs
+    batch_size = args.batch_size
+    start_date = args.start_date
+    end_date = args.end_date
+    training_data_ratio = args.training_data_ratio
 
     model_classes = {
         "LatentInterpolator": LatentInterpolator,
         "LatentInterpolatorCorrector": LatentInterpolatorCorrector
     }
-
-    epochs = 10
-    batch_size = 128
-    start_date = "2021-10-01"
-    end_date = "2021-10-28"
 
     print(f"Running on {device}")
     print(f"Model name: {model_name}")
@@ -465,7 +502,7 @@ def main():
     dataset = CompleteDataset(latent_space_vectors, real_samples, dt=6)
     indices = np.random.permutation(len(dataset)) 
 
-    train_size = int(0.9 * len(dataset))
+    train_size = int(training_data_ratio * len(dataset))
     train_indices = indices[:train_size]
     val_indices = indices[train_size:]
 
@@ -485,7 +522,8 @@ def main():
         raise ValueError(f"Model '{model_name}' is not supported.")
     print(f"Model architecture: {model}\n")
 
-    loss_function = nn.MSELoss()
+    loss_function = combined_pixel_loss
+    
     optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
     scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=lr_decay)
 
@@ -495,8 +533,8 @@ def main():
     print("Starting the training...")
     for current_epoch in range(epochs):
         print(f"Current learning rate: {scheduler.get_last_lr()[0]:.4e}\n")
-        train_loop(training_dataloader, model, loss_function, optimizer, device, current_epoch, epochs)
-        test_loop(validation_dataloader, model, generator, loss_function, device, current_epoch, epochs)
+        train_loop(training_dataloader, model, generator, loss_function, optimizer, current_epoch, args)
+        test_loop(validation_dataloader, model, generator, loss_function, current_epoch, args)
         scheduler.step()
 
     dt = datetime.today().strftime("%Y-%m-%dT%H_%M")
