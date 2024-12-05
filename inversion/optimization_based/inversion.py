@@ -12,6 +12,7 @@ from inversion.perceptual_loss.perceptual_loss import PerceptualLoss
 from inversion.plotter import online_inv_plot_2, online_inv_plot
 from inversion.ssim import ssim, ms_ssim, SSIM, MS_SSIM
 from inversion.focal_frequency_loss import FocalFrequencyLoss
+from inversion.perceptual_loss.lpips.lpips import LPIPS
 
 import time
 from torch.autograd import Variable
@@ -172,7 +173,13 @@ def optimize(Ens_r, g_ema, latent_mean, device, params, hybrid=False):
                                         multi_scale=params.multi_scale_perceptual_loss
                                         ).to(device).eval()
         perceptual_loss_class.compute_perceptual_features(img=Ens_r)
-        
+    
+    if params.lambda_lpips_loss>0:
+        lpips_loss_class = LPIPS(
+                                config=params,
+                                device=device,
+                                multi_scale=params.multi_scale_perceptual_loss
+                                ).to(device).eval()
     # MS-SSIM module for MS-SSIM loss
     # ssim_module = SSIM(data_range=1, size_average=True, channel=1)
     if params.lambda_ms_ssim :
@@ -228,6 +235,10 @@ def optimize(Ens_r, g_ema, latent_mean, device, params, hybrid=False):
             list_time_to_compute_vgg_loss.append(np.NaN)
             list_perceptual_loss.append(np.NaN)
         
+        lpips_loss = torch.tensor(0.).to(device)
+        if params.lambda_lpips_loss>0:
+            lpips_loss = lpips_loss_class(Ens_r, img_gen)
+
         # compute ms_ssim loss
         ms_ssim_loss = torch.tensor(0.).to(device)
         if params.lambda_ms_ssim>0. : 
@@ -258,9 +269,9 @@ def optimize(Ens_r, g_ema, latent_mean, device, params, hybrid=False):
 
         # compute total loss
         if not params.progressive_loss_mode :
-            loss = params.noise_optimize*params.lambda_noise*noise_loss + params.lambda_pixel*pixel_loss + params.lambda_ms_ssim*ms_ssim_loss + weighted_perceptual_loss + ffl_loss * params.lambda_focal_frequency_loss
+            loss = params.noise_optimize*params.lambda_noise*noise_loss + params.lambda_pixel*pixel_loss + params.lambda_ms_ssim*ms_ssim_loss + weighted_perceptual_loss + ffl_loss * params.lambda_focal_frequency_loss + lpips_loss * params.lambda_lpips_loss
         else :
-            loss = params.noise_optimize*params.lambda_noise*noise_loss + params.lambda_pixel*pixel_loss+weighted_perceptual_loss+params.lambda_ms_ssim*ms_ssim_loss + ffl_loss * params.lambda_focal_frequency_loss*t
+            loss = params.noise_optimize*params.lambda_noise*noise_loss + params.lambda_pixel*pixel_loss+weighted_perceptual_loss+params.lambda_ms_ssim*ms_ssim_loss + ffl_loss * params.lambda_focal_frequency_loss*t  + lpips_loss * params.lambda_lpips_loss * t
 
         optimizer.zero_grad()
         loss.backward()
@@ -276,6 +287,8 @@ def optimize(Ens_r, g_ema, latent_mean, device, params, hybrid=False):
             display += f" || perceptual_loss: {perceptual_loss.item():.6f}"
         if params.lambda_focal_frequency_loss>0. :
             display += f" || focal_frequency_loss: {ffl_loss.item():.6f}"
+        if params.lambda_lpips_loss>0. :
+            display += f" || lambda_lpips_loss: {lpips_loss.item():.6f}"
         # if weighted_perceptual_loss: 
         #     display += f" || weighted_perceptual_loss: {weighted_perceptual_loss:.6f}"
         # if params.lambda_pixel>0. : 

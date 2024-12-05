@@ -119,6 +119,8 @@ if __name__=="__main__" :
     parser.add_argument("--inv_checkpoints", type=utils.str2intlist, default=[100,200,300,400,500,1000])
     parser.add_argument("--plot_checkpoint", action='store_true')
     
+    parser.add_argument("--lambda_lpips_loss", type=float, default=1.0, help="weight of the LPIPS loss")
+
     # lambda_ms_ssim
     parser.add_argument("--lambda_ms_ssim", type=float, default=0, help="weight of the MS-SSIM loss")
 

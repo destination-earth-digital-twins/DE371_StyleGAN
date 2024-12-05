@@ -241,7 +241,7 @@ class Coach:
     def calc_loss(self, x, y, y_hat, latent, fake_img=None, fake_w=None, estimated_fake_img=None, estimated_fake_w=None, option ='train'):
         loss_dict = {}
         loss = 0.0
-        if self.config.training_on_real_samples or option =='validation':
+        if self.config.training_on_real_samples :
             if self.config.l2_lambda > 0:
                 loss_l2 = F.mse_loss(y_hat, y)
                 loss_dict['loss_l2'] = float(loss_l2)
@@ -265,7 +265,7 @@ class Coach:
                 loss_mae = F.l1_loss(y_hat,y)
                 loss_dict['loss_mae'] = float(loss_mae)
             
-        if self.config.training_on_fake_samples or option =='validation':
+        if self.config.training_on_fake_samples :
             if self.config.perceptual_lambda_on_fake_samples > 0 :
                 perceptual_loss_on_fake_samples = self.perceptual_loss(estimated_fake_img, fake_img)
                 loss_dict['perceptual_loss_on_fake_samples'] = float(perceptual_loss_on_fake_samples)
@@ -274,6 +274,14 @@ class Coach:
                 loss_l2_on_fake_latent = F.mse_loss(estimated_fake_w, fake_w)
                 loss_dict['loss_l2_on_fake_latent'] = float(loss_l2_on_fake_latent)
                 loss += loss_l2_on_fake_latent * self.config.l2_lambda_on_fake_latent
+
+            if option != 'train' :
+                if self.config.l2_lambda==0 :
+                    loss_l2 = F.mse_loss(estimated_fake_img, fake_img)
+                    loss_dict['loss_l2'] = float(loss_l2)
+                
+                loss_mae = F.l1_loss(estimated_fake_img, fake_img)
+                loss_dict['loss_mae'] = float(loss_mae)
 
 
         loss_dict['loss_total'] = float(loss)

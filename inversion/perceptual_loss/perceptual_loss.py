@@ -171,7 +171,7 @@ class PerceptualLoss(torch.nn.Module):
         
         return features, styles
     
-    def compute_perceptual_features(self, img, compute_all_features=True, normalize=True):
+    def compute_perceptual_features(self, img, compute_all_features=True, normalize=True, return_features=False):
         r''' Compute the features of a single image with respect to the chosen solution and save them in the memory '''
         features = []
         styles = []
@@ -216,9 +216,12 @@ class PerceptualLoss(torch.nn.Module):
                             )
 
 
-        self.features_input_img=features
-        # print('self.features_input_img length :', len(self.features_input_img))
-        self.styles_input_img=styles 
+        if not return_features:
+            self.features_input_img=features
+            # print('self.features_input_img length :', len(self.features_input_img))
+            self.styles_input_img=styles 
+        else :
+            return features, styles
 
     
     def perceptual_loss_given_features_and_target(self, target_img, feature_layers=[0,1,2,3,4], features_input_img=None, style_layers=[], styles_input_img=None, alpha_feature=1.0, alpha_style=0.01, normalize=True):
