@@ -25,8 +25,8 @@ def createNamesFromLosses(config) :
     config_dict = vars(config)
     mspl = ''
     start_from_latent_avg = ''
-    encoder_type = ''
     training_on_real_samples = ''
+    training_on_fake_samples = ''
 
     for arg, value in config_dict.items() :
         
@@ -34,30 +34,18 @@ def createNamesFromLosses(config) :
             if value !=0 :
                 name = name + '_' + arg + '_' + str(value)
         
-        if 'learning_rate' in arg :
-            name = 'lr' + '_' + str(value)
-        
-        if 'network_type' in arg :
-            network_type = value
-
-        if 'random_resnet' in arg :
-            if value :
-                resnet = 'random'
-            else :
-                resnet = 'trained'
-        
         if 'multi_scale_perceptual_loss' in arg :
             mspl = '_multi_scale_PL'
         
         if 'start_from_latent_avg' in arg:
             start_from_latent_avg = value
         
-        if 'encoder_type' in arg:
-            encoder_type = value
-        
         if 'training_on_real_samples' in arg:
             training_on_real_samples = value
+        
+        if 'training_on_fake_samples' in arg:
+            training_on_fake_samples = value
             
-    name = f'{name}_resnet={resnet}_network_type={network_type}{mspl}_start_from_latent_avg={start_from_latent_avg}_encoder_type={encoder_type}_training_on_real_samples={training_on_real_samples}/'
+    name = f'{name}_{mspl}_start_from_latent_avg={start_from_latent_avg}_training_on_real={training_on_real_samples}_training_on_fake={training_on_fake_samples}/'
     
     return name
