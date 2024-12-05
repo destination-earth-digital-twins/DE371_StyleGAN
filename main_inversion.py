@@ -36,7 +36,7 @@ if __name__=="__main__" :
     ########################### Directories ###########################
     # Checkpoint directory - PATH to generator's weight
     parser.add_argument('--ckpt_dir', type = str, 
-                        default ='/project/scratch/p200177/DE_371/angeliquebonamy/gan_training/exp_train_ep_with_Noise_Injection/models/138000.pt')
+                        default ='/project/scratch/p200177/DE_371/victorsanchez/models/trained_generator/000024.pt')
     # Real Data Directory - PATH to samples of the dataset
     parser.add_argument('--real_data_dir', type = str, 
                         default='/project/home/p200177/DE_371/datasets/dataset_Meteo_France/IS_1_1.0_0_0_0_0_0_256_large_lt_done/')
@@ -48,7 +48,7 @@ if __name__=="__main__" :
                         default = '/project/scratch/p200177/DE_371/victorsanchez/results/member_inversion/test/pack/') # storing "packed" (normalized) real data
     
     # Dataset information
-    parser.add_argument("--normalization", type=str, default="minmax", choices=["minmax", "meanmax"])
+    parser.add_argument("--normalization", type=str, default="meanmax", choices=["minmax", "meanmax"])
     parser.add_argument('--max_file', type=str, default='MaxNew_4_var.npy') # use 'MaxNew_4_var.npy' if AROME data # max_rr_log.npy
     parser.add_argument('--mean_file', type=str, default='Mean_4_var.npy') # not used if minmax normalization
     parser.add_argument('--min_file', type=str, default='min_rr_log.npy')  # not used if meanmax normalization
@@ -74,8 +74,8 @@ if __name__=="__main__" :
     parser.add_argument("--noise_strength", type=float, default=0.005, help="strength of the noise level")
     parser.add_argument("--noise_ramp",type=float,default=0.75,help="duration of the noise level decay")
     
-    parser.add_argument("--var_indices", type=utils.str2intlist, default=[0,1,2,3])
-    parser.add_argument("--Shape", type=tuple, default=(4,256,256), help='size of the samples')
+    parser.add_argument("--var_indices", type=utils.str2intlist, default=[1,2,3])
+    parser.add_argument("--Shape", type=tuple, default=(3,256,256), help='size of the samples')
     parser.add_argument("--crop_indices", type=int, nargs='+', default=[0,256,0,256])
     
     # Progressive loss mode
@@ -86,6 +86,9 @@ if __name__=="__main__" :
 
     # Noise optimization and loss noise parameter
     parser.add_argument("--noise_optimize", action='store_true', help="joint optimization of noise and latent code (1) or latent code optimization only (0)?")
+    parser.add_argument("--feature_optimize", action='store_true', help="to enable optimization of feature map")
+    parser.add_argument("--feature_id", type=int, default=5, help="features to optimize")
+    
     parser.add_argument("--lambda_noise", type=float, default=1e5, help="weight of the noise regularization")
     # In case noise_optimize=0, the lambda_noise is not taken into account in the loss computation
     parser.add_argument("--fixed_noise", action='store_true', help="Fixing the noise during optimization")
@@ -95,7 +98,7 @@ if __name__=="__main__" :
     parser.add_argument("--lambda_pixel", type=float, default=10.0, help="weight of the (mae/mse) pixel loss")
     
     # Focal Frequency Loss
-    parser.add_argument("--lambda_focal_frequency_loss", type=float, default=1.0, help="weight of the vgg (perceptual) loss")
+    parser.add_argument("--lambda_focal_frequency_loss", type=float, default=0.0, help="weight of the vgg (perceptual) loss")
 
     # Perceptual Loss
     parser.add_argument("--lambda_perceptual_loss", type=float, default=1.0, help="weight of the vgg (perceptual) loss")
@@ -158,11 +161,11 @@ if __name__=="__main__" :
         Means = np.load(f'{params.real_data_dir}{params.mean_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
         Maxs = np.load(f'{params.real_data_dir}{params.max_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
     elif params.normalization=="minmax":
-       Mins = np.load(f'{params.real_data_dir}stat_files_Massif_Central/{params.min_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
-       Maxs = np.load(f'{params.real_data_dir}stat_files_Massif_Central/{params.max_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
+       Mins = np.load(f'{params.real_data_dir}/stat_files/{params.min_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
+       Maxs = np.load(f'{params.real_data_dir}/stat_files/{params.max_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
     else:
        raise ValueError(f"Unknown normalization: {params.normalization}")
-    print('LES STATISTIQUES', Mins,Maxs)
+
     ################ loading network #################
     if not params.multi_timestep_mode :
         G = Generator(params.Shape[1], 512,n_mlp=8, nb_var=params.Shape[0])
@@ -289,8 +292,8 @@ if __name__=="__main__" :
                         np.save(params.pack_dir+f'Rsemble_sequence_{datename}.npy', Ens_r.numpy().astype(np.float32))
 
                 
-                inv.optimize(Ens_r, G, latent_mean, params.device, params)
-              
+                inv.optimize(Ens_r=Ens_r, g_ema=G, latent_mean=latent_mean, device=params.device, params=params)
+
 
 
 

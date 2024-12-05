@@ -16,8 +16,6 @@ from inversion.focal_frequency_loss import FocalFrequencyLoss
 import time
 from torch.autograd import Variable
 
-torch.autograd.set_detect_anomaly(True)
-
 def noise_regularize(noises):
     r'''
     Regularization of noise  
@@ -81,6 +79,13 @@ def latent_noise(latent, strength):
     noise = torch.randn_like(latent) * strength
     return latent + noise
 
+def feature_noise(feature, strength):
+    r'''
+    Adding noise to feature
+    '''
+    noise = torch.randn_like(feature) * strength
+    return feature + noise
+
 def optimize(Ens_r, g_ema, latent_mean, device, params, hybrid=False):
 
     """
@@ -107,45 +112,53 @@ def optimize(Ens_r, g_ema, latent_mean, device, params, hybrid=False):
 
 
     """
-    np.save(params.pack_dir+'ENS.npy', Ens_r.numpy().astype(np.float32))
-
     Ens_r = Ens_r.to(device) # torch.Size([B, CH, 256, 256])
-    print('JE SUIS ENSR', Ens_r.shape, type(Ens_r))
     latent_mean = latent_mean.to(device) # torch.Size([512])
     if hybrid : 
         if len(latent_mean.shape) == 2 :
-            latent_in = latent_mean.detach().clone().unsqueeze(0).repeat(Ens_r.shape[0], 1) # torch.Size([B, 512])
             latent_in = latent_mean.detach().clone().unsqueeze(0).repeat(Ens_r.shape[0], 1) # (B, 512)
             latent_in = latent_in.unsqueeze(1).repeat(1, g_ema.n_latent, 1) # (B, 14, 512)
             latent_in.requires_grad = True
         else :
             latent_in = latent_mean
+            latent_in.requires_grad = True
             
     else :
-            latent_in = latent_mean.detach().clone().unsqueeze(0).repeat(Ens_r.shape[0], 1) # torch.Size([B, 512])
-            latent_in = latent_mean.detach().clone().unsqueeze(0).repeat(Ens_r.shape[0], 1) # (B, 512)
-            latent_in = latent_in.unsqueeze(1).repeat(1, g_ema.n_latent, 1) # (B, 14, 512)
-            latent_in.requires_grad = True
+        latent_in = latent_mean.detach().clone().unsqueeze(0).repeat(Ens_r.shape[0], 1) # (B, 512)
+        latent_in = latent_in.unsqueeze(1).repeat(1, g_ema.n_latent, 1) # (B, 14, 512)
+        latent_in.requires_grad = True
+        if params.feature_optimize : 
+            _, features, _ = g_ema([latent_in], input_is_latent=True, return_features=True)
+            # print([feature.shape for feature in features])
+            # np.save(f'{params.output_dir}features_mean.npy',np.array(features))
+            feature = features[params.feature_id].detach().clone().to(device)
+            feature.requires_grad = True
+
     with torch.no_grad():
         noise_sample = torch.randn(Ens_r.shape[0], 512, device=device) # torch.Size([B,512]) (z)
         latent_out = g_ema.style(noise_sample) # torch.Size([B,512]) (w)
         latent_mean = latent_out.mean(0)
         latent_std = ((latent_out - latent_mean).pow(2).sum() / Ens_r.shape[0]) ** 0.5
 
-    # print(f'########## Latent vector optimisation {params.date_index} {params.lt_index} #############')
 
-    noises_single = g_ema.make_noise() # list of noise maps, with shapes from (1,1,4,4) to (1,1,256,256)
+    print(f'########## Latent vector optimisation {params.date_index} {params.lt_index} #############')
     if params.fixed_noise or params.noise_optimize :
+        noises_single = g_ema.make_noise() # list of noise maps, with shapes from (1,1,4,4) to (1,1,256,256)
         noises = [] # per pixel noise to inject in each layer. with shapes from (B,1,4,4) to (B,1,256,256)
         for i, noise in enumerate(noises_single):
             noises.append(noise.repeat(Ens_r.shape[0], 1, 1, 1).normal_())
+
+    params_to_optimize = [latent_in]
     if params.noise_optimize:
         for noise in noises:
             noise.requires_grad = True
 
-        optimizer = optim.Adam([latent_in] + noises, lr=params.lr)
-    else:
-        optimizer = optim.Adam([latent_in], lr=params.lr)
+        params_to_optimize += noises
+    
+    if params.feature_optimize : 
+        params_to_optimize += [feature]
+    
+    optimizer = optim.Adam(params_to_optimize, lr=params.lr)    
 
     pbar = tqdm(range(params.invstep))
 
@@ -173,37 +186,38 @@ def optimize(Ens_r, g_ema, latent_mean, device, params, hybrid=False):
     list_pixel_loss = []
     list_time_to_compute_vgg_loss=[]
     list_time_to_compute_mse_loss=[]
+    features_in = None
 
     for i in pbar:
         t = i / params.invstep
-        lr = get_lr(t, params.lr, params.lr_rampdown, params.lr_rampup)
+        if params.lr_rampdown ==0 and params.lr_rampup == 0:
+            lr = params.lr
+        else:
+            lr = get_lr(t, params.lr, params.lr_rampdown, params.lr_rampup)
+
         optimizer.param_groups[0]["lr"] = lr
 
         noise_strength = latent_std * params.noise_strength * max(0, 1 - t / params.noise_ramp) ** 2
         latent_n = latent_noise(latent_in, noise_strength.item())
 
+        if params.feature_optimize : 
+            features_in = [None]*(params.feature_id)+ [feature] + [None]*(13-(params.feature_id)) 
+
         if params.fixed_noise or params.noise_optimize :
-            Gen = g_ema([latent_n], input_is_latent=True, noise=noises)
+            Gen = g_ema([latent_n], input_is_latent=True, noise=noises, features_in=features_in, feature_scale=1)
         else :
-            Gen = g_ema([latent_n], input_is_latent=True, noise=None)
+            Gen = g_ema([latent_n], input_is_latent=True, noise=None, features_in=features_in, feature_scale=1)
 
         img_gen = Gen[0] # generated samples
-    
-            
-        
-        print('ICI CESTLA DIMENSION',img_gen.shape)
 
-        #print('ACTUELLEMENT LA',img_gen.shape,img_gen[0].shape,img_gen[0][0].shape,torch.min(img_gen[0][0]),10**torch.max(img_gen[0][0])-1)
-        # normalise samples and save in pack dir. obs! make sure normalization is done correctly (according to how model was trained)
-    
         batch, channel, height, width = img_gen.shape
         # print('img_gen shape :', img_gen.shape)
         if params.noise_optimize:
             noise_loss = noise_regularize(noises)
         else :
             noise_loss = 0
-
-       # compute vgg/perceptual loss
+        
+        # compute vgg/perceptual loss
         perceptual_loss = torch.tensor(0.).to(device)
         if params.lambda_perceptual_loss>0:
                 t0 = time.time()
@@ -228,40 +242,11 @@ def optimize(Ens_r, g_ema, latent_mean, device, params, hybrid=False):
         if params.pixel_loss_type=='mse' :
             t0 = time.time()
             pixel_loss = F.mse_loss(img_gen, Ens_r)
-            print(pixel_loss, 'EXEMPLE')
             list_time_to_compute_mse_loss.append(time.time()-t0)
             list_pixel_loss.append(pixel_loss.cpu().detach().numpy())
-            print('MSE',pixel_loss, 'EXEMPLE mse', type(pixel_loss))
 
         elif params.pixel_loss_type=='mae':
             pixel_loss = F.l1_loss(img_gen, Ens_r)
-        
-        elif params.pixel_loss_type=='wmse':
-            t0 = time.time()
-            pixel_loss = (F.mse_loss(img_gen, Ens_r)*torch.min(Ens_r+1,torch.tensor(20))).mean()
-            list_time_to_compute_mse_loss.append(time.time()-t0)
-            list_pixel_loss.append(pixel_loss.cpu().detach().numpy())
-            print('WMSE',pixel_loss, 'EXEMPLE wmse', type(pixel_loss))
-        elif params.pixel_loss_type=='amse':
-            t0 = time.time()
-            pixel_loss = F.mse_loss(img_gen, Ens_r) + torch.max(torch.min(Ens_r,torch.tensor(20))-img_gen,torch.tensor(0)).mean()
-            list_time_to_compute_mse_loss.append(time.time()-t0)
-            list_pixel_loss.append(pixel_loss.cpu().detach().numpy())
-        
-        elif params.pixel_loss_type=='wamse':
-            t0 = time.time()
-            pixel_loss = F.mse_loss(img_gen, Ens_r) + torch.max(torch.min(Ens_r,torch.tensor(20))-img_gen,torch.tensor(0)).mean()*torch.min(Ens_r+1,torch.tensor(20)).mean()
-            list_time_to_compute_mse_loss.append(time.time()-t0)
-            list_pixel_loss.append(pixel_loss.cpu().detach().numpy())
-            
-        elif params.pixel_loss_type =='mul_pixel_loss_mse':
-            t0 = time.time()
-            pixel_loss_mse = F.mse_loss(img_gen, Ens_r)
-            x = Ens_r.contiguous()
-            y = img_gen.contiguous()
-            pixel_loss_sum = torch.abs((x-y).sum())
-            pixel_loss = pixel_loss_mse + pixel_loss_sum * 0.0002 
-
 
         else:
             raise ValueError(f"unknown pixel_loss_type: {params.pixel_loss_type}")
@@ -280,6 +265,7 @@ def optimize(Ens_r, g_ema, latent_mean, device, params, hybrid=False):
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
+
         if params.fixed_noise or params.noise_optimize :
             noise_normalize_(noises)
 
@@ -307,12 +293,14 @@ def optimize(Ens_r, g_ema, latent_mean, device, params, hybrid=False):
             latent_path.append(latent_in.detach().clone())
 
         if i+1 in params.inv_checkpoints:
-            print(f"--saving checkpoint {i+1}:", params.output_dir+'w_{j}_{}_{}.npy')#.format(params.date_index,params.lt_index,i+1))
-            np.save(params.output_dir+'w_{}_{}_{}.npy'.format(params.date_index,params.lt_index,i+1),latent_in.cpu().detach().numpy())#.format(params.date_index,params.lt_index,i+1),latent_in.cpu().detach().numpy())
+            print(f"--saving checkpoint {i+1}:", params.output_dir+'w_{}_{}_{}.npy'.format(params.date_index,params.lt_index,i+1))
+            np.save(params.output_dir+'w_{}_{}_{}.npy'.format(params.date_index,params.lt_index,i+1),latent_in.cpu().detach().numpy())
             if params.fixed_noise or params.noise_optimize :
-                with open(params.output_dir+'noise_{}_{}_{}.p'.format(params.date_index,params.lt_index,i+1),'wb') as f: #.format(params.date_index,params.lt_index,i+1), 'wb') as f:
-                    pickle.dump({z : n.cpu().detach().numpy() for z,n in enumerate(noises)},f)
-            np.save(params.output_dir+'invertFsemble_{}_{}_{}.npy'.format(params.date_index,params.lt_index,i+1),img_gen.cpu().detach().numpy())#.format(params.date_index,params.lt_index,i+1),img_gen.cpu().detach().numpy())
+                with open(params.output_dir+'noise_{}_{}_{}.p'.format(params.date_index,params.lt_index,i+1), 'wb') as f:
+                    pickle.dump({j : n.cpu().detach().numpy() for j,n in enumerate(noises)},f)
+
+            np.save(params.output_dir+'invertFsemble_{}_{}_{}.npy'.format(params.date_index,params.lt_index,i+1),img_gen.cpu().detach().numpy())
+
             if params.plot_checkpoint :
                 figname = params.output_dir + f"{params.date_index}_{params.lt_index}_step_{i+1}.png"
                 print(f"--plotting checkpoint {i+1}: {figname}")

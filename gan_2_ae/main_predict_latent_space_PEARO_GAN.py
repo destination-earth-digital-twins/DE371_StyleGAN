@@ -53,14 +53,9 @@ def process_rr_npy(scratch_path, nb_batch_render, source, step, mode='decode'):
         raise ValueError(f"<mode> should be either 'latent' or 'decode'. You provided {mode}.")
     BATCH_SIZE_AE = 4096
     model = CAE()
-    model.load_weights('/home/users/u101957/DE371_StyleGAN/gan_2_ae/Best_autoencodeur_weights.h5')
-    print(model.summary())  # This shows the architecture of the model  
-    dummy_input = tf.random.normal((1, 256, 384, 1))  # Replace input_dim with the actual input dimension
-    model(dummy_input)  
-    for layer in model.layers:
-        print('LAYERS',layer.name,model.inputs)
+    model.load_weights('Best_autoencodeur_weights.h5')
     if mode == 'latent':
-        model = Model(inputs=model.inputs, outputs=model.get_layer(name='embedding').output)
+        model = Model(inputs=model.input, outputs=model.get_layer(name='embedding').output)
     for batch in tqdm(range(nb_batch_render), desc='Processing batches', total=nb_batch_render, leave=False, unit='batch', colour='green'):
         predictions = []
         rr_npy = np.load(scratch_path / Path(f"{f'step_{step}_' if source == 'GAN' else ''}batch_{batch + 1}.npy"))
@@ -80,7 +75,7 @@ def process_rr_npy(scratch_path, nb_batch_render, source, step, mode='decode'):
     print('\nProcessed rr_npy.\n')
 
 
-def load_clustering_model(model_path='/home/users/u101957/DE371_StyleGAN/gan_2_ae/KM.joblib'):
+def load_clustering_model(model_path='KM.joblib'):
     """Load the clustering model."""
     return load(model_path)
 
@@ -216,9 +211,7 @@ def name_space_to_slurm_arg(config):
     return "|".join(args)
 
 def copy_distant_files(folder_source, scratch_root_path):
-    # scp_command = f'scp -r belenos:/scratch/work/gandonb/{folder_source} {scratch_root_path}/'
     scp_command = f'scp -r belenos:/scratch/work/gandonb/{folder_source} {scratch_root_path}/'
-
     try:
         print('Copying distant files...')
         subprocess.run(scp_command, shell=True, check=True)
@@ -227,8 +220,8 @@ def copy_distant_files(folder_source, scratch_root_path):
         print(f'Error while executing scp command: {err}')
 
 def main(args):
-    scratch_root_path = Path('/project/home/p200177/DE_371/datasets/dataset_Meteo_France_rr_u_v_t2m/')#data/IS_rr_debug_1_1.0_0_0_0_0_0_256_large_lt')
-    folder_source = f'samples_AROME_for_AE_None' if args.source == 'AROME' else f'samples_detransformed_for_AE_{args.name}'
+    scratch_root_path = Path('/bigdata/BIGDATA/brochetc/data_Basile')
+    folder_source = f'samples_AROME_for_AE_{args.name}' if args.source == 'AROME' else f'samples_detransformed_for_AE_{args.name}'
     
     scratch_root_path.mkdir(parents=True, exist_ok=True)
     
@@ -257,14 +250,14 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     main_features_args = parser.add_argument_group('Main features')
-    main_features_args.add_argument('set_num', type=int, default = 0, help='Set number, 0 for AROME')
-    main_features_args.add_argument('step', type=int, default = 0,help='Step to throw through pipeline, 0 for AROME')
-    main_features_args.add_argument('name', type=int, default='scenarios',help='Suffix added to the folders')
+    main_features_args.add_argument('set_num', type=int, help='Set number, 0 for AROME')
+    main_features_args.add_argument('step', type=int, help='Step to throw through pipeline, 0 for AROME')
+    main_features_args.add_argument('name', type=int, help='Suffix added to the folders')
 
     generation_characteristics_args = parser.add_argument_group('Generation characteristics for one step')
     generation_characteristics_args.add_argument('-n', '--nb_fake_samples', type=int, default=131072, help='Number of sample generated')
     generation_characteristics_args.add_argument('--nb_batch', type=int, default=1024, help='Number of batch')
-    generation_characteristics_args.add_argument('--source', choices=['AROME', 'GAN'], default='AROME', type=str, help='Select the source of the samples')
+    generation_characteristics_args.add_argument('--source', choices=['AROME', 'GAN'], default='GAN', type=str, help='Select the source of the samples')
     generation_characteristics_args.add_argument('--nb_batch_render', type=int, default=1, help='Number of render batch of nb_fake_samples files')
 
     specifics_for_main_predict_args = parser.add_argument_group('Arguments specific to this file')

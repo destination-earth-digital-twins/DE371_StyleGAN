@@ -1,6 +1,6 @@
 import torch
 import numpy as np
-from restyle_encoder.utils import common, train_utils
+from encoders.utils import common, train_utils
 import matplotlib.pyplot as plt
 import matplotlib
 matplotlib.use('Agg')

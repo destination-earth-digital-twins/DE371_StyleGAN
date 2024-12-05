@@ -36,7 +36,7 @@ if __name__=="__main__" :
     parser.add_argument('--stack_sample_along_time_and_variable', action='store_true')
 
     ############################ INVERSION PARAMETERS ################
-    parser.add_argument("--invstep", type=int, default=2000, help="optimize iterations")
+    parser.add_argument("--invstep", type=int, default=1000, help="optimize iterations")
 
     ########################## CONTROL of Data to invert ######################
     parser.add_argument("--dates_file", type=str, default = 'Large_lt_test_labels.csv')
@@ -116,86 +116,44 @@ if __name__=="__main__" :
         
         Nb_member=16
         groud_length = 4
-        member_id_list = list(range(0,17,groud_length))
-        for group_id in range(len(member_id_list)-2):
-            start_member_id = member_id_list[group_id]
-            end_member_id = member_id_list[group_id+1]
+        for member_id in range(16):
+            fig0, ax0 = plt.subplots(nrows=groud_length, ncols=13, figsize=(200,50))
+            fig1, ax1 = plt.subplots(nrows=groud_length, ncols=13, figsize=(200,50))
+            fig2, ax2 = plt.subplots(nrows=groud_length, ncols=13, figsize=(200,50))
+            for t in trange(params.nb_timesteps-1):
+                ims = []
+                for ax_id, ax in enumerate([ax0, ax1, ax2]):  
+                    Arome_member = Ens_r[member_id][t+1] - Ens_r[member_id][t]
+                    im=ax[0][t].imshow(Arome_member[ax_id], origin="lower", cmap="RdYlGn", vmin=Arome_member[ax_id].min(), vmax=Arome_member[ax_id].max())
+                    ims.append(im)
+                    ax[0][t].set_ylabel(f'Arome M{member_id}-{t}', fontsize=45)
+                    ax[0][t].set_xticks([])
+                    ax[0][t].set_yticks([])
+
+                    for i in range(1,groud_length):
+                        generated_member_id = i*16+member_id
+                        Generated_member = Ens_gen[t+1][generated_member_id] - Ens_gen[t][generated_member_id]
+                        ax[i][t].imshow(Generated_member[ax_id], origin="lower", cmap="RdYlGn", vmin=Arome_member[ax_id].min(), vmax=Arome_member[ax_id].max())
+                        ax[i][t].set_ylabel(f'Gen M{generated_member_id}-t+{t}', fontsize=45)
+                        ax[i][t].set_xticks([])
+                        ax[i][t].set_yticks([])
+                
+                if t==0:
+
+                    fig0.suptitle(f"Temporal Difference u(t+1)-u(t) for {date_}", fontsize=100)
+                    fig1.suptitle(f"Temporal Difference v(t+1)-v(t) for {date_}", fontsize=100)
+                    fig2.suptitle(f"Temporal Difference t2m(t+1)-t2m(t) for {date_}", fontsize=100)
+                
+
+                    for fig,im in zip([fig0,fig1,fig2],ims):
+                        fig.subplots_adjust(bottom=0.05,top=0.9, left=0.05, right=0.9)
+                        cbax=fig.add_axes([0.92,0.05,0.02,0.85])
+                        cb=fig.colorbar(im, cax=cbax)
+                        cb.ax.tick_params(labelsize=80) 
+                        # fig.tight_layout()
 
             if display_AROME:
-                fig0, ax0 = plt.subplots(nrows=groud_length, ncols=13, figsize=(200,50))
-                fig1, ax1 = plt.subplots(nrows=groud_length, ncols=13, figsize=(200,50))
-                fig2, ax2 = plt.subplots(nrows=groud_length, ncols=13, figsize=(200,50))
-            fig0gen, ax0gen = plt.subplots(nrows=groud_length, ncols=13, figsize=(200,50))
-            fig1gen, ax1gen = plt.subplots(nrows=groud_length, ncols=13, figsize=(200,50))
-            fig2gen, ax2gen = plt.subplots(nrows=groud_length, ncols=13, figsize=(200,50))
+                fig0.savefig(params.output_dir+f'Temporal_Difference_u_{date_}_{member_id}.png')
+                fig1.savefig(params.output_dir+f'Temporal_Difference_v_{date_}_{member_id}.png')
+                fig2.savefig(params.output_dir+f'Temporal_Difference_t2m_{date_}_{member_id}.png')
             
-            for offset in range(7):
-                for t in trange(params.nb_timesteps-1):
-                    for member_id in range(start_member_id, end_member_id):
-                        if display_AROME:
-                            Arome_member = Ens_r[offset*member_id+member_id][t+1] - Ens_r[offset*member_id+member_id][t]
-                            
-                            im0=ax0[member_id-start_member_id][t].imshow(Arome_member[0], origin="lower", cmap="RdYlGn", vmin=Arome_member[0].min(), vmax=Arome_member[0].max())
-                            ax0[member_id-start_member_id][t].set_ylabel(f'M{offset*(start_member_id+member_id)+(start_member_id+member_id+1)}-t+{t}', fontsize=45)
-                            ax0[member_id-start_member_id][t].set_xticks([])
-                            ax0[member_id-start_member_id][t].set_yticks([])
-
-                            im1=ax1[member_id-start_member_id][t].imshow(Arome_member[1], origin="lower", cmap="RdYlGn", vmin=Arome_member[1].min(), vmax=Arome_member[1].max())
-                            ax1[member_id-start_member_id][t].set_ylabel(f'M{offset*(start_member_id+member_id)+(start_member_id+member_id+1)}-t+{t}', fontsize=45)
-                            ax1[member_id-start_member_id][t].set_xticks([])
-                            ax1[member_id-start_member_id][t].set_yticks([])
-
-                            im2=ax2[member_id-start_member_id][t].imshow(Arome_member[2], origin="lower", cmap="RdYlGn", vmin=Arome_member[2].min(), vmax=Arome_member[2].max())
-                            ax2[member_id-start_member_id][t].set_ylabel(f'M{offset*(start_member_id+member_id)+(start_member_id+member_id+1)}-t+{t}', fontsize=45)
-                            ax2[member_id-start_member_id][t].set_xticks([])
-                            ax2[member_id-start_member_id][t].set_yticks([])
-
-                        Generated_member = Ens_gen[t+1][offset*member_id+member_id] - Ens_gen[t][offset*member_id+member_id]
-                        im0gen=ax0gen[member_id-start_member_id][t].imshow(Generated_member[0], origin="lower", cmap="RdYlGn", vmin=Generated_member[0].min(), vmax=Generated_member[0].max())
-                        ax0gen[member_id-start_member_id][t].set_ylabel(f'GEN M{offset*(start_member_id+member_id)+(start_member_id+member_id+1)}-t+{t}', fontsize=45)
-                        ax0gen[member_id-start_member_id][t].set_xticks([])
-                        ax0gen[member_id-start_member_id][t].set_yticks([])
-
-                        im1gen=ax1gen[member_id-start_member_id][t].imshow(Generated_member[1], origin="lower", cmap="RdYlGn", vmin=Generated_member[1].min(), vmax=Generated_member[1].max())
-                        ax1gen[member_id-start_member_id][t].set_ylabel(f'GEN M{offset*(start_member_id+member_id)+(start_member_id+member_id+1)}-t+{t}', fontsize=45)
-                        ax1gen[member_id-start_member_id][t].set_xticks([])
-                        ax1gen[member_id-start_member_id][t].set_yticks([])
-
-                        im2gen=ax2gen[member_id-start_member_id][t].imshow(Generated_member[2], origin="lower", cmap="RdYlGn", vmin=Generated_member[2].min(), vmax=Generated_member[2].max())
-                        ax2gen[member_id-start_member_id][t].set_ylabel(f'GEN M{offset*(start_member_id+member_id)+(start_member_id+member_id+1)}-t+{t}', fontsize=45)
-                        ax2gen[member_id-start_member_id][t].set_xticks([])
-                        ax2gen[member_id-start_member_id][t].set_yticks([])
-                    
-                    
-                    if t==0 and offset ==0:
-                        if display_AROME:
-                            fig0.suptitle(f"AROME Temporal Difference u(t+1)-u(t) for {date_}", fontsize=100)
-                            fig1.suptitle(f"AROME Temporal Difference v(t+1)-v(t) for {date_}", fontsize=100)
-                            fig2.suptitle(f"AROME Temporal Difference t2m(t+1)-t2m(t) for {date_}", fontsize=100)
-                        fig0gen.suptitle(f"Generated Samples Temporal Difference of u(t+1)-u(t) for {date_}", fontsize=100)
-                        fig1gen.suptitle(f"Generated Samples Temporal Difference of v(t+1)-v(t) for {date_}", fontsize=100)
-                        fig2gen.suptitle(f"Generated Samples Temporal Difference of t2m(t+1)-t2m(t) for {date_}", fontsize=100)
-                        if display_AROME:
-                            for fig,im in zip([fig0,fig1,fig2, fig0gen, fig1gen, fig2gen],[im0,im1,im2, im0gen, im1gen, im2gen]):
-                                fig.subplots_adjust(bottom=0.05,top=0.9, left=0.05, right=0.9)
-                                cbax=fig.add_axes([0.92,0.05,0.02,0.85])
-                                cb=fig.colorbar(im, cax=cbax)
-                                cb.ax.tick_params(labelsize=80) 
-                                # fig.tight_layout()
-                        else :
-                            for fig,im in zip([fig0gen, fig1gen, fig2gen],[im0gen, im1gen, im2gen]):
-                                fig.subplots_adjust(bottom=0.05,top=0.9, left=0.05, right=0.9)
-                                cbax=fig.add_axes([0.92,0.05,0.02,0.85])
-                                cb=fig.colorbar(im, cax=cbax)
-                                cb.ax.tick_params(labelsize=80) 
-                                # fig.tight_layout()
-                if display_AROME:
-                    fig0.savefig(params.output_dir+f'AROME_Temporal_Difference_u_{date_}_{Nb_member}_{start_member_id}_{end_member_id}_{offset}.png')
-                    fig1.savefig(params.output_dir+f'AROME_Temporal_Difference_v_{date_}_{Nb_member}_{start_member_id}_{end_member_id}_{offset}.png')
-                    fig2.savefig(params.output_dir+f'AROME_Temporal_Difference_t2m_{date_}_{start_member_id}_{end_member_id}_{offset}.png')
-                fig0gen.savefig(params.output_dir+f'gen_Temporal_Difference_u_{date_}{label_perturbation}_{Nb_member}_{start_member_id}_{end_member_id}_{offset}.png')
-                fig1gen.savefig(params.output_dir+f'gen_Temporal_Difference_v_{date_}{label_perturbation}_{Nb_member}_{start_member_id}_{end_member_id}_{offset}.png')
-                fig2gen.savefig(params.output_dir+f'gen_Temporal_Difference_t2m_{date_}{label_perturbation}_{Nb_member}_{start_member_id}_{end_member_id}_{offset}.png')
-                
-                # plt.close()
-
