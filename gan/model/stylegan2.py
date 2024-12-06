@@ -39,7 +39,7 @@ class Upsample(nn.Module):
         kernel = make_kernel(kernel) * (factor ** 2)
         self.register_buffer("kernel", kernel)
 
-        p = kernel.shape[0] - factor
+        p = kernel.shape[0] - factor # 2
 
         pad0 = (p + 1) // 2 + factor - 1
         pad1 = p // 2
@@ -82,13 +82,17 @@ class Blur(nn.Module):
 
         if upsample_factor > 1:
             kernel = kernel * (upsample_factor ** 2)
-
+            # print('kernel upsampled ', kernel)
         self.register_buffer("kernel", kernel)
 
         self.pad = pad
 
     def forward(self, input):
+        # print("#### BLUR ####")
+        
+        # print("Before Bluring", input.shape)
         out = upfirdn2d(input, self.kernel, pad=self.pad)
+        # print("After Bluring", out.shape)
 
         return out
 
@@ -226,7 +230,9 @@ class ModulatedConv2d(nn.Module):
         )
 
     def forward(self, input, style):
+        # print("####### MODULATED CONV #######")
         batch, in_channel, height, width = input.shape
+        # print('a1 input shape', input.shape)
 
         if not self.fused:
             weight = self.scale * self.weight.squeeze(0)
@@ -256,73 +262,86 @@ class ModulatedConv2d(nn.Module):
                 out = out * dcoefs.view(batch, -1, 1, 1)
 
             return out
+        
         style = self.modulation(style).view(batch, 1, in_channel, 1, 1)
+        # print("a2 style shape", np.shape(style))
         weight = self.scale * self.weight * style
+        # print("a3 weight shape", weight.shape)
 
         if self.demodulate:
-            #print("a4")
+            # print('################ DEMODULATE ################')
+            # print("demodulate a4 weight shape", weight.shape)
             demod = torch.rsqrt(weight.pow(2).sum([2, 3, 4]) + 1e-8)
-            #print("a5")
+            # print("demodulate a5 weight shape", demod.shape)
             weight = weight * demod.view(batch, self.out_channel, 1, 1, 1)
-            #print("a6")
+            # print("demodulate a6 weight shape", weight.shape)
 
         weight = weight.view(
             batch * self.out_channel, in_channel, self.kernel_size, self.kernel_size
         )
-        #print("a7")
+        # print("a7 weight shape", weight.shape)
 
         if self.upsample:
-            #print("a8")
+            # print('################ UPSAMPLE ################')
+            # print("upsample a8 input shape", np.shape(input))
             input = input.view(1, batch * in_channel, height, width)
-            #print("a9")
+            # print("upsample a9 weight shape", weight.shape)
             weight = weight.view(
                 batch, self.out_channel, in_channel, self.kernel_size, self.kernel_size
             )
-            #print("a10")
+            # print("upsample a10 weight shape", weight.shape)
             weight = weight.transpose(1, 2).reshape(
                 batch * in_channel, self.out_channel, self.kernel_size, self.kernel_size
             )
-            #print("a11")
+            # print("upsample a11 weight shape", weight.shape)
+            # print("upsample a11 input shape", input.shape)
             out = conv2d_gradfix.conv_transpose2d(
                 input, weight, padding=0, stride=2, groups=batch
             )
-            #print("a12")
+            # print("upsample a11 out shape", out.shape)
+            # print("upsample a12 weight shape", weight.shape)
             _, _, height, width = out.shape
-            #print("a13")
+            # print("upsample a13 weight shape", weight.shape)
             out = out.view(batch, self.out_channel, height, width)
-            #print("a14")
+            # print("upsample a14 weight shape", weight.shape)
+            # print("upsample a14 out shape", out.shape)
             out = self.blur(out)
-            #print("a15")
+            # print("upsample a15 weight shape", weight.shape)
+            # print("upsample a15 out shape", out.shape)
 
         elif self.downsample:
-            #print("a16")
+            # print('################ DOWNSAMPLE ################')
+            # print("a16 shape before blur ", input.shape)
             input = self.blur(input)
-            #print("a17")
+            # print("a17 shape after blur ", input.shape)
             _, _, height, width = input.shape
-            #print("a18")
+            # print("a18")
             input = input.view(1, batch * in_channel, height, width)
-            #print("a19")
+            # print("a19 resize input", input.shape)
             out = conv2d_gradfix.conv2d(
                 input, weight, padding=0, stride=2, groups=batch
             )
-            #print("a20")
+            # print("a20 out after conv2d", out.shape)
             _, _, height, width = out.shape
-            #print("a21")
+            # print("a21")
             out = out.view(batch, self.out_channel, height, width)
-            #print("a22")
+            # print("a22 final out shape", out.shape)
+
 
         else:
-            #print("a23")
+            # print('################ OTHER ################')
+            # print("a23 shape before resize ", input.shape)
             input = input.view(1, batch * in_channel, height, width)
-            #print("a24")
+            # print("a24 shape after resize ", input.shape)
             out = conv2d_gradfix.conv2d(
                 input, weight, padding=self.padding, groups=batch
             )
-            #print("a25")
+            # print("a25 shape after conv3d ", out.shape)
             _, _, height, width = out.shape
-            #print("a26")
+            # print("a26")
             out = out.view(batch, self.out_channel, height, width)
-            #print("a27")
+            # print("a27 shape after resize ", out.shape)
+        # print('Output Modulated Conv', out.shape)
 
         return out
 
@@ -383,11 +402,11 @@ class StyledConv(nn.Module):
         self.activate = FusedLeakyReLU(out_channel)
 
     def forward(self, input, style, noise=None):
-        #print("input styled ", input.shape)
+        # # print("input styled ", input.shape)
         out = self.conv(input, style)
-        #print("modulated styled ", out.shape)
+        # # print("modulated styled ", out.shape)
         out = self.noise(out, noise=noise)
-        #print("noise styled", out.shape)
+        # # print("noise styled", out.shape)
         # out = out + self.bias
         out = self.activate(out)
 
@@ -405,6 +424,8 @@ class ToRGB(nn.Module):
         self.bias = nn.Parameter(torch.zeros(1, nb_var, 1, 1))
 
     def forward(self, input, style, skip=None):
+        # print("####### TORGB #######")
+        # print('From ToRGB', np.shape(input))
         out = self.conv(input, style)
         out = out + self.bias
         input_conved = torch.clone(out)
@@ -533,11 +554,18 @@ class Generator(nn.Module):
 
     def get_latent(self, input):
         return self.style(input)
+    
+
+    def insert_feature(self, x, layer_idx, features_in, feature_scale):
+        if features_in is not None and features_in[layer_idx] is not None:
+            x = (1 - feature_scale) * x + feature_scale * features_in[layer_idx].type_as(x)
+        return x
 
     def forward(
         self,
         styles,
         return_latents=False,
+        return_features=False,
         inject_index=None,
         truncation=1,
         truncation_latent=None,
@@ -545,6 +573,8 @@ class Generator(nn.Module):
         noise=None,
         randomize_noise=True,
         return_rgb=False,
+        features_in=None,
+        feature_scale=0
     ):
         if not input_is_latent:
             styles = [self.style(s) for s in styles]
@@ -584,14 +614,17 @@ class Generator(nn.Module):
             latent2 = styles[1].unsqueeze(1).repeat(1, self.n_latent - inject_index, 1)
 
             latent = torch.cat([latent, latent2], 1)
-        #print("latent ", latent.shape)
+        # print("latent ", latent.shape)
+        outs = []
         out = self.input(latent)
-        #print("input gen ", out.shape)
+        # print("input gen ", out.shape)
+        outs.append(out)
         out = self.conv1(out, latent[:, 0], noise=noise[0])
-        #print("conv1 gen ", out.shape)
+        outs.append(out)
+        # print("conv1 gen ", out.shape)
 
         skip, input_conved = self.to_rgb1(out, latent[:, 1])
-        #print("rgb1 ", skip.shape)
+        # print("rgb1 ", skip.shape)
         if return_rgb:
             rgbs_saved = {}
             rgbs_saved['prev_rgb'] = {}
@@ -608,12 +641,17 @@ class Generator(nn.Module):
         for conv1, conv2, noise1, noise2, to_rgb in zip(
             self.convs[::2], self.convs[1::2], noise[1::2], noise[2::2], self.to_rgbs
         ):
+            
+            out = self.insert_feature(out, i, features_in=features_in, feature_scale=feature_scale)
             out = conv1(out, latent[:, i], noise=noise1)
-            #print("conv1 gen ", out.shape)
+            outs.append(out)
+            # print("From Generator :conv1 gen ", out.shape)
+            out = self.insert_feature(out, i + 1, features_in=features_in, feature_scale=feature_scale)
             out = conv2(out, latent[:, i + 1], noise=noise2)
-            #print("conv2 gen ", out.shape)
+            # print("From Generator :conv2 gen ", out.shape)
+            outs.append(out)
             skip, input_conved, prev_rgb_upsampled, prev_rgb = to_rgb(out, latent[:, i + 2], skip)
-            #print("rgb ", skip.shape)
+            # print("From Generator :rgb ", skip.shape)
             if return_rgb:
                 rgbs_saved['prev_rgb'][i//2 + 2] = prev_rgb.detach().cpu().numpy()
                 rgbs_saved['prev_rgb_upsampled'][i//2 + 2] = prev_rgb_upsampled.detach().cpu().numpy()
@@ -623,6 +661,7 @@ class Generator(nn.Module):
             i += 2
 
         image = skip
+        # print("final gen ", image.shape)
         if self.var_rr and self.tanh_output:
             image[:, 0] = torch.tanh(image[:, 0]) # assuming rr is the first variable ['rr', ...]
         if return_latents:
@@ -631,6 +670,11 @@ class Generator(nn.Module):
             else:
                 return image, latent, None
 
+        elif return_features:
+            if return_rgb:
+                return image, outs, rgbs_saved
+            else:
+                return image, outs, None
         else:
             if return_rgb:
                 return image, None, rgbs_saved
@@ -687,20 +731,20 @@ class ResBlock(nn.Module):
     def __init__(self, in_channel, out_channel, blur_kernel=[1, 3, 3, 1]):
         super().__init__()
 
-        self.conv1 = ConvLayer(in_channel, in_channel, 3)
-        self.conv2 = ConvLayer(in_channel, out_channel, 3, downsample=True)
+        self.conv1 = ConvLayer(in_channel, in_channel, 3, blur_kernel=blur_kernel)
+        self.conv2 = ConvLayer(in_channel, out_channel, 3, downsample=True, blur_kernel=blur_kernel)
 
         self.skip = ConvLayer(
-            in_channel, out_channel, 1, downsample=True, activate=False, bias=False
+            in_channel, out_channel, 1, downsample=True, activate=False, bias=False, blur_kernel=blur_kernel
         )
 
     def forward(self, input):
         out = self.conv1(input)
-        #print("resblock, out1 ", out.shape)
+        # print("resblock, out1 ", out.shape)
         out = self.conv2(out)
-        #print("resblock, out2 ", out.shape)
+        # print("resblock, out2 ", out.shape)
         skip = self.skip(input)
-        #print("resblock, skip ", skip.shape)
+        # print("resblock, skip ", skip.shape)
         out = (out + skip) / math.sqrt(2)
 
         return out
@@ -748,9 +792,9 @@ class Discriminator(nn.Module):
 
     def forward(self, input):
         
-        #print("input ", input.shape)
+        # print("input ", input.shape)
         out = self.convs(input)
-        #print("before std ", out.shape)
+        # print("before std ", out.shape)
         batch, channel, height, width = out.shape
         group = min(batch, self.stddev_group)
         stddev = out.view(
@@ -760,11 +804,11 @@ class Discriminator(nn.Module):
         stddev = stddev.mean([2, 3, 4], keepdims=True).squeeze(2)
         stddev = stddev.repeat(group, 1, height, width)
         out = torch.cat([out, stddev], 1)
-        #print('std ', out.shape)
+        # print('std ', out.shape)
         out = self.final_conv(out)
-        #print('final_conv ',out.shape)
+        # print('final_conv ',out.shape)
         out = out.view(batch, -1)
-        #print('out ',out.shape, self.final_linear[0].weight.shape, self.final_linear[1].weight.shape)
+        # print('out ',out.shape, self.final_linear[0].weight.shape, self.final_linear[1].weight.shape)
         out = self.final_linear(out)
 
         return out

@@ -148,6 +148,109 @@ def read_dataset_handler_config_file(config):
     with open(f"{config.config_dir}{config.dataset_handler_config}", "r") as dataset_handler_config_file:
         return yaml.safe_load(dataset_handler_config_file)
 
+
+def online_temporal_sample_plot(config, batch, Step, mean_pert=False):
+    dataset_yaml = read_dataset_handler_config_file(config)
+    batch_to_print = batch[[0,1,2,-1]]
+    nb_var = len(config.var_names)
+    nb_timesteps = config.nb_timesteps
+    img_size = batch_to_print.shape[-1]
+    for var_id, var in enumerate(config.var_names):
+        if var=='t2m':
+            varname='2m temperature'
+            cmap='coolwarm'
+            if dataset_yaml["normalization"]["type"] != "None":
+                limits = (-0.5,0.5)
+            else:
+                limits = (240, 316)
+
+        elif var=='rr':
+            varname='Rain rate'
+            cmap='viridis'
+            if dataset_yaml["normalization"]["type"] != "None":
+                limits = (-0.95,0.95)
+            else:
+                maxi = 300
+                for _ in range(dataset_yaml["rr_transform"]["log_transform_iteration"]):
+                    maxi = np.log(1 + maxi)
+                if dataset_yaml["rr_transform"]["symetrization"]:
+                    limits = (-maxi, maxi)
+                else:
+                    limits = (0, maxi)
+            
+        elif var=='orog':
+            varname='Orography'
+            cmap='terrain'
+            limits = (-0.95,0.95)
+        
+        elif var=='z500':
+            varname='500 hPa geopotential'
+            cmap='Blues'
+            limits = (batch_to_print[:,var_id,:,:].min(), batch_to_print[:,var_id,:,:].max())
+        
+        elif var=='t850':
+            varname='850 hPa temperature'
+            cmap='coolwarm'
+            limits = (-0.5,0.5)
+            
+        elif var=='tpw850':
+            varname='tpw850'
+            cmap='plasma'
+            limits = (-0.5,0.5)
+                    
+        else :
+            varname='Wind '+var
+            cmap='viridis'
+            if dataset_yaml["normalization"]["type"] != "None":
+                limits = (-0.5,0.5)
+            else:
+                limits = (-40, 40)
+            
+        fig, ax = plt.subplots(nrows=4, ncols=nb_timesteps, figsize=(200,50))
+        st = fig.suptitle(varname + (" pert" if mean_pert else ""), fontsize='100')
+        # st.set_y(0.96)
+        # print(batch_to_print.shape)
+        for seq_id in range(4):
+            for t in range(nb_timesteps):
+                if config.stack_sample_along_time_and_variable:
+                    b = batch_to_print[seq_id][var_id+nb_var*t].view(img_size, img_size)
+                else :
+                    if config.variable_first:
+                        b = batch_to_print[seq_id,var_id,t].view(img_size, img_size)
+                    else :
+                        b = batch_to_print[seq_id,t,var_id].view(img_size, img_size)
+
+                im = ax[seq_id][t].imshow(b.cpu().detach().numpy()[::-1,:], cmap=cmap, vmin=limits[0], vmax=limits[1])
+
+        fig.subplots_adjust(bottom=0.05,top=0.9, left=0.05, right=0.9)
+        cbax=fig.add_axes([0.92,0.05,0.02,0.85])
+        cb=fig.colorbar(im, cax=cbax)
+        cb.ax.tick_params(labelsize=80)
+        plt.savefig(f"{config.output_dir}/samples/Samples_at_Step_{Step}_{var}{'_pert' if mean_pert else ''}.png")
+        plt.close()
+
+        # if mean_pert:
+        #     fig = plt.figure(figsize=(20,20))
+        #     rows = 4
+        #     columns = 4
+        #     st = fig.suptitle(varname + " mean", fontsize='30')
+        #     st.set_y(0.96)
+            
+        #     for j in range(batch_to_print.shape[0]) :
+        #         b = batch_to_print[j][i+len(config.var_names)].view(IMG_SIZE, IMG_SIZE)
+        #         ax = fig.add_subplot(rows, columns, j+1)
+        #         im = ax.imshow(b.cpu().detach().numpy()[::-1,:], cmap=cmap, 
+        #                     vmin=limits[0], vmax=limits[1])
+                
+        #     fig.subplots_adjust(bottom=0.05,top=0.9, left=0.05, right=0.9)
+        #     cbax=fig.add_axes([0.92,0.05,0.02,0.85])
+        #     cb=fig.colorbar(im, cax=cbax)
+        #     cb.ax.tick_params(labelsize=20)
+        #     plt.savefig(f"{config.output_dir}/samples/Samples_at_Step_{Step}_{var}{'_mean' if mean_pert else ''}.png")
+        #     plt.close()
+
+    return 0
+
 def online_sample_plot(config, batch, Step, mean_pert=False):
     dataset_yaml = read_dataset_handler_config_file(config)
     batch_to_print = batch[:config.plot_samples]
@@ -212,8 +315,7 @@ def online_sample_plot(config, batch, Step, mean_pert=False):
         for j in range(batch_to_print.shape[0]) :
             b = batch_to_print[j][i].view(IMG_SIZE, IMG_SIZE)
             ax = fig.add_subplot(rows, columns, j+1)
-            im = ax.imshow(b.cpu().detach().numpy()[::-1,:], cmap=cmap, 
-                         vmin=limits[0], vmax=limits[1])
+            im = ax.imshow(b.cpu().detach().numpy()[::-1,:], cmap=cmap, vmin=limits[0], vmax=limits[1])
             
         fig.subplots_adjust(bottom=0.05,top=0.9, left=0.05, right=0.9)
         cbax=fig.add_axes([0.92,0.05,0.02,0.85])

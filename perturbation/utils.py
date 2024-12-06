@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 import random
 import torch
+import os
 #random.seed(0)
 
 def str2intlist(li):
@@ -16,6 +17,20 @@ def str2intlist(li):
 
     else : 
         raise ValueError("li argument must be a string or a list, not '{}'".format(type(li)))
+
+def str2strlist(li):
+    if type(li)==list:
+        li2 = [str(p) for p in li]
+        return li2
+    
+    elif type(li)==str:
+        li2 = li[1:-1].split(',')
+        li3 = [str(p) for p in li2]
+        return li3
+
+    else : 
+        raise ValueError("li argument must be a string or a list, not '{}'".format(type(li)))
+
 
 def load_batch_from_timestamp(
         dataframe,
@@ -35,9 +50,9 @@ def load_batch_from_timestamp(
     Nb = len(df0)
 
     batch = np.zeros((Nb,) + tuple(Shape))
-    print(batch.shape)
+    # print(batch.shape)
     for i,s in enumerate(df0['Name']):
-        print(i, s)
+        # print(i, s)
         sn = np.load(f'{data_dir}{s}.npy')[var_indices,:,:].astype(np.float32)
 
         batch[i] = sn
@@ -47,7 +62,9 @@ def load_batch_from_timestamp(
         batch = torch.tensor(0.95*(batch - Means) / (Maxs), dtype = torch.float32)
     elif normalization=="minmax":
         batch = torch.tensor(-1. + 2*(batch - Mins) / (Maxs-Mins), dtype = torch.float32)
-    else:
+    elif normalization=="":
+        pass
+    else :
         raise ValueError(f"Unknown normalization: {normalization}")
 
     return batch
@@ -60,7 +77,7 @@ def load_batch_sequence_from_date(
         concatenate_variable_and_time=False, 
         dt=3, 
         Shape=(3,256,256), 
-        var_indices=[0,1,2],
+        var_indices=[1,2,3],
         normalization="meanmax",
         Means=None,
         Mins=None,
@@ -73,16 +90,19 @@ def load_batch_sequence_from_date(
     for member_id in range(16) :
         df0 = dataframe[(dataframe['Date']==date) & (dataframe['Member']==member_id)]
         Nb = len(df0) # nb total leadtime
+        if dt == 6:
+            sample = np.zeros((8,) + tuple(Shape))
+        else :
+            sample = np.zeros((Nb//dt,) + tuple(Shape))
 
-        sample = np.zeros((Nb//dt,) + tuple(Shape))
 
         for i,s in enumerate(df0['Name']):
             if i%dt == 0:
                 sn = np.load(f'{data_dir}{s}.npy')[var_indices,:,:].astype(np.float32)
                 # normalization
-                if normalization=="meanmax":
+                if normalization=="meanmax" and (Means is not None and Maxs is not None):
                     sn = np.array(0.95*(sn - Means) / (Maxs), dtype = np.float32)
-                elif normalization=="minmax":
+                elif normalization=="minmax" and (Mins is not None and Maxs is not None):
                     sn = np.array(-1. + 2*(sn - Mins) / (Maxs-Mins), dtype = torch.float32)
                 else:
                     raise ValueError(f"Unknown normalization: {normalization}")
@@ -93,7 +113,7 @@ def load_batch_sequence_from_date(
 
         batch_sequence.append(sample)
 
-    return torch.tensor(batch_sequence, dtype=torch.float32)
+    return torch.tensor(np.array(batch_sequence), dtype=torch.float32)
 
 def rescale(generated, Mean, Max, scale) : 
     r''' 
@@ -117,36 +137,98 @@ def collate_ensemble(data_dir, start_member, stop_member, lead_time , var_indice
 
     return batch
 
-def collate_w_ensemble(data_dir, members, lead_time , var_indices):
+def collate_w_ensemble(data_dir, members, lead_time , var_indices, inv_step):
     """
     Fetch individual members of the same forecast at a given lead time (as isolated files) 
     and feed them as one single array
     """
 
     nb_members = len(members)
-
-    batch = np.load(data_dir + f'w_ge_{lead_time}_875.npy').astype(np.float32)[members]
+    if os.path.exists(data_dir + f'w_ge_{lead_time}_875.npy') :
+        batch = np.load(data_dir + f'w_ge_{lead_time}_875.npy').astype(np.float32)[members]
+    elif os.path.exists(data_dir + f'w_0_15_{lead_time}_{inv_step}.npy') :
+        batch=[]
+        for i in range(0, 865, 16):
+            if i == 864:
+                batch.append(np.load(data_dir + f'w_{i}_{i+10}_{lead_time}_{inv_step}.npy', mmap_mode='r').astype(np.float32)) 
+            else :   
+                batch.append(np.load(data_dir + f'w_{i}_{i+15}_{lead_time}_{inv_step}.npy', mmap_mode='r').astype(np.float32))
+        batch = np.vstack(batch).astype(np.float32)
 
     print(batch.shape)
 
     return batch
 
-def collate_R_ensemble(data_dir, members, lead_time , var_indices):
+def collate_R_ensemble(data_dir, members, lead_time , var_indices, all_data = False):
     """
     Fetch individual members of the same forecast at a given lead time (as isolated files) 
     and feed them as one single array
     """
 
-    nb_members = len(members)
+    if os.path.exists(data_dir + f'Rsemble_{lead_time}_875.npy') :
+        dataloaded = np.load(data_dir + f'Rsemble_{lead_time}_875.npy', mmap_mode='r').astype(np.float32)
+    elif os.path.exists(data_dir + f'Rsemble_0_15_{lead_time}.npy') :
+        dataloaded=[]
+        for i in range(0, 865, 16):
+            if i == 864:
+                dataloaded.append(np.load(data_dir + f'Rsemble_{i}_{i+10}_{lead_time}.npy', mmap_mode='r').astype(np.float32)) 
+            else :   
+                dataloaded.append(np.load(data_dir + f'Rsemble_{i}_{i+15}_{lead_time}.npy', mmap_mode='r').astype(np.float32))
+        dataloaded = np.vstack(dataloaded).astype(np.float32)
+    else :
+        raise FileNotFoundError
 
-    batch = np.zeros((nb_members,3,256,256), dtype = np.float32)
-
-    dataloaded = np.load(data_dir + f'Rsemble_{lead_time}_875.npy', mmap_mode='r').astype(np.float32)
+    if not all_data:
+        return dataloaded[members]
+    else :
+        return dataloaded
     
-    batch = dataloaded[members]
 
-    return batch
+def collate_inv_ensemble(data_dir, members, lead_time , var_indices, inv_step, all_data=False):
+    """
+    Fetch individual inverted members of the same forecast at a given lead time (as isolated files) 
+    and feed them as one single array
+    """
 
+    if os.path.exists(data_dir + f'invertFsemble_{lead_time}_875.npy') :
+        dataloaded = np.load(data_dir + f'invertFsemble_{lead_time}_875.npy', mmap_mode='r').astype(np.float32)
+    elif os.path.exists(data_dir + f'invertFsemble_0_15_{lead_time}_{inv_step}.npy') :
+        dataloaded=[]
+        for i in range(0, 865, 16):
+            if i == 864:
+                dataloaded.append(np.load(data_dir + f'invertFsemble_{i}_{i+10}_{lead_time}_{inv_step}.npy', mmap_mode='r').astype(np.float32)) 
+            else :   
+                dataloaded.append(np.load(data_dir + f'invertFsemble_{i}_{i+15}_{lead_time}_{inv_step}.npy', mmap_mode='r').astype(np.float32))
+        dataloaded = np.vstack(dataloaded).astype(np.float32)
+    else :
+        raise FileNotFoundError
+
+    if not all_data:
+        return dataloaded[members]
+    else :
+        return dataloaded
+
+
+def collate_gen_ensemble(data_dir, members, lead_time , var_indices, inv_step, all_data=False):
+    """
+    Fetch individual generated members of the same forecast at a given lead time (as isolated files) 
+    and feed them as one single array
+    """
+
+    if os.path.exists(data_dir + f'genFsemble_{lead_time}_875.npy') :
+        dataloaded = np.load(data_dir + f'genFsemble_{lead_time}_875.npy', mmap_mode='r').astype(np.float32)
+    elif os.path.exists(data_dir + f'genFsemble_0_{lead_time}_{inv_step}.npy') :
+        dataloaded=[]
+        for i in range(0, 50):
+            dataloaded.append(np.load(data_dir + f'genFsemble_{i}_{lead_time}_{inv_step}.npy', mmap_mode='r').astype(np.float32)) 
+        dataloaded = np.vstack(dataloaded).astype(np.float32)
+    else :
+        raise FileNotFoundError
+
+    if not all_data:
+        return dataloaded[members]
+    else :
+        return dataloaded
 
 def correct_lt(lt):
     if lt<=24:

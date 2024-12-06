@@ -247,20 +247,25 @@ class Trainer():
             self.optim_G.load_state_dict(load_optim["g_optim"])
             self.optim_D.load_state_dict(load_optim["d_optim"])
 
-        if self.config.scheduler_config != "":
-            with open(f"{self.config.config_dir}{self.config.scheduler_config}", "r") as sched_config_file:
-                sched_yaml = yaml.safe_load(sched_config_file)
-            self.scheduler_G = AllocScheduler(sched_yaml["G_sched"], self.optim_G, sched_yaml["lrG_gamma"], "Generator")
-            self.scheduler_D = AllocScheduler(sched_yaml["D_sched"], self.optim_D, sched_yaml["lrD_gamma"], "Discriminator")
-        else:
-            print(f"No scheduler_config file provided, shedulers set to None")
-        if self.config.scheduler_config != "" and self.config.pretrained_model > 0:
-            print("Loading scheduler...")
+        if self.config.lrD_sched != "None":
+            self.scheduler_D = AllocScheduler(self.config.lrD_sched, self.optim_D, self.config.lrD_gamma, "Discriminator", base_lr=self.config.lr_D * d_reg_ratio)
+        elif self.config.pretrained_model > 0:
+            print("Loading scheduler from pretrained stage for Discriminator...")   
+            self.scheduler_D.load_state_dict(torch.load(f"{self.config.output_dir}/models/SchedDisc_{self.config.pretrained_model}"))
+            hvd.broadcast_object(self.scheduler_D.state_dict(), 0, name='sched_D')
+        else :
+            print(f"Schedulers for Discriminator set to None")
+        
+        if self.config.lrG_sched != "None":
+            self.scheduler_G = AllocScheduler(self.config.lrG_sched, self.optim_G, self.config.lrG_gamma, "Generator", base_lr=self.config.lr_G * g_reg_ratio)
+        elif self.config.pretrained_model > 0:
+            print("Loading scheduler from pretrained stage for Generator...")   
             self.scheduler_G.load_state_dict(torch.load(f"{self.config.output_dir}/models/SchedGen_{self.config.pretrained_model}"))
             hvd.broadcast_object(self.scheduler_G.state_dict(), 0, name='sched_G')
-                
-            self.scheduler_D.load_state_dict(torch.load(f"{self.config.output_dir}/models/SchedDisc_{self.config.pretrained_model}"))
-            hvd.broadcast_object(self.scheduler_G.state_dict(), 0, name='sched_D')
+        else :
+            print(f"Schedulers for Generator set to None")
+            
+        
 
         ###### horovodizing stuff
 

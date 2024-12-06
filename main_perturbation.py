@@ -61,6 +61,8 @@ def compute_generate_save(G, params, metrics_list, Means, Maxs):
     scale = torch.tensor(np.load(os.path.join(params.scale_dir,"ema_scale.npy")).astype(np.float32)[params.scale_interp_step], device=params.device)
     interp = torch.tensor(np.load(os.path.join(params.scale_dir,"ema_interp.npy")).astype(np.float32)[params.scale_interp_step], device=params.device)
 
+    if params.import_perturbation:
+        print(f'Importing perturbation from {params.path_perturbation}')
     gen, w_new = smpca.sm_pca(
         Ens_w=w_ens, 
         G=G, 
@@ -74,13 +76,33 @@ def compute_generate_save(G, params, metrics_list, Means, Maxs):
         verbose=params.verbose,
         Whitening=Whitening,
         Coloring=Coloring,
-        w0=w0
+        w0=w0,
+        import_perturbation=params.import_perturbation,
+        save_perturbation=params.save_perturbation,
+        path_perturbation=params.path_perturbation
     )
 
     if params.verbose:
         print(gen.mean(axis=(0,-2,-1)))
         print(Ens_r.mean(axis=(0,-2,-1)))
-    np.save(params.output_dir + f'/samples/genFsemble_{params.date_index}_{params.lt_index}_{params.inv_step}_{params.N_conditioners}.npy', gen)
+    
+    title = f'{params.date_index}_{params.lt_index}_{params.inv_step}_{params.N_conditioners}'
+    
+    
+    if params.save_w_perturbated:
+        if params.save_perturbation and not params.import_perturbation :
+            title+='_generated_pert'
+            np.save(params.output_dir + f'/samples/w_pert_{title}.npy', w_new[0])
+        elif params.import_perturbation:
+            title+='_imported_pert'
+            np.save(params.output_dir + f'/samples/w_pert_{title}.npy', w_new)
+        else :
+            title+='_generated_pert'
+            np.save(params.output_dir + f'/samples/w_pert_{title}.npy', w_new)
+    if params.save_perturbation and not params.import_perturbation :
+        np.save(params.output_dir + f'/samples/perturbation_{title}.npy', w_new[1])
+    np.save(params.output_dir + f'/samples/genFsemble_{title}.npy', gen)
+    
 
     online_pert_plot(
         packsample=Ens_r.numpy(), 
@@ -88,8 +110,8 @@ def compute_generate_save(G, params, metrics_list, Means, Maxs):
         pert_sample=gen,
         crop=[0,-1,0,-1],
         mem_idx=0 if params.N_conditioners>1 else cond_indices, 
-        figtitle=f"Generated samples for {params.date_index}_{params.lt_index}_{params.inv_step}_{params.N_conditioners}", 
-        figname=params.output_dir + f"/samples/genFsemble_{params.date_index}_{params.lt_index}_{params.inv_step}_{params.N_conditioners}.png"
+        figtitle=f"Generated samples for {title}", 
+        figname=params.output_dir + f"/samples/genFsemble_{title}.png"
     )
 
     if params.runtime_metrics:
@@ -154,7 +176,11 @@ if __name__=="__main__" :
 
     parser.add_argument('--scale_dir', type=str, default="/project/home/p200177/DE_371/datasets/dataset_Meteo_France/scale_dir_gan_training/")
     parser.add_argument('--scale_interp_step',type=int, default=-1)
-    
+    # w_perturbated = w_inv + perturbation
+    parser.add_argument("--save_w_perturbated", action="store_true", help='Save final perturbated latent space')
+    parser.add_argument("--import_perturbation", action="store_true", help='Flag to import perturbation')
+    parser.add_argument("--save_perturbation", action="store_true", help='Flag to save perturbation')
+    parser.add_argument('--path_perturbation',type=str, default ="", help='Flag perturbation path')
 
     ########################## CONTROL of Data to perturb ######################
     parser.add_argument("--dates_file", type=str, default = 'Large_lt_test_labels.csv')
@@ -224,10 +250,20 @@ if __name__=="__main__" :
             params.date_index = datename
             params.lt_index = lt
             
-            already_exist = False
-            if os.path.isfile(params.output_dir + f'/samples/genFsemble_{params.date_index}_{params.lt_index}_{params.inv_step}_{params.N_conditioners}.npy'):
-                already_exist=True
-            if already_exist :
+            already_exist = []
+            if not params.import_perturbation :
+                label = 'generated_pert'
+            else :
+                label = 'imported_pert'
+            if os.path.isfile(params.output_dir + f'/samples/genFsemble_{params.date_index}_{params.lt_index}_{params.inv_step}_{params.N_conditioners}_{label}.npy'):
+                already_exist.append(True)
+            else :
+                already_exist.append(False)
+            if os.path.isfile(params.output_dir + f'/samples/w_pert_{params.date_index}_{params.lt_index}_{params.inv_step}_{params.N_conditioners}_{label}.npy'):
+                already_exist.append(True)
+            else :
+                already_exist.append(False)
+            if np.all(already_exist) :
                 print('The perturbation was already done for the date {} with leadtime {}. This sample is skipped.'.format(datename,lt))
             else :
                 print('Launching perturbation process for the date {} with leadtime {}.'.format(datename,lt))    

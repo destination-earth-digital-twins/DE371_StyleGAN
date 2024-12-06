@@ -12,3 +12,4 @@ tornado
 ninja
 tl2
 timm==0.5.4
+scipy

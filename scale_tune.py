@@ -55,6 +55,8 @@ if __name__=="__main__" :
     parser.add_argument("--lambda_spread",type=float, default=1.0)
     parser.add_argument("--convert_ff_t",action="store_true")
     parser.add_argument("--invert_step",type=int, default=1000)
+    parser.add_argument("--optim_criterion", type=str, default='distrib_matching', choices=['distrib_matching','exchangeability'])
+
 
     ########################### Directories ###########################
     parser.add_argument("--fake_data_dir", type=str, 
@@ -84,7 +86,7 @@ if __name__=="__main__" :
 
     liste_dates = df_date['Date'].unique().tolist()
     print(liste_dates)
-    leadtimes = [3,6,9,12,15,18,21,24,27,30,33,36,39,42]
+    leadtimes = [3,6,9,12,15,18,21,24,27,30,33,36,39,42,45]
 
     ensemble_dataset = list(product(liste_dates,leadtimes))
     print(len(ensemble_dataset))
@@ -166,20 +168,42 @@ if __name__=="__main__" :
             gen = smpca.fast_style_mixing(interp_noise, scale_noise, batch_w, Cov, w_avg, w0, args.n_samples, G, Whitening, device=device, scale_rule=args.scale_rule) 
             if args.convert_ff_t:
                 gen, batch_y = convert_uvt2fft(gen, batch_y)
-            mean_loss = F.l1_loss(gen.mean(dim=0), batch_y.mean(dim=0))
-            inflation = args.inflate if not args.inflate_random else (1.0 + uniform(0,args.inflate))
-            std_loss = F.l1_loss(torch.std(gen,dim=0, unbiased=True), inflation * torch.std(batch_y,dim=0, unbiased=True))
+            if args.optim_criterion == 'distrib_matching':
+                mean_loss = F.l1_loss(gen.mean(dim=0), batch_y.mean(dim=0))
+                inflation = args.inflate if not args.inflate_random else (1.0 + uniform(0,args.inflate))
+                std_loss = F.l1_loss(torch.std(gen,dim=0, unbiased=True), inflation * torch.std(batch_y,dim=0, unbiased=True))
 
-            if args.lambda_spectrum>0.0:
-                #spl = specLoss(batch_y,gen)
-                loss = args.lambda_bias * mean_loss + args.lambda_spread * std_loss# \
-                #            + args.lambda_spectrum * spl
-            
-            else:
-                #with torch.no_grad():
-                #    spl = specLoss(batch_y,gen)
-                loss = args.lambda_bias * mean_loss + args.lambda_spread * std_loss
-            
+                if args.lambda_spectrum>0.0:
+                    #spl = specLoss(batch_y,gen)
+                    loss = args.lambda_bias * mean_loss + args.lambda_spread * std_loss# \
+                    #            + args.lambda_spectrum * spl
+                
+                else:
+                    #with torch.no_grad():
+                    #    spl = specLoss(batch_y,gen)
+                    loss = args.lambda_bias * mean_loss + args.lambda_spread * std_loss
+            elif args.optim_criterion == 'exchangeability':
+                # TODO : Not operationnal at all, need to be tested
+                # Naïve version
+                # loss_batch_y = 0
+                # for i in range(batch_y.shape[0]):
+                #     for j in range(i, batch_y.shape[0]):
+                #         if i!=j: # TODO : Maybe the MSE is not an optimal distance criterion
+                #             loss_batch_y+=F.mse_loss(batch_y[i], batch_y[j])
+                # loss_gen = 0
+                # for i in range(gen.shape[0]):
+                #     for j in range(i, gen.shape[0]):
+                #         if i!=j:
+                #             loss_gen+=F.mse_loss(gen[i], gen[j])
+                
+                # loss_inter = 0
+                # for i in range(batch_y.shape[0]):
+                #     for j in range(gen.shape[0]):
+                #         loss_inter+=F.mse_loss(batch_y[i], gen[j])
+                
+                # loss = loss_batch_y - 2 * loss_inter + loss_gen
+                raise NotImplementedError
+
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()

@@ -42,10 +42,10 @@ if __name__=="__main__" :
                         default='/project/home/p200177/DE_371/datasets/dataset_Meteo_France/IS_1_1.0_0_0_0_0_0_256_large_lt_done/')
     # Output Directory - PATH where the output of the inversion will be saved
     parser.add_argument('--output_dir',type = str, 
-                        default ='/project/scratch/p200177/DE_371/victorsanchez/results/member_inversion/test_lpips/inversion_squeeze_tuning/')
+                        default ='/project/scratch/p200177/DE_371/victorsanchez/results/member_inversion/test/inversion/')
     # Pack Directory - PATH where the packed ensembles will be saved
     parser.add_argument("--pack_dir", type=str, 
-                        default = '/project/scratch/p200177/DE_371/victorsanchez/results/member_inversion/test_lpips/pack_squeeze_tuning/') # storing "packed" (normalized) real data
+                        default = '/project/scratch/p200177/DE_371/victorsanchez/results/member_inversion/test/pack/') # storing "packed" (normalized) real data
     
     # Dataset information
     parser.add_argument("--normalization", type=str, default="meanmax", choices=["minmax", "meanmax"])
@@ -60,7 +60,10 @@ if __name__=="__main__" :
     parser.add_argument('--nb_timesteps', type=int, default=15)
     parser.add_argument('--timestep_period', type=int, default=3)
     parser.add_argument('--stack_sample_along_time_and_variable', action='store_true')
-
+    parser.add_argument('--g_channels', type=int, default=3)
+    parser.add_argument('--channel_multiplier', type=int, default=2)
+    
+    
     ############################ INVERSION PARAMETERS #################    
 
     parser.add_argument("--lr_rampup",type=float,default=0.05,help="duration of the learning rate warmup")
@@ -83,6 +86,9 @@ if __name__=="__main__" :
 
     # Noise optimization and loss noise parameter
     parser.add_argument("--noise_optimize", action='store_true', help="joint optimization of noise and latent code (1) or latent code optimization only (0)?")
+    parser.add_argument("--feature_optimize", action='store_true', help="to enable optimization of feature map")
+    parser.add_argument("--feature_id", type=int, default=5, help="features to optimize")
+    
     parser.add_argument("--lambda_noise", type=float, default=1e5, help="weight of the noise regularization")
     # In case noise_optimize=0, the lambda_noise is not taken into account in the loss computation
     parser.add_argument("--fixed_noise", action='store_true', help="Fixing the noise during optimization")
@@ -91,32 +97,26 @@ if __name__=="__main__" :
     parser.add_argument('--pixel_loss_type', type=str, default='mse', choices = ['mse', 'mae'])
     parser.add_argument("--lambda_pixel", type=float, default=10.0, help="weight of the (mae/mse) pixel loss")
     
-    # Parameter related to perceptual loss 
-    parser.add_argument("--optimize_features_computation", action='store_true', help="Compute the features of original ensemble only once")
+    # Focal Frequency Loss
+    parser.add_argument("--lambda_focal_frequency_loss", type=float, default=0.0, help="weight of the vgg (perceptual) loss")
 
-    # LPIPS
-    parser.add_argument("--lpips_pnet", type=str, default='alex', choices=['alex','vgg','squeeze'], help="network type for lpips loss")
-    parser.add_argument("--lpips_pnet_tune", action='store_true', help="tuning the weights of the pnet")
-    parser.add_argument("--lpips_pnet_state_dict_path", type=str, default='/home/users/u101833/project/DE371_StyleGAN/inversion/PerceptualSimilarity/lpips/weights_pnets/alex_random.pth', help="path to lpips pre-trained network weights")
-    parser.add_argument("--lambda_lpips", type=float, default=0.0, help="weight of the lpips (perceptual) loss")
-
-    parser.add_argument("--lpips_mode", action='store_true', help="if lpips mode=False, it act like simple vgg")
-    parser.add_argument("--lpips_linear_layers_state_dict_path", type=str, default='/home/users/u101833/project/DE371_StyleGAN/inversion/PerceptualSimilarity/lpips/weights_linear_layers/v0.1/vgg.pth', help="path to liunear layer lpips")
+    # Perceptual Loss
+    parser.add_argument("--lambda_perceptual_loss", type=float, default=1.0, help="weight of the vgg (perceptual) loss")
+    parser.add_argument("--resize_input", type=float, default=0.0, help="resize input for vgg loss")
+    parser.add_argument("--network_type", type=str, default='vgg16', choices=['vgg16','vgg11','vgg13','vgg19','alexnet','squeezenet1_1','resnet18','resnet34','resnet50','resnet101','resnet152','set_vit_b_16'])
+    parser.add_argument("--pre_trained", action='store_true')
+    parser.add_argument("--features_after_relu", action='store_true')
+    parser.add_argument("--channel_computation", type=str, default='sol2', choices = ['sol1', 'sol2', 'sol3', 'sol4', 'sol5'], 
+                    help="Either we compute layer by layer and member per member but we have to triple th einput to make it rgb or all in one (naive)")
+    parser.add_argument("--network_dir", type=str, default='/project/scratch/p200177/DE_371/resources/network_for_perceptual_loss/', help="Insert a path")
+    parser.add_argument("--style_layers", type=utils.str2intlist, default=[], help="style layers to include in vgg loss computation")
+    parser.add_argument("--feature_layers", type=utils.str2intlist, default=[0,1,2,3], help="feature layers to include in vgg computation")
+    parser.add_argument("--alpha_feature", type=float, default=1.0, help="weight of the feature/content loss")
+    parser.add_argument("--alpha_style", type=float, default=0.01, help="weight of the style loss")
+    parser.add_argument("--multi_scale_perceptual_loss",  action='store_true')
     
-    # VGG
-    parser.add_argument('--hd_vgg', action='store_true', help="to use the VGG loss from HRInversion paper")
-    parser.add_argument("--lambda_vgg", type=float, default=1.0, help="weight of the vgg (perceptual) loss")
-    parser.add_argument("--vgg_computation", type=str, default='sol2', choices = ['sol1', 'sol2', 'sol3', 'sol4', 'sol5'], 
-                        help="Either we compute layer by layer and member per member but we have to triple th einput to make it rgb or all in one (naive)")
-    parser.add_argument("--vgg_state_dict_path", type=str, default='/project/scratch/p200177/DE_371/resources/vgg_weights/vgg16-random.pth', help="Insert a path")
-    parser.add_argument("--vgg_style_layers", type=utils.str2intlist, default=[], help="style layers to include in vgg loss computation")
-    parser.add_argument("--vgg_feature_layers", type=utils.str2intlist, default=[0,1,2,3], help="feature layers to include in vgg computation")
-    parser.add_argument("--vgg_alpha_feature", type=float, default=1.0, help="weight of the feature/content loss")
-    parser.add_argument("--vgg_alpha_style", type=float, default=0.01, help="weight of the style loss")
-    parser.add_argument("--vgg_loss_after_step", type=float, default=0, help="compute the vgg loss only after a given number of steps")
-
-    parser.add_argument("--invstep", type=int, default=2000, help="optimize iterations")
-    parser.add_argument("--inv_checkpoints", type=utils.str2intlist, default=[10,50,100,250,500,1000,1500,2000])
+    parser.add_argument("--invstep", type=int, default=1000, help="optimize iterations")
+    parser.add_argument("--inv_checkpoints", type=utils.str2intlist, default=[100,200,300,400,500,1000])
     parser.add_argument("--plot_checkpoint", action='store_true')
     
     # lambda_ms_ssim
@@ -126,7 +126,7 @@ if __name__=="__main__" :
     parser.add_argument("--dates_file", type=str, default = 'Large_lt_test_labels.csv')
     parser.add_argument("--date_start", type=str, default = "2021-07-01")
     parser.add_argument("--date_stop", type=str, default = "2021-07-02")
-    parser.add_argument("--leadtimes", type=utils.str2intlist, default=[3,6,9,12,15,18,21,24,27,30,33,36,39,42])
+    parser.add_argument("--leadtimes", type=utils.str2intlist, default=[3,6,9,12,15,18,21,24,27,30,33,36,39,42,45])
     
     parser.add_argument("--seed", type=int, default=42)
     
@@ -140,7 +140,7 @@ if __name__=="__main__" :
     # create output and pack directories
     if not os.path.exists(params.output_dir):
         os.makedirs(params.output_dir)
-    if not os.path.exists(params.pack_dir) and params.pack_dir:
+    if not os.path.exists(params.pack_dir) and params.pack_dir != '':
         os.makedirs(params.pack_dir)
 
     # set the seed for reproduciibility of runs
@@ -160,8 +160,6 @@ if __name__=="__main__" :
     if params.normalization=="meanmax":
         Means = np.load(f'{params.real_data_dir}{params.mean_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
         Maxs = np.load(f'{params.real_data_dir}{params.max_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
-    #    Means = np.load(f'{params.real_data_dir}stat_files/{params.mean_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
-    #    Maxs = np.load(f'{params.real_data_dir}/stat_files/{params.max_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
     elif params.normalization=="minmax":
        Mins = np.load(f'{params.real_data_dir}/stat_files/{params.min_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
        Maxs = np.load(f'{params.real_data_dir}/stat_files/{params.max_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
@@ -172,7 +170,7 @@ if __name__=="__main__" :
     if not params.multi_timestep_mode :
         G = Generator(params.Shape[1], 512,n_mlp=8, nb_var=params.Shape[0])
     else :
-        G = Generator(params.Shape[1], 512,n_mlp=8, nb_var=params.nb_timesteps)
+        G = Generator(params.Shape[1], 512,n_mlp=8, nb_var=params.g_channels, channel_multiplier=params.channel_multiplier)
     ckpt = torch.load(params.ckpt_dir, map_location='cpu')['g_ema']
 
     if 'module' in list(ckpt.items())[0][0]: #juglling with Pytorch versioning and different module packaging
@@ -213,10 +211,6 @@ if __name__=="__main__" :
     for key, value in params.__dict__.items():
         print(f"{key}: {value}")
 
-    if params.vgg_loss_after_step >= params.invstep:
-        print('The parameters vgg_loss_after_step cannot be superior or equal to the number of optim steps')
-        raise ValueError
-
     #################### main loop ##################
     for date_ in list_dates:
         print(date_)
@@ -228,20 +222,27 @@ if __name__=="__main__" :
             
             # Check if the files already exists (to qave computation time)
             already_exist = []
-            if os.path.isfile(params.pack_dir+f'Rsemble_{datename}_{lt}.npy'):
-                already_exist.append(True)
-            else :
-                already_exist.append(False)
+            if params.pack_dir != '' :
+                if os.path.isfile(params.pack_dir+f'Rsemble_{datename}_{lt}.npy'):
+                    print(params.pack_dir+f'Rsemble_{datename}_{lt}.npy' + 'Pack already Exist')
+                    already_exist.append(True)
+                else :
+                    print(params.pack_dir+f'Rsemble_{datename}_{lt}.npy' + 'Pack do not Exist')
+                    already_exist.append(False)
             for i in params.inv_checkpoints :
-                if os.path.isfile(params.output_dir+'w_{}_{}_{}.npy'.format(params.date_index,params.lt_index,i)):
+                if os.path.isfile(params.output_dir+'w_{}_{}_{}.npy'.format(params.date_index,lt,i)):
+                    print(params.output_dir+'w_{}_{}_{}.npy'.format(params.date_index,lt,i) + ' already Exist')
                     already_exist.append(True)
                 else :
+                    print(params.output_dir+'w_{}_{}_{}.npy'.format(params.date_index,lt,i) + ' do not Exist')
                     already_exist.append(False)
-                if os.path.isfile(params.output_dir+'invertFsemble_{}_{}_{}.npy'.format(params.date_index,params.lt_index,i)):
+                if os.path.isfile(params.output_dir+'invertFsemble_{}_{}_{}.npy'.format(params.date_index,lt,i)):
+                    print(params.output_dir+'invertFsemble_{}_{}_{}.npy'.format(params.date_index,lt,i) +' already Exist')
                     already_exist.append(True)
                 else :
+                    print(params.output_dir+'invertFsemble_{}_{}_{}.npy'.format(params.date_index,lt,i) + ' do not Exist')
                     already_exist.append(False)
-                # if os.path.isfile(params.output_dir+'noise_{}_{}_{}.p'.format(params.date_index,params.lt_index,i)):
+                # if os.path.isfile(params.output_dir+'noise_{}_{}_{}.p'.format(params.date_index,lt,i)):
                 #     already_exist.append(True)
                 # else :
                 #     already_exist.append(False)
@@ -249,17 +250,18 @@ if __name__=="__main__" :
             if np.all(already_exist) :
                 print('The inversion was already done for the date {} with leadtime {}. This sample is skipped.'.format(datename,lt))
             else :
-                print('Launching inversion process for the date {} with leadtime {}.'.format(datename,lt))
-                df0 = df_extract[(df_extract['Date']==date_) & (df_extract['LeadTime']==lt-1)]
-                if len(df0)==0:
-                   print("# samples: 0")
-                   continue
+                
                 
                 if not params.multi_timestep_mode :
+                    print('Launching inversion process for the date {} with leadtime {}.'.format(datename,lt))
+                    df0 = df_extract[(df_extract['Date']==date_) & (df_extract['LeadTime']==lt-1)]
+                    if len(df0)==0:
+                        print("# samples: 0")
+                        continue
                     Ens_r = utils.load_batch_from_timestamp(
                         df_extract, 
                         date_, 
-                        lt, 
+                        lt-1, 
                         params.real_data_dir, 
                         Shape=params.Shape, 
                         var_indices=params.var_indices,
@@ -290,7 +292,7 @@ if __name__=="__main__" :
                         np.save(params.pack_dir+f'Rsemble_sequence_{datename}.npy', Ens_r.numpy().astype(np.float32))
 
                 
-                inv.optimize(Ens_r, G, latent_mean, params.device, params)
+                inv.optimize(Ens_r=Ens_r, g_ema=G, latent_mean=latent_mean, device=params.device, params=params)
 
 
 
