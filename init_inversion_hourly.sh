@@ -35,11 +35,11 @@ apptainer exec --nv /project/scratch/p200177/DE_371/resources/apptainer_containe
         --inv_checkpoints='[1000]' \
         --feature_layers='[0,1,2,3]' \
         --dates_file='Large_lt_train_labels_1.csv' \
-        --date_start=2020-06-15 \
-        --date_stop=2020-06-25 \
+        --date_start=2021-02-15 \
+        --date_stop=2021-02-25 \
         --leadtimes="$leadtimes" \
         --network_type='vgg16' \
-        --plot_checkpoint > inversion_hourly_1.log 2>&1 &
+        --plot_checkpoint > inversion_hourly_9.log 2>&1 &
 
 apptainer exec --nv /project/scratch/p200177/DE_371/resources/apptainer_container/container.sif python3 main_inversion.py \
         --ckpt_dir='/project/scratch/p200177/DE_371/victorsanchez/models/trained_generator/000024.pt' \
@@ -57,11 +57,11 @@ apptainer exec --nv /project/scratch/p200177/DE_371/resources/apptainer_containe
         --inv_checkpoints='[1000]' \
         --feature_layers='[0,1,2,3]' \
         --dates_file='Large_lt_train_labels_1.csv' \
-        --date_start=2020-07-15 \
-        --date_stop=2020-07-25 \
+        --date_start=2021-03-15 \
+        --date_stop=2021-03-25 \
         --leadtimes="$leadtimes" \
         --network_type='vgg16' \
-        --plot_checkpoint > inversion_hourly_2.log 2>&1 &
+        --plot_checkpoint > inversion_hourly_10.log 2>&1 &
 
 apptainer exec --nv /project/scratch/p200177/DE_371/resources/apptainer_container/container.sif python3 main_inversion.py \
         --ckpt_dir='/project/scratch/p200177/DE_371/victorsanchez/models/trained_generator/000024.pt' \
@@ -79,11 +79,11 @@ apptainer exec --nv /project/scratch/p200177/DE_371/resources/apptainer_containe
         --inv_checkpoints='[1000]' \
         --feature_layers='[0,1,2,3]' \
         --dates_file='Large_lt_train_labels_1.csv' \
-        --date_start=2020-08-15 \
-        --date_stop=2020-08-25 \
+        --date_start=2021-04-15 \
+        --date_stop=2021-04-25 \
         --leadtimes="$leadtimes" \
         --network_type='vgg16' \
-        --plot_checkpoint > inversion_hourly_3.log 2>&1 &
+        --plot_checkpoint > inversion_hourly_11.log 2>&1 &
 
 apptainer exec --nv /project/scratch/p200177/DE_371/resources/apptainer_container/container.sif python3 main_inversion.py \
         --ckpt_dir='/project/scratch/p200177/DE_371/victorsanchez/models/trained_generator/000024.pt' \
@@ -101,9 +101,9 @@ apptainer exec --nv /project/scratch/p200177/DE_371/resources/apptainer_containe
         --inv_checkpoints='[1000]' \
         --feature_layers='[0,1,2,3]' \
         --dates_file='Large_lt_train_labels_1.csv' \
-        --date_start=2020-09-15 \
-        --date_stop=2020-09-25 \
+        --date_start=2021-05-15 \
+        --date_stop=2021-05-25 \
         --leadtimes="$leadtimes" \
         --network_type='vgg16' \
-        --plot_checkpoint > inversion_hourly_4.log 2>&1 &
+        --plot_checkpoint > inversion_hourly_12.log 2>&1 &
 wait

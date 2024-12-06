@@ -3,8 +3,6 @@ import argparse
 import torch
 import numpy as np
 
-from gan.model.stylegan2 import Generator
-
 import perturbation.utils as utils
 
 from train_interpolator import LatentInterpolatorCorrector, load_generator, generate_image_from_latent, linear_interpolation, load_samples
@@ -28,7 +26,11 @@ def main():
     parser.add_argument("--ref_leadtimes", type=utils.str2intlist, default=[6,7,8,9,10,11,12])
     parser.add_argument("--invstep", type=int, default=1000, help="optimize iterations")
     parser.add_argument('--model_dir',type = str,
-        default ='/project/home/p200177/DE_371/experiments_WP2/temporal_downscaling_experiments/interpolation_models/2024-12-05/LatentInterpolatorCorrector-1024-3-pixel050-epoch-10-2024-12-05T18_01.pt')
+        default ='/project/home/p200177/DE_371/experiments_WP2/temporal_downscaling_experiments/interpolation_models/2024-12-06/LatentInterpolator-1024-3-pixel500-epoch-10-2024-12-06T15_19.pt')
+    parser.add_argument('--num_neurons', type=int, default=1024, help="Number of hidden neurons.")
+    parser.add_argument('--num_layers', type=int, default=3, help="Number of hidden layers.")
+    parser.add_argument('--normalization', type=str, default="Layer", help="Layer, Batch normalization or none.")
+    parser.add_argument('--dropout', type=float, default=0.0, help="Dropout probability.")
     args = parser.parse_args()
     print(args)
     device = args.device
