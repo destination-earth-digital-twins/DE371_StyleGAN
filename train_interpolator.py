@@ -11,7 +11,8 @@ from torch.utils.data import Dataset, DataLoader, Subset
 from tqdm import tqdm
 
 from gan.model.stylegan2 import Generator
-from inversion.vgg_perceptual_loss import VGGPerceptualLoss
+from inversion.perceptual_loss.perceptual_loss import PerceptualLoss
+import perturbation.utils as utils
 
 class LatentInterpolator(nn.Module):
     def __init__(self, args, style_dims=14, latent_dims=512):
@@ -33,7 +34,7 @@ class LatentInterpolator(nn.Module):
                     layers.append(nn.BatchNorm1d(out_features))
                 layers.append(nn.ReLU())
                 if args.dropout > 0:
-                    layers.append(nn.Dropout(p=args.dropout)) 
+                    layers.append(nn.Dropout(p=args.dropout))
 
         self.network = nn.Sequential(*layers)
 
@@ -114,7 +115,7 @@ class LatentDataset(Dataset):
             w_end = latent_space_vectors[t_end]      # Shape: (16, 14, 512)
 
             for ensemble_member in range(num_ensembles):  # Iterate over each ensemble member
-                for t in range(0, dt + 1): # Use range(1, dt) to only include the intermediate steps
+                for t in range(1, dt): # Use range(1, dt) to only include the intermediate steps
                     intermediate_time = t_start + t
                     w_t = latent_space_vectors[intermediate_time, ensemble_member]  # Shape: (14, 512)
 
@@ -157,7 +158,7 @@ class CompleteDataset(Dataset):
             r_end = real_samples[t_end]              # Shape: (16, 3, 256, 256)
 
             for ensemble_member in range(num_ensembles):  # Iterate over each ensemble member
-                for t in range(0, dt + 1): # Use range(1, dt) to only include the intermediate steps
+                for t in range(1, dt): # Use range(1, dt) to only include the intermediate steps
                     intermediate_time = t_start + t
                     w_t = latent_space_vectors[intermediate_time, ensemble_member]  # Shape: (14, 512)
                     r_t = real_samples[intermediate_time, ensemble_member]          # Shape: (3, 256, 256)
@@ -186,11 +187,24 @@ class CompleteDataset(Dataset):
 
         return w_start, w_end, t, w_t, r_start, r_end, r_t
 
-def combined_pixel_loss(w_interpolated, w_t, r_interpolated, r_t, 
-                        latent_loss_weight=1.0, pixel_loss_weight=0.0):
-    latent_loss = nn.MSELoss()(w_interpolated, w_t)
-    image_loss = nn.MSELoss()(r_interpolated, r_t)
-    return latent_loss_weight * latent_loss + pixel_loss_weight * image_loss
+def combined_loss(w_interpolated, w_t, r_interpolated, r_t,
+                        latent_loss_weight=1.0, pixel_loss_weight=0.0,
+                        perceptual_loss_class=None, perceptual_loss_weight=0.0):
+    latent_loss = 0.
+    image_pixel_loss = 0.
+    image_perceptual_loss = 0.
+
+    if latent_loss_weight > 0:
+        latent_loss = nn.MSELoss()(w_interpolated, w_t)
+    if pixel_loss_weight > 0:
+        image_pixel_loss = nn.MSELoss()(r_interpolated, r_t)
+    if perceptual_loss_weight > 0:
+        image_perceptual_loss = perceptual_loss_class(
+            img_gen=r_interpolated, input_img=r_t)
+
+    loss = latent_loss_weight * latent_loss + pixel_loss_weight * image_pixel_loss + image_perceptual_loss * perceptual_loss_weight
+
+    return loss
 
 def linear_interpolation(sample_start, sample_end, t):
     # Expects normalized time
@@ -208,7 +222,7 @@ def get_mae(sample, ref):
     t2m_mse = (ref[:, 2] - sample[:, 2]).abs().mean()
     return torch.tensor([u_mse, v_mse, t2m_mse])
 
-def train_loop(dataloader, model, generator, loss_function, optimizer, current_epoch, args):
+def train_loop(dataloader, model, generator, loss_function, optimizer, current_epoch, perceptual_loss_class, args):
     model.train()  # Set the model to training mode
     training_loss = 0.0
     num_batches = len(dataloader)
@@ -237,7 +251,9 @@ def train_loop(dataloader, model, generator, loss_function, optimizer, current_e
         loss = loss_function(w_interpolated, w_t, 
                                 r_latent_nn_interpolation, r_t,
                                 args.latent_loss_weight,
-                                args.pixel_loss_weight)
+                                args.pixel_loss_weight,
+                                perceptual_loss_class,
+                                args.perceptual_loss_weight)
 
         # Backpropagation
         loss.backward()
@@ -252,7 +268,7 @@ def train_loop(dataloader, model, generator, loss_function, optimizer, current_e
     avg_training_loss = training_loss / num_batches
     print(f"Epoch {current_epoch+1} - Mean training loss: {avg_training_loss:.4e}\n")
 
-def test_loop(dataloader, model, generator, loss_function, current_epoch, args):
+def test_loop(dataloader, model, generator, loss_function, current_epoch, perceptual_loss_class, args):
     model.eval()
     test_loss = 0.0
     phys_linear_interpolation_mse = torch.tensor([0., 0., 0.])
@@ -281,9 +297,11 @@ def test_loop(dataloader, model, generator, loss_function, current_epoch, args):
             )
 
             loss = loss_function(w_interpolated, w_t, 
-                                 r_latent_nn_interpolation, r_t,
-                                 args.latent_loss_weight,
-                                 args.pixel_loss_weight)
+                                    r_latent_nn_interpolation, r_t,
+                                    args.latent_loss_weight,
+                                    args.pixel_loss_weight,
+                                    perceptual_loss_class,
+                                    args.perceptual_loss_weight)
 
             # Accumulate test loss
             test_loss += loss.item()
@@ -396,11 +414,10 @@ def generate_image_from_latent(latent_vector, g_ema, device, noise=None):
     """
 
     # Generate the image using the latent vector
-    with torch.no_grad():
-        if noise is not None:
-            img_gen = g_ema([latent_vector], input_is_latent=True, noise=noise)
-        else:
-            img_gen = g_ema([latent_vector], input_is_latent=True)
+    if noise is not None:
+        img_gen = g_ema([latent_vector], input_is_latent=True, noise=noise)
+    else:
+        img_gen = g_ema([latent_vector], input_is_latent=True)
 
     return img_gen[0]
 
@@ -452,7 +469,7 @@ def main():
         '--epochs', type=int, default=10, help="Number of training epochs."
     )
     parser.add_argument(
-        '--batch_size', type=int, default=128, help="Number of batches."
+        '--batch_size', type=int, default=32, help="Number of batches."
     )
     parser.add_argument(
         '--start_date', type=str, default="2021-10-01", help="Start date."
@@ -468,6 +485,20 @@ def main():
         '--shape', type=tuple, default=(3,256,256), help='Size of the samples.')
     parser.add_argument(
         '--ckpt_dir', type=str, default ='/project/scratch/p200177/DE_371/victorsanchez/models/trained_generator/000024.pt')
+    # Perceptual Loss
+    parser.add_argument("--perceptual_loss_weight", type=float, default=1.0, help="weight of the vgg (perceptual) loss")
+    parser.add_argument("--resize_input", type=float, default=0.0, help="resize input for vgg loss")
+    parser.add_argument("--network_type", type=str, default='vgg16', choices=['vgg16','vgg11','vgg13','vgg19','alexnet','squeezenet1_1','resnet18','resnet34','resnet50','resnet101','resnet152','set_vit_b_16'])
+    parser.add_argument("--pre_trained", action='store_true')
+    parser.add_argument("--features_after_relu", action='store_true')
+    parser.add_argument("--channel_computation", type=str, default='sol2', choices = ['sol1', 'sol2', 'sol3', 'sol4', 'sol5'],
+                    help="Either we compute layer by layer and member per member but we have to triple the input to make it rgb or all in one (naive)")
+    parser.add_argument("--network_dir", type=str, default='/project/scratch/p200177/DE_371/resources/network_for_perceptual_loss/', help="Insert a path")
+    parser.add_argument("--style_layers", type=utils.str2intlist, default=[], help="style layers to include in vgg loss computation")
+    parser.add_argument("--feature_layers", type=utils.str2intlist, default=[0,1,2,3], help="feature layers to include in vgg computation")
+    parser.add_argument("--alpha_feature", type=float, default=1.0, help="weight of the feature/content loss")
+    parser.add_argument("--alpha_style", type=float, default=0.01, help="weight of the style loss")
+    parser.add_argument("--multi_scale_perceptual_loss",  action='store_true')
 
     args = parser.parse_args()
     print(args)
@@ -514,7 +545,7 @@ def main():
     print(f"Real samples dataset shape: {real_samples.shape}")
 
     dataset = CompleteDataset(latent_space_vectors, real_samples, dt=6)
-    indices = np.random.permutation(len(dataset)) 
+    indices = np.random.permutation(len(dataset))
 
     train_size = int(training_data_ratio * len(dataset))
     train_indices = indices[:train_size]
@@ -536,7 +567,18 @@ def main():
         raise ValueError(f"Model '{model_name}' is not supported.")
     print(f"Model architecture: {model}\n")
 
-    loss_function = combined_pixel_loss
+    perceptual_loss_class = None
+    if args.perceptual_loss_weight > 0:
+        print("Initializing the perceptual loss class...")
+        perceptual_loss_class = PerceptualLoss(
+                                        config=args,
+                                        device=device,
+                                        multi_scale=args.multi_scale_perceptual_loss
+                                        ).to(device).eval()
+        #print("Precomputing the features...")
+        #perceptual_loss_class.compute_perceptual_features(img=real_samples)
+
+    loss_function = combined_loss
     
     optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
     scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=lr_decay)
@@ -547,8 +589,8 @@ def main():
     print("Starting the training...")
     for current_epoch in range(epochs):
         print(f"Current learning rate: {scheduler.get_last_lr()[0]:.4e}\n")
-        train_loop(training_dataloader, model, generator, loss_function, optimizer, current_epoch, args)
-        test_loop(validation_dataloader, model, generator, loss_function, current_epoch, args)
+        train_loop(training_dataloader, model, generator, loss_function, optimizer, current_epoch, perceptual_loss_class, args)
+        test_loop(validation_dataloader, model, generator, loss_function, current_epoch, perceptual_loss_class, args)
         scheduler.step()
 
     dt = datetime.today().strftime("%Y-%m-%dT%H_%M")

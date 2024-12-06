@@ -22,85 +22,88 @@ leadtimes='[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,
 apptainer exec --nv /project/scratch/p200177/DE_371/resources/apptainer_container/container.sif python3 main_inversion.py \
         --ckpt_dir='/project/scratch/p200177/DE_371/victorsanchez/models/trained_generator/000024.pt' \
         --real_data_dir='/project/home/p200177/DE_371/datasets/dataset_Meteo_France/IS_1_1.0_0_0_0_0_0_256_large_lt_done/' \
-        --output_dir='/project/home/p200177/DE_371/experiments_WP2/temporal_downscaling_experiments/inversion_october/inversion/' \
-        --pack_dir='/project/home/p200177/DE_371/experiments_WP2/temporal_downscaling_experiments/inversion_october/pack/' \
+        --output_dir='/project/home/p200177/DE_371/experiments_WP2/temporal_downscaling_experiments/inversion_hourly/inversion/' \
+        --pack_dir='/project/home/p200177/DE_371/experiments_WP2/temporal_downscaling_experiments/inversion_hourly/pack/' \
         --device='cuda:0' \
         --lambda_pixel=0 \
-        --lambda_vgg=1 \
+        --lambda_perceptual_loss=1 \
         --lambda_ms_ssim=0 \
-        --vgg_computation='sol2' \
+        --channel_computation='sol2' \
         --lambda_noise=1e5 \
         --noise_optimize \
         --invstep=1000 \
-        --inv_checkpoints='[250,500,750,1000]' \
-        --vgg_feature_layers='[0,1,2,3]' \
-        --date_start=2021-10-29 \
-        --date_stop=2021-10-30 \
+        --inv_checkpoints='[1000]' \
+        --feature_layers='[0,1,2,3]' \
+        --dates_file='Large_lt_train_labels_1.csv' \
+        --date_start=2020-06-15 \
+        --date_stop=2020-06-25 \
         --leadtimes="$leadtimes" \
-        --vgg_state_dict_path='/project/scratch/p200177/DE_371/resources/vgg_weights/vgg16-random.pth' \
-        --plot_checkpoint > inversion_oct_1_short.log 2>&1 &
+        --network_type='vgg16' \
+        --plot_checkpoint > inversion_hourly_1.log 2>&1 &
 
 apptainer exec --nv /project/scratch/p200177/DE_371/resources/apptainer_container/container.sif python3 main_inversion.py \
         --ckpt_dir='/project/scratch/p200177/DE_371/victorsanchez/models/trained_generator/000024.pt' \
         --real_data_dir='/project/home/p200177/DE_371/datasets/dataset_Meteo_France/IS_1_1.0_0_0_0_0_0_256_large_lt_done/' \
-        --output_dir='/project/home/p200177/DE_371/experiments_WP2/temporal_downscaling_experiments/inversion_october/inversion/' \
-        --pack_dir='/project/home/p200177/DE_371/experiments_WP2/temporal_downscaling_experiments/inversion_october/pack/' \
+        --output_dir='/project/home/p200177/DE_371/experiments_WP2/temporal_downscaling_experiments/inversion_hourly/inversion/' \
+        --pack_dir='/project/home/p200177/DE_371/experiments_WP2/temporal_downscaling_experiments/inversion_hourly/pack/' \
         --device='cuda:1' \
         --lambda_pixel=0 \
-        --lambda_vgg=1 \
+        --lambda_perceptual_loss=1 \
         --lambda_ms_ssim=0 \
-        --vgg_computation='sol2' \
+        --channel_computation='sol2' \
         --lambda_noise=1e5 \
         --noise_optimize \
         --invstep=1000 \
-        --inv_checkpoints='[250,500,750,1000]' \
-        --vgg_feature_layers='[0,1,2,3]' \
-        --date_start=2021-10-30 \
-        --date_stop=2021-10-31 \
+        --inv_checkpoints='[1000]' \
+        --feature_layers='[0,1,2,3]' \
+        --dates_file='Large_lt_train_labels_1.csv' \
+        --date_start=2020-07-15 \
+        --date_stop=2020-07-25 \
         --leadtimes="$leadtimes" \
-        --vgg_state_dict_path='/project/scratch/p200177/DE_371/resources/vgg_weights/vgg16-random.pth' \
-        --plot_checkpoint > inversion_oct_2_short.log 2>&1 &
+        --network_type='vgg16' \
+        --plot_checkpoint > inversion_hourly_2.log 2>&1 &
 
 apptainer exec --nv /project/scratch/p200177/DE_371/resources/apptainer_container/container.sif python3 main_inversion.py \
         --ckpt_dir='/project/scratch/p200177/DE_371/victorsanchez/models/trained_generator/000024.pt' \
         --real_data_dir='/project/home/p200177/DE_371/datasets/dataset_Meteo_France/IS_1_1.0_0_0_0_0_0_256_large_lt_done/' \
-        --output_dir='/project/home/p200177/DE_371/experiments_WP2/temporal_downscaling_experiments/inversion_october/inversion/' \
-        --pack_dir='/project/home/p200177/DE_371/experiments_WP2/temporal_downscaling_experiments/inversion_october/pack/' \
+        --output_dir='/project/home/p200177/DE_371/experiments_WP2/temporal_downscaling_experiments/inversion_hourly/inversion/' \
+        --pack_dir='/project/home/p200177/DE_371/experiments_WP2/temporal_downscaling_experiments/inversion_hourly/pack/' \
         --device='cuda:2' \
         --lambda_pixel=0 \
-        --lambda_vgg=1 \
+        --lambda_perceptual_loss=1 \
         --lambda_ms_ssim=0 \
-        --vgg_computation='sol2' \
+        --channel_computation='sol2' \
         --lambda_noise=1e5 \
         --noise_optimize \
         --invstep=1000 \
-        --inv_checkpoints='[250,500,750,1000]' \
-        --vgg_feature_layers='[0,1,2,3]' \
-        --date_start=2021-10-31 \
-        --date_stop=2021-11-01 \
+        --inv_checkpoints='[1000]' \
+        --feature_layers='[0,1,2,3]' \
+        --dates_file='Large_lt_train_labels_1.csv' \
+        --date_start=2020-08-15 \
+        --date_stop=2020-08-25 \
         --leadtimes="$leadtimes" \
-        --vgg_state_dict_path='/project/scratch/p200177/DE_371/resources/vgg_weights/vgg16-random.pth' \
-        --plot_checkpoint > inversion_oct_3_short.log 2>&1 &
+        --network_type='vgg16' \
+        --plot_checkpoint > inversion_hourly_3.log 2>&1 &
 
 apptainer exec --nv /project/scratch/p200177/DE_371/resources/apptainer_container/container.sif python3 main_inversion.py \
         --ckpt_dir='/project/scratch/p200177/DE_371/victorsanchez/models/trained_generator/000024.pt' \
         --real_data_dir='/project/home/p200177/DE_371/datasets/dataset_Meteo_France/IS_1_1.0_0_0_0_0_0_256_large_lt_done/' \
-        --output_dir='/project/home/p200177/DE_371/experiments_WP2/temporal_downscaling_experiments/inversion_october/inversion/' \
-        --pack_dir='/project/home/p200177/DE_371/experiments_WP2/temporal_downscaling_experiments/inversion_october/pack/' \
+        --output_dir='/project/home/p200177/DE_371/experiments_WP2/temporal_downscaling_experiments/inversion_hourly/inversion/' \
+        --pack_dir='/project/home/p200177/DE_371/experiments_WP2/temporal_downscaling_experiments/inversion_hourly/pack/' \
         --device='cuda:3' \
         --lambda_pixel=0 \
-        --lambda_vgg=1 \
+        --lambda_perceptual_loss=1 \
         --lambda_ms_ssim=0 \
-        --vgg_computation='sol2' \
+        --channel_computation='sol2' \
         --lambda_noise=1e5 \
         --noise_optimize \
         --invstep=1000 \
-        --inv_checkpoints='[250,500,750,1000]' \
-        --vgg_feature_layers='[0,1,2,3]' \
-        --date_start=2021-11-01 \
-        --date_stop=2021-11-02 \
+        --inv_checkpoints='[1000]' \
+        --feature_layers='[0,1,2,3]' \
+        --dates_file='Large_lt_train_labels_1.csv' \
+        --date_start=2020-09-15 \
+        --date_stop=2020-09-25 \
         --leadtimes="$leadtimes" \
-        --vgg_state_dict_path='/project/scratch/p200177/DE_371/resources/vgg_weights/vgg16-random.pth' \
-        --plot_checkpoint > inversion_oct_4_short.log 2>&1 &
-
+        --network_type='vgg16' \
+        --plot_checkpoint > inversion_hourly_4.log 2>&1 &
 wait

@@ -43,7 +43,7 @@ def main():
     invstep = args.invstep
 
     # Load the model checkpoint
-    model = LatentInterpolatorCorrector(hidden_neurons=1024, num_layers=3)
+    model = LatentInterpolatorCorrector(args)
     checkpoint = torch.load(model_dir, map_location=device)
     model.load_state_dict(checkpoint)
     model = model.to(device)
@@ -90,8 +90,9 @@ def main():
         w_latent_linear_interpolation = linear_interpolation(
             sample_start, sample_end, t
         )
-        img_generated_linear = generate_image_from_latent(
-            w_latent_linear_interpolation, generator, device)
+        with torch.no_grad():
+            img_generated_linear = generate_image_from_latent(
+                w_latent_linear_interpolation, generator, device)
         save_image(
             f"{output_dir}/interpolated_linear_{date}_{ref_leadtime}_{invstep}.npy",
             img_generated_linear
@@ -100,8 +101,8 @@ def main():
         t_tensor = t.expand(sample_start.shape[0], 1)
         with torch.no_grad():
             w_model = model(sample_start, sample_end, t_tensor)
-        img_generated_nn = generate_image_from_latent(
-            w_model, generator, device)
+            img_generated_nn = generate_image_from_latent(
+                w_model, generator, device)
         save_image(
             f"{output_dir}/interpolated_NN_{date}_{ref_leadtime}_{invstep}.npy",
             img_generated_nn
