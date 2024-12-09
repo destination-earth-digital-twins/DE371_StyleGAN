@@ -55,7 +55,7 @@ def deprojection(vector_to_deproject, eigenvector_subset):
 # Do not hesitate to adapt the code depending on what you want to do 
 #Argument parser 
 parser = argparse.ArgumentParser()
-parser.add_argument('--ckpt_dir',        type=str, default='/project/scratch/p200177/DE_371/victorsanchez/models/trained_generator/000024.pt')
+parser.add_argument('--ckpt_dir',        type=str, default='/project/home/p200177/DE_371/resources/models/trained_generator/000024.pt')
 parser.add_argument('--output_dir',      type=str, default='/project/scratch/p200177/DE_371/victorsanchez/results/pca/pca_on_weight')
 args = parser.parse_args()
 

@@ -1,4 +1,4 @@
-from restyle_encoder.utils import common
+from encoders.utils import common
 import matplotlib.pyplot as plt
 import matplotlib
 matplotlib.use('Agg')

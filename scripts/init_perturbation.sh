@@ -19,18 +19,20 @@ module load Apptainer/1.2.4-GCCcore-12.3.0
 apptainer exec --nv /project/scratch/p200177/DE_371/resources/apptainer_container/container.sif python3 main_perturbation.py \
         --ckpt_dir='/project/scratch/p200177/DE_371/victorsanchez/models/trained_generator/000024.pt' \
         --real_data_dir='/project/home/p200177/DE_371/datasets/dataset_Meteo_France/IS_1_1.0_0_0_0_0_0_256_large_lt_done/' \
-        --data_dir='/project/home/p200177/DE_371/experiments_WP1/encoder_inversion/exp1/inversion/' \
-        --pack_dir='/project/home/p200177/DE_371/experiments_WP1/encoder_inversion/exp1/pack/' \
-        --output_dir='/project/home/p200177/DE_371/experiments_WP1/encoder_inversion/exp1/perturbation/' \
+        --data_dir='/project/home/p200177/DE_371/experiments_WP1/inversion_process_analysis/final_inversion_on_test_set/perceptual_exp45/inversion/' \
+        --pack_dir='/project/home/p200177/DE_371/experiments_WP1/inversion_process_analysis/final_inversion_on_test_set/pack_meanmax/' \
+        --output_dir='/project/scratch/p200177/DE_371/victorsanchez/results/perturbation/coherence_temporelle_gan_classique/' \
         --scale_dir='/project/home/p200177/DE_371/datasets/dataset_Meteo_France/scale_dir_gan_training/' \
         --eigendir='/project/home/p200177/DE_371/datasets/dataset_Meteo_France/eigenvalues_gan_training/' \
         --device='cuda' \
-        --N_samples=50 \
+        --N_samples=112 \
         --N_conditioners=16 \
-        --inv_step=10 \
+        --inv_step=1000 \
         --style_indices='[1,1,1,1,1,1,1,1,1,1,0,0,0,0]' \
-        --date_start=2021-07-01 \
-        --date_stop=2021-08-01 \
+        --date_start=2021-10-01 \
+        --date_stop=2021-10-03 \
         --leadtimes='[3,6,9,12,15,18,21,24,27,30,33,36,39,42]' \
+        --import_perturbation \
         --save_w_perturbated \
+        --path_perturbation="/project/scratch/p200177/DE_371/victorsanchez/results/perturbation/coherence_temporelle_gan_classique/stochastic_['1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '0', '0', '0', '0']_False_-1_16_/samples/w_pert_2021-10-01_3_1000_16_generated_pert.npy"
         
