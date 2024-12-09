@@ -6,8 +6,10 @@ from torch import nn
 from torch.nn import functional as F
 import numpy as np
 
-from gan.model.op_3d import upfirdn3d, conv3d_gradfix
+from gan.model.op.conv3d_gradfix import conv3d_gradfix
+from gan.model.op.upfirdn3d import upfirdn3d
 
+# TODO : The code needs to be reviewed by an other person than Victor (ex : @clement))
 
 library = {'stylegan2_3d' : {'G' :  'Generator3D', 'D' : 'Discriminator3D'}}
 

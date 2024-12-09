@@ -16,16 +16,15 @@ import pandas as pd
 
 import numpy as np
 import pandas as pd
-import scipy.ndimage
 import yaml
 from filelock import FileLock
-from torch import Tensor, from_numpy
 from torch.utils.data import DataLoader, Dataset
 from torch.utils.data.distributed import DistributedSampler
-from torchvision.transforms import ToTensor, Normalize, Compose
-from gan.data.statsMasked import normalizeUnderMask
+from torchvision.transforms import ToTensor, Compose
 from gan.data.normalize_funcs import MultiOptionNormalize
 from multiprocessing import Manager
+
+# TODO : The part on multi time steps needs to be reviewed by an other person than Victor (ex : @clement))
 
 ################ reference dictionary to know what variables to sample where
 ################ do not modify unless you know what you are doing 
@@ -80,11 +79,10 @@ class ISDataset(Dataset):
         self.labels = pd.read_csv(f"{self.config.data_dir}{self.config.id_file}")
 
 
-        # TODO : Add these to the config instead 
-        self.nb_leadtime_in_dataset=45
-        self.nb_members=16
-        ####################
-        self.cursor_incomplete_date = 0
+        if self.config.multi_timestep_mode :
+            self.nb_leadtime_in_dataset = 45 # Change or add to config if needed
+            self.nb_members = 16 # Change or add to config if needed
+            self.cursor_incomplete_date = 0
 
         
         self.cache = DatasetCache(use_cache=use_cache)
@@ -118,7 +116,7 @@ class ISDataset(Dataset):
         else :
             length = len(self.labels)
 
-        print(f'Dataset contain {length} samples which corresponds to {len(self.labels) // (self.nb_leadtime_in_dataset*self.nb_members)} days')
+        print(f'Dataset contain {length} samples which corresponds to {len(self.labels) // (self.nb_leadtime_in_dataset)} days')
         return length
 
     def __getitem__(self, idx):
@@ -140,9 +138,10 @@ class ISDataset(Dataset):
                 #           ((self.nb_leadtime_in_dataset-1)*16)*((idx)//16)
                 # 16 being the number of members 
                 
-                _idx = idx + 16*self.config.timestep_period*leadtime_id + self.cursor_incomplete_date*45*16
+                _idx = idx + self.nb_members*self.config.timestep_period*leadtime_id + self.cursor_incomplete_date*self.nb_leadtime_in_dataset*self.nb_members
                 if self.config.cutoff_dataset_leadtimes :
-                    _idx += ((self.nb_leadtime_in_dataset-1)*16)*((idx)//16)
+                    _idx += ((self.nb_leadtime_in_dataset-1)*self.nb_members)*((idx)//self.nb_members)
+
                 # print('sample id', _idx)
                 # print('Batch id: ', idx)
                 # print('Leadtime h', leadtime_id*self.config.timestep_period)

@@ -14,6 +14,7 @@ import scattering_plot as scPl
 import torch
 from time import perf_counter
 
+# TODO : Not sure this file is useful, might think to delete it in a near future!  @clement ?
 
 DATA_DIR='/scratch/mrmn/poulainauzeaul/Exp_StyleGAN/IS_1_1.0_0_0_0_0_0_256_done/'
 DATA_DIR_F='/scratch/mrmn/poulainauzeaul/Exp_StyleGAN/Set_1/resnet_128_wgan-hinge_64_64_1_0.001_0.001/Instance_1/samples/Best_model_dataset/' # change to your path
