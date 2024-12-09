@@ -10,7 +10,10 @@ class RestylepSpTrainOptions(TrainOptions):
         super(RestylepSpTrainOptions, self).initialize()
         # arguments for iterative encoding
         self.parser.add_argument('--n_iters_per_batch', default=5, type=int,help='Number of forward passes per batch during training')
-
+        self.parser.add_argument('--training_on_fake_samples', action='store_true',help='Whether to train on fake samples')
+        self.parser.add_argument('--l2_lambda_on_fake_latent', default=1, type=float,help='L2 loss factor on fake features')
+        self.parser.add_argument('--perceptual_lambda_on_fake_samples', default=1, type=float,help='Perceptual Loss Factor on fake samples')
+        self.parser.add_argument('--training_on_real_samples', action='store_true',help='Whether to train from real samples')
 
     def parse(self):
         config = self.parser.parse_args()
@@ -21,7 +24,8 @@ def createNamesFromLosses(config) :
     name ='loss_train'
     
     config_dict = vars(config)
-    mspl = ''
+    training_on_real_samples = ''
+    training_on_fake_samples = ''
 
     for arg, value in config_dict.items() :
         
@@ -29,23 +33,15 @@ def createNamesFromLosses(config) :
             if value !=0 :
                 name = name + '_' + arg + '_' + str(value)
         
-        if 'learning_rate' in arg :
-            name = 'lr' + '_' + str(value)
+        if 'training_on_real_samples' in arg:
+            training_on_real_samples = value
         
-        if 'network_type' in arg :
-            network_type = value
+        if 'training_on_fake_samples' in arg:
+            training_on_fake_samples = value
 
         if 'n_iters_per_batch' in arg :
             suffix = str(value)
-
-        if 'random_resnet' in arg :
-            if value :
-                resnet = 'random'
-            else :
-                resnet = 'trained'
-        
-        if 'multi_scale_perceptual_loss' in arg :
-            mspl = '_multi_scale_PL'
-    name = f'{name}_resnet={resnet}_network_type={network_type}{mspl}_{suffix}_iter/'
+    
+    name = f'{name}_training_on_real={training_on_real_samples}_training_on_fake={training_on_fake_samples}_{suffix}_iter/'
     
     return name

@@ -106,28 +106,10 @@ class pSp(nn.Module):
                                              return_latents=return_latents
                                              )
 
-        
-        if not self.restyle_mode and self.config.training_on_fake_samples :
-            # generate fake images
-            z = torch.randn((x.shape[0], 512), device=self.config.device).detach()
-            fake_img, fake_w, _ = self.decoder([z], return_latents=True, randomize_noise=False)
-            
-            estimated_fake_w = self.encoder(fake_img)
-            estimated_fake_img, _, _ = self.decoder([estimated_fake_w],
-                                                input_is_latent=input_is_latent,
-                                                randomize_noise=randomize_noise,
-                                                return_latents=return_latents
-                                            )
-            if return_latents:
-                return images, result_latent, fake_img, fake_w, estimated_fake_img, estimated_fake_w
-            else:
-                return images
-        
-        else :
-            if return_latents:
-                return images, result_latent
-            else:
-                return images
+        if return_latents:
+            return images, result_latent
+        else:
+            return images
 
     def set_config(self, config):
         self.config = config

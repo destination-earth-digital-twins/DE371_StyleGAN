@@ -25,6 +25,9 @@ class Coach:
         self.device = 'cuda:0'
         self.config.device = self.device
 
+        if not self.config.training_on_real_samples and not self.config.training_on_fake_samples :     
+            raise NotImplementedError
+        
         # Initialize network
         self.net = pSp(self.config,restyle_mode=True).to(self.device)
 
@@ -79,9 +82,9 @@ class Coach:
         if self.config.save_interval is None:
             self.config.save_interval = self.config.max_steps
 
-    def perform_train_iteration_on_batch(self, x, y):
+    def perform_train_iteration_on_batch(self, x, y, latent=None, sample_origin='true_sample'):
   
-        y_hat, latent = None, None
+        y_hat, latent_hat = None, None
         loss_dict = None
         y_hats = {idx: [] for idx in range(y.shape[0])}
         
@@ -89,15 +92,15 @@ class Coach:
             if iter == 0:
                 avg_image_for_batch = self.avg_sample.unsqueeze(0).repeat(y.shape[0], 1, 1, 1)
                 x_input = torch.cat([y, avg_image_for_batch], dim=1)
-                y_hat, latent = self.net.forward(x_input, latent=None, return_latents=True)
+                y_hat, latent_hat = self.net.forward(x_input, latent=None, return_latents=True)
             else:
                 y_hat_clone = y_hat.clone().detach().requires_grad_(True)
-                latent_clone = latent.clone().detach().requires_grad_(True)
+                latent_hat_clone = latent_hat.clone().detach().requires_grad_(True)
                 x_input = torch.cat([y, y_hat_clone], dim=1)
-                y_hat, latent = self.net.forward(x_input, latent=latent_clone, return_latents=True)
+                y_hat, latent_hat = self.net.forward(x_input, latent=latent_hat_clone, return_latents=True)
     
-            loss, loss_dict = self.calc_loss(x, y, y_hat, latent)
-            loss.backward()
+            loss, loss_dict = self.calc_loss(x, y, y_hat, latent, latent_hat, sample_origin=sample_origin, option='train')
+            loss.backward(retain_graph=True)
 			# store intermediate outputs
             for idx in range(y.shape[0]):
                 y_hats[idx].append([y_hat[idx]])
@@ -113,8 +116,23 @@ class Coach:
                 self.optimizer.zero_grad()
                 x, y = batch
                 x, y = x.to(self.device).float(), y.to(self.device).float()
-                y_hats, loss_dict = self.perform_train_iteration_on_batch(x, y)
-              
+                agg_loss_dict = []
+                if self.config.training_on_real_samples :
+                    y_hats, loss_dict = self.perform_train_iteration_on_batch(x, y, sample_origin='true_sample')
+                    agg_loss_dict.append(loss_dict)
+
+                if self.config.training_on_fake_samples:
+                    z = torch.randn((x.shape[0], 512), device=self.config.device).detach()
+                    fake_img, fake_w, _ = self.net.decoder([z],
+                                                        return_latents=True,
+                                                        randomize_noise=False
+                                                        )
+                    fake_img_clone = fake_img.clone().detach().requires_grad_(True)
+                    fake_w_clone = fake_w.clone().detach().requires_grad_(True)
+                    y_hats, loss_dict = self.perform_train_iteration_on_batch(fake_img_clone, fake_img, latent=fake_w_clone, sample_origin='fake_sample')
+                    agg_loss_dict.append(loss_dict)
+
+                loss_dict = train_utils.aggregate_loss_dict(agg_loss_dict)
                 self.optimizer.step()
 
 				# Logging related
@@ -160,8 +178,8 @@ class Coach:
                 self.global_step += 1 
                 self.pbar.update(1)
 
-    def perform_val_iteration_on_batch(self, x, y):
-        y_hat, latent = None, None
+    def perform_val_iteration_on_batch(self, x, y, latent=None, sample_origin='true_sample'):
+        y_hat, latent_hat = None, None
         cur_loss_dict = None
         y_hats = {idx: [] for idx in range(y.shape[0])}
         for iter in range(self.config.n_iters_per_batch):
@@ -171,9 +189,9 @@ class Coach:
             else:
                 x_input = torch.cat([y, y_hat], dim=1)
     
-            y_hat, latent = self.net.forward(x_input, latent=latent, return_latents=True)
+            y_hat, latent_hat = self.net.forward(x_input, latent=latent_hat, return_latents=True)
                 
-            loss, cur_loss_dict = self.calc_loss(x, y, y_hat, latent, option = 'test')
+            loss, cur_loss_dict = self.calc_loss(x, y, y_hat, latent_hat=latent_hat, latent=latent, option = 'test', sample_origin=sample_origin)
     		# store intermediate outputs
             for idx in range(y.shape[0]):
                 y_hats[idx].append([y_hat[idx]])
@@ -189,12 +207,22 @@ class Coach:
             
             with torch.no_grad():
                 x, y = x.to(self.device).float(), y.to(self.device).float()
-                y_hats, cur_loss_dict= self.perform_val_iteration_on_batch(x, y)
+                y_hats, cur_loss_dict= self.perform_val_iteration_on_batch(x, y, sample_origin='true_sample')
                 agg_loss_dict.append(cur_loss_dict)
+
+                if self.config.training_on_fake_samples:
+                    z = torch.randn((x.shape[0], 512), device=self.config.device).detach()
+                    fake_img, fake_w, _ = self.net.decoder([z],
+                                                           return_latents=True,
+                                                           randomize_noise=False
+                                                           )
+                    fake_img_hats, cur_loss_dict = self.perform_val_iteration_on_batch(fake_img, fake_img, latent=fake_w, sample_origin='fake_sample')
+                    agg_loss_dict.append(cur_loss_dict)
 
 			# Logging related
             if batch_idx % 50 == 0:
                 self.parse_and_log_images(x, y, y_hats, title='samples/test', subscript='{:04d}'.format(batch_idx))
+                self.parse_and_log_images(fake_img, fake_img, fake_img_hats, title='samples/test_fake', subscript='{:04d}'.format(batch_idx))
 
 			# For first step just do sanity test on small amount of data
             if self.global_step == 0 and batch_idx >= 4:
@@ -271,28 +299,33 @@ class Coach:
         print("Number of test samples: {}".format(len(test_dataset)))
         return train_dataset, test_dataset
 
-    def calc_loss(self, x, y, y_hat, latent, option ='train'):
+    def calc_loss(self, x, y, y_hat, latent, latent_hat=None, option ='train', sample_origin='true_sample'):
         loss_dict = {}
         loss = 0.0
         id_logs = None
         if self.config.l2_lambda > 0:
             loss_l2 = F.mse_loss(y_hat, y)
-            loss_dict['loss_l2'] = float(loss_l2)
+            loss_dict['loss_l2_on_'+sample_origin] = float(loss_l2)
             loss += loss_l2 * self.config.l2_lambda
 
         if self.config.perceptual_lambda > 0 :
             perceptual_loss = self.perceptual_loss(y_hat, y)
-            loss_dict['perceptual_loss'] = float(perceptual_loss)
+            loss_dict['perceptual_loss_on_'+sample_origin] = float(perceptual_loss)
             loss += perceptual_loss * self.config.perceptual_lambda
+
+        if self.config.l2_lambda_on_fake_latent > 0 and (latent_hat is not None and latent is not None) :
+            loss_l2_on_fake_latent = F.mse_loss(latent, latent_hat)
+            loss_dict['loss_l2_on_fake_latent'] = float(loss_l2_on_fake_latent)
+            loss += loss_l2_on_fake_latent * self.config.l2_lambda_on_fake_latent
 
         if option != 'train' :
             if self.config.l2_lambda==0 :
                 loss_l2 = F.mse_loss(y_hat, y)
-                loss_dict['loss_l2'] = float(loss_l2)
+                loss_dict['loss_l2_on_'+sample_origin] = float(loss_l2)
             
             loss_mae = F.l1_loss(y_hat,y)
-            loss_dict['loss_mae'] = float(loss_mae)
-            
+            loss_dict['loss_mae_on_'+sample_origin] = float(loss_mae)
+        
 
         loss_dict['loss_total'] = float(loss)
         return loss, loss_dict
