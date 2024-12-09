@@ -50,7 +50,7 @@ if __name__=="__main__" :
     ########################### Directories ###########################
     # Checkpoint directory - PATH to generator's weight
     parser.add_argument('--ckpt_dir', type = str, 
-                        default ='/project/scratch/p200177/DE_371/victorsanchez/models/trained_generator/000024.pt')
+                        default ='/project/home/p200177/DE_371/resources/models/trained_generator/000024.pt')
     # Real Data Directory - PATH to samples of the dataset
     parser.add_argument('--real_data_dir', type = str, 
                         default='/project/home/p200177/DE_371/datasets/dataset_Meteo_France/IS_1_1.0_0_0_0_0_0_256_large_lt_done/')

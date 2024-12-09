@@ -51,7 +51,7 @@ def PCA(X , num_components=None):
 # Do not hesitate to adapt the code depending on what you want to do 
 #Argument parser 
 parser = argparse.ArgumentParser()
-parser.add_argument('--ckpt_dir',        type=str, default='/project/scratch/p200177/DE_371/victorsanchez/models/trained_generator/000024.pt')
+parser.add_argument('--ckpt_dir',        type=str, default='/project/home/p200177/DE_371/resources/models/trained_generator/000024.pt')
 parser.add_argument('--output_dir',      type=str, default='/project/scratch/p200177/DE_371/victorsanchez/results/pca/pca_test')
 parser.add_argument('--w_inversion_dir1', type=str, default='/project/scratch/p200177/DE_371/inversion_experiments/exp34/inversion')
 parser.add_argument('--w_samples_dir',   type=str, default='/project/scratch/p200177/DE_371/victorsanchez/results/pca/w_samples') # samples generated with mkl_w_sample.py

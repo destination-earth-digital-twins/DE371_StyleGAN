@@ -33,7 +33,7 @@ if __name__=="__main__" :
     ########################### Directories ###########################
 
     parser.add_argument('--ckpt_dir', type = str, 
-                        default ='/project/scratch/p200177/DE_371/victorsanchez/models/trained_generator/000024.pt')
+                        default ='/project/home/p200177/DE_371/resources/models/trained_generator/000024.pt')
     parser.add_argument('--real_data_dir', type = str, default ='/project/home/p200177/DE_371/datasets/dataset_Meteo_France/grandEnsemble/AROME/')
     parser.add_argument('--output_dir',type = str, default ='/project/home/p200177/DE_371/experiments_WP1/Grand_Ensemble/Inversion')
     parser.add_argument("--pack_dir", type=str, default = '/project/home/p200177/DE_371/experiments_WP1/Grand_Ensemble/Pack/') # storing "packed" (normalized) real data

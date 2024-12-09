@@ -48,7 +48,7 @@ class TrainOptions:
         self.parser.add_argument("--alpha_style", type=float, default=0.01, help="weight of the style loss")
         
         # weights and checkpoint paths
-        self.parser.add_argument('--stylegan_weights', default='/project/scratch/p200177/DE_371/victorsanchez/models/trained_generator/000024.pt', type=str,help='Path to StyleGAN model weights')
+        self.parser.add_argument('--stylegan_weights', default='/project/home/p200177/DE_371/resources/models/trained_generator/000024.pt', type=str,help='Path to StyleGAN model weights')
         self.parser.add_argument('--random_resnet', action='store_true')
         self.parser.add_argument('--checkpoint_path', default=None, type=str, help='Path to ReStyle model checkpoint')
         self.parser.add_argument('--resume_step', default=0, type=int,help='step number to resume from')

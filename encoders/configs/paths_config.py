@@ -13,6 +13,6 @@ model_paths = {
 	'mtcnn_rnet': '/project/scratch/p200177/DE_371/resources/pretrained_models/mtcnn/rnet.npy',
 	'mtcnn_onet': '/project/scratch/p200177/DE_371/resources/pretrained_models/mtcnn/onet.npy',
 	'moco': '/project/scratch/p200177/DE_371/resources/pretrained_models/moco_v2_800ep_pretrain.pt',
-    'stylegan4arome' : '/project/scratch/p200177/DE_371/victorsanchez/models/trained_generator/000024.pt'
+    'stylegan4arome' : '/project/home/p200177/DE_371/resources/models/trained_generator/000024.pt'
     
 }
