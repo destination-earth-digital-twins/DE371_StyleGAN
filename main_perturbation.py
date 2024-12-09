@@ -58,8 +58,8 @@ def compute_generate_save(G, params, metrics_list, Means, Maxs):
     Whitening = torch.load(params.eigendir + 'Whitening.pt') if params.sample_rule=='stochastic' else None
     Coloring = torch.load(params.eigendir + 'Coloring.pt') if params.sample_rule=='stochastic' else None
     w0 = torch.load(params.eigendir + 'latent_mean.pt') if params.sample_rule=='stochastic' else None
-    scale = torch.tensor(np.load(os.path.join(params.scale_dir,"ema_scale.npy")).astype(np.float32)[params.scale_interp_step], device=params.device)
-    interp = torch.tensor(np.load(os.path.join(params.scale_dir,"ema_interp.npy")).astype(np.float32)[params.scale_interp_step], device=params.device)
+    betas = torch.tensor(np.load(os.path.join(params.scale_dir,"ema_scale.npy")).astype(np.float32)[params.scale_interp_step], device=params.device)
+    alphas = torch.tensor(np.load(os.path.join(params.scale_dir,"ema_interp.npy")).astype(np.float32)[params.scale_interp_step], device=params.device)
 
     if params.import_perturbation:
         print(f'Importing perturbation from {params.path_perturbation}')
@@ -70,9 +70,8 @@ def compute_generate_save(G, params, metrics_list, Means, Maxs):
         sm_ind=params.style_indices,
         device=params.device, 
         sample_rule=params.sample_rule, 
-        random_unbias=False,
-        scale=scale,
-        interp=interp,
+        betas=betas,
+        alphas=alphas,
         verbose=params.verbose,
         Whitening=Whitening,
         Coloring=Coloring,
