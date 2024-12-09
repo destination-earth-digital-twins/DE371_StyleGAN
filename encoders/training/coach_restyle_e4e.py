@@ -355,11 +355,6 @@ class Coach:
 			loss_dict['perceptual_loss'] = float(perceptual_loss)
 			loss += perceptual_loss * self.config.perceptual_lambda
 
-		if self.config.ffl_lambda > 0 :
-			ffl_loss = self.ffl_loss(y_hat, y)
-			loss_dict['ffl_loss'] = float(ffl_loss)
-			loss += ffl_loss * self.config.ffl_lambda
-
 		if option != 'train' :
 			if self.config.l2_lambda==0 :
 				loss_l2 = F.mse_loss(y_hat, y)

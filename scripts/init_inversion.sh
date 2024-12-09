@@ -18,21 +18,22 @@ export APPTAINER_BINDPATH="/project/home/p200177/DE_371:/project/home/p200177/DE
 module load Apptainer/1.2.4-GCCcore-12.3.0
 
 
-apptainer exec --nv /project/scratch/p200177/DE_371/resources/apptainer_container/container.sif python3 main_inversion.py \
-        --ckpt_dir='/project/scratch/p200177/DE_371/victorsanchez/models/trained_generator/000024.pt' \
+apptainer exec --nv /project/home/p200177/DE_371/resources/apptainer_container/container.sif python3 main_inversion.py \
+        --ckpt_dir='/project/home/p200177/DE_371/resources/models/trained_generator/000024.pt' \
         --real_data_dir='/project/home/p200177/DE_371/datasets/dataset_Meteo_France/IS_1_1.0_0_0_0_0_0_256_large_lt_done/' \
-        --output_dir='/project/scratch/p200177/DE_371/victorsanchez/results/member_inversion/optimization_inversion/test_lpips_loss/' \
+        --output_dir='/project/scratch/p200177/DE_371/victorsanchez/results/member_inversion/optimization_inversion/test_oper_bis/' \
         --pack_dir='' \
         --device='cuda' \
         --network_type='vgg16' \
-        --lambda_perceptual_loss=0 \
-        --lambda_lpips_loss=1 \
+        --lambda_perceptual_loss=1 \
+        --lambda_lpips_loss=0 \
         --channel_computation='sol2' \
         --invstep=1000 \
-        --inv_checkpoints='[250,500,750,1000]' \
+        --inv_checkpoints='[1,250,500,750,1000]' \
         --date_start=2021-08-14 \
         --date_stop=2021-08-15 \
         --leadtimes='[12]' \
         --plot_checkpoint \
         --features_after_relu \
         --feature_layers='[0,1,2,3]' \
+        --plot_gif
