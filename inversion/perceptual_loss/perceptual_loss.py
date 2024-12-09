@@ -25,7 +25,6 @@ class MultiPerceptualLoss(torch.nn.Module):
         perceptual_loss_total = 0
         for id, perceptual_loss in enumerate(self.perceptual_losses) :
             loss =  perceptual_loss(img_gen, input_img, normalize)
-            # print(perceptual_loss.config.network_type, loss)
             perceptual_loss_total += loss
 
         return perceptual_loss_total

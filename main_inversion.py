@@ -133,7 +133,7 @@ if __name__=="__main__" :
     parser.add_argument("--seed", type=int, default=42)
     
     params = parser.parse_args()
-
+    print(type(params))
 
     # fix some of the inputs
     params.Shape = tuple(params.Shape)

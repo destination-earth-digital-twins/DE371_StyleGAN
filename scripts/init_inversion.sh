@@ -30,9 +30,9 @@ apptainer exec --nv /project/scratch/p200177/DE_371/resources/apptainer_containe
         --channel_computation='sol2' \
         --invstep=1000 \
         --inv_checkpoints='[250,500,750,1000]' \
-        --date_start=2021-07-01 \
-        --date_stop=2021-07-02 \
-        --leadtimes='[3]' \
+        --date_start=2021-08-14 \
+        --date_stop=2021-08-15 \
+        --leadtimes='[12]' \
         --plot_checkpoint \
         --features_after_relu \
         --feature_layers='[0,1,2,3]' \
