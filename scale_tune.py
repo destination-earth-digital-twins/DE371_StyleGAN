@@ -66,7 +66,7 @@ if __name__=="__main__" :
     parser.add_argument("--ensemble_data_dir", type=str, 
                         default='/project/scratch/p200177/DE_371/victorsanchez/results/inversion/Ens_Perceptual_Random_VGG_Loss_sol3/Pack_Perceptual_Random_VGG_Loss_sol3/')
     parser.add_argument("--ckpt_dir", type=str, 
-                        default='/project/scratch/p200177/DE_371/victorsanchez/models/trained_generator/000024.pt')
+                        default='/project/home/p200177/DE_371/resources/models/trained_generator/000024.pt')
     parser.add_argument("--eigendir", type=str, 
                         default='/project/home/p200177/DE_371/datasets/dataset_Meteo_France/eigenvalues_gan_training/')
     parser.add_argument("--output_dir", type=str, 

@@ -36,7 +36,7 @@ if __name__=="__main__" :
     ########################### Directories ###########################
     # Checkpoint directory - PATH to generator's weight
     parser.add_argument('--ckpt_dir', type = str, 
-                        default ='/project/scratch/p200177/DE_371/victorsanchez/models/trained_generator/000024.pt')
+                        default ='/project/home/p200177/DE_371/resources/models/trained_generator/000024.pt')
     # Real Data Directory - PATH to samples of the dataset
     parser.add_argument('--real_data_dir', type = str, 
                         default='/project/home/p200177/DE_371/datasets/dataset_Meteo_France/IS_1_1.0_0_0_0_0_0_256_large_lt_done/')
@@ -108,7 +108,7 @@ if __name__=="__main__" :
     parser.add_argument("--features_after_relu", action='store_true')
     parser.add_argument("--channel_computation", type=str, default='sol2', choices = ['sol1', 'sol2', 'sol3', 'sol4', 'sol5'], 
                     help="Either we compute layer by layer and member per member but we have to triple th einput to make it rgb or all in one (naive)")
-    parser.add_argument("--network_dir", type=str, default='/project/scratch/p200177/DE_371/resources/network_for_perceptual_loss/', help="Insert a path")
+    parser.add_argument("--network_dir", type=str, default='/project/home/p200177/DE_371/resources/network_for_perceptual_loss/', help="Insert a path")
     parser.add_argument("--style_layers", type=utils.str2intlist, default=[], help="style layers to include in vgg loss computation")
     parser.add_argument("--feature_layers", type=utils.str2intlist, default=[0,1,2,3], help="feature layers to include in vgg computation")
     parser.add_argument("--alpha_feature", type=float, default=1.0, help="weight of the feature/content loss")

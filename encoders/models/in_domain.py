@@ -22,7 +22,7 @@ class inDomain(nn.Module):
         self.decoder = Generator(self.config.output_size, 512, 8, channel_multiplier=2)
         self.discriminator = Discriminator(self.config.output_size, channel_multiplier=2)
 
-        # torch.save(self.encoder.state_dict(), '/project/scratch/p200177/DE_371/resources/pretrained_models/resnet34_random.pth')
+        # torch.save(self.encoder.state_dict(), '/project/home/p200177/DE_371/resources/pretrained_models/resnet34_random.pth')
         # raise NotImplementedError
 
         # Load weights if needed
