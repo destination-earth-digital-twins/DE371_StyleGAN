@@ -25,10 +25,10 @@ ensemble:
   --epochs_num: [25]
   --pretrained_model: [-1] # set to -1 if there are no pretrained model
 
-  --var_names: ["[u,v,t2m]"]
+  --var_names: ["[rr,u,v,t2m]"]
   --batch_size: [8] # real batch size is batch_size * N (N is the number of GPUs used)
 
-  --var_names: ["[u,v,t2m]"]
+  --var_names: ["[rr,u,v,t2m]"]
   --batch_size: [8]
   --lr_D: [0.002]
   --lr_G: [0.002]

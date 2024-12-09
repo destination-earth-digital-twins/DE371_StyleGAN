@@ -80,7 +80,7 @@ if __name__=="__main__" :
 
     #load pretrained resnet model
     model = torchvision.models.vgg16(weights=None).to(params.device)
-    model.load_state_dict(torch.load('/project/scratch/p200177/DE_371/resources/network_for_perceptual_loss/vgg16_trained.pth'))
+    model.load_state_dict(torch.load('/project/home/p200177/DE_371/resources/network_for_perceptual_loss/vgg16_trained.pth'))
     feature_layers = [4,9,16,23,30] 
     blocks = []
     blocks.append(model.features[:feature_layers[0]].eval())

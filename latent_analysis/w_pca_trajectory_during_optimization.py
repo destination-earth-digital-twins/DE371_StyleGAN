@@ -38,7 +38,7 @@ def PCA(X , num_components=None):
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--ckpt_dir',        type=str, default='/project/scratch/p200177/DE_371/victorsanchez/models/trained_generator/000024.pt')
+parser.add_argument('--ckpt_dir',        type=str, default='/project/home/p200177/DE_371/resources/models/trained_generator/000024.pt')
 parser.add_argument('--output_dir',      type=str, default='/project/scratch/p200177/DE_371/victorsanchez/results/pca/pca_over_inv_steps/')
 parser.add_argument('--w_inversion_dir', type=str, default='/project/scratch/p200177/DE_371/victorsanchez/results/member_inversion/test_latent_trajectory_during_optim/inversion/')
 parser.add_argument('--w_samples_dir',   type=str, default='/project/scratch/p200177/DE_371/victorsanchez/results/pca/w_samples') # samples generated with mkl_w_sample.py

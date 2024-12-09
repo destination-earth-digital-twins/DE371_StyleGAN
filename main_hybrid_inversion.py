@@ -15,74 +15,30 @@ import os
 import numpy as np
 import yaml
 import pandas as pd
-from restyle_encoder.utils import common, train_utils
+from encoders.utils import common, train_utils
 import matplotlib.pyplot as plt
 import matplotlib
 matplotlib.use('Agg')
 import perturbation.utils as utils
-from restyle_encoder.models.psp import pSp
-import inversion.optimization_based.inversion as inv
+from encoders.models.psp import pSp
+from inversion.hybrid_based.inversion import init_latent_restyle, init_latent_psp_e4e, init_latent_featureStyle, init_latent_inDomain
+from encoders.models.e4e import e4e
+from encoders.models.in_domain import inDomain
+from encoders.models.feature_style_encoder.feature_style_module import FeatureStyleModule
 from generate_sample import humanbytes
+from time import time
+from inversion.encoder_based.utils import log_images_diff
+import inversion.optimization_based.inversion as inv
 from time import time
 
 torch.manual_seed(42) #reproducibility of runs
-
-def log_images_diff(config, x, y_hat, iter):
-
-        sample_data = []
-
-        if isinstance(y_hat, dict):
-            output = [
-                [common.numpyfy(y_hat[0][iter_idx][0])]
-                for iter_idx in range(len(y_hat[0]))
-            ]
-        else:
-            output = [common.numpyfy(y_hat[0])]
-            
-        cur_sample_data = {
-            'input': common.numpyfy(x[0]),
-            'output': output,
-        }
-
-        sample_data.append(cur_sample_data)
-
-        fig = common.vis_samples_diff(sample_data, config.n_vars)
-        figname = config.output_dir + f"{config.date_index}_{config.lt_index}_{iter}_diff.png"
-        fig.savefig(figname)
-        plt.close(fig)
-
-
-def log_images(config, x, y_hat):
-
-        sample_data = []
-
-        if isinstance(y_hat, dict):
-            output = [
-                [common.numpyfy(y_hat[0][iter_idx][0])]
-                for iter_idx in range(len(y_hat[0]))
-            ]
-        else:
-            output = [common.numpyfy(y_hat[0])]
-            
-        cur_sample_data = {
-            'input': common.numpyfy(x[0]),
-            'output': output,
-        }
-
-        sample_data.append(cur_sample_data)
-
-        fig = common.vis_samples(sample_data, config.n_vars)
-        figname = config.output_dir + f"{config.date_index}_{config.lt_index}_all_iter.png"
-        fig.savefig(figname)
-        plt.close(fig)
-
 
 if __name__=="__main__" :
     
     parser = argparse.ArgumentParser()
     
     ########################### Directories ###########################
-
+    parser.add_argument('--encoder_framework_type', default='pSp', type=str, choices=["pSp", "e4e", "restyle-pSp", "restyle-e4e", "FeatureStyle", "inDomain"], help='Type of encoder')
     parser.add_argument('--checkpoint_path', default='/project/scratch/p200177/DE_371/victorsanchez/results/encoder/restyle_pSp_training/lr_0.001_vgg_lambda_1.0_resnet34=trained_10_iter/Instance_1/checkpoints/iteration_50000.pt', type=str, help='Path to ReStyle model checkpoint')
     parser.add_argument('--dataset_type', default='arome_encode', type=str, help='Type of dataset/experiment to run')
     parser.add_argument('--encoder_type', default='ResNetBackboneEncoder', type=str, help='Which encoder to use')
@@ -90,6 +46,8 @@ if __name__=="__main__" :
     parser.add_argument('--output_size', default=256, type=int, help='Output size of generator')
     parser.add_argument('--n_vars', default=3, type=int, help='Number of variables as channels')
     parser.add_argument("--plot_checkpoint", action='store_true')
+
+    parser.add_argument("--train_discriminator", action='store_true')
 
     # arguments for iterative encoding
     parser.add_argument('--n_iters_per_batch', default=10, type=int,help='Number of forward passes per batch during training')
@@ -119,7 +77,6 @@ if __name__=="__main__" :
     parser.add_argument('--channel_multiplier', type=int, default=2)
     
     ############################ INVERSION PARAMETERS #################    
-    # TODO : Consider to change that 
     parser.add_argument("--lr_rampup",type=float,default=0.05,help="duration of the learning rate warmup")
     parser.add_argument("--lr_rampdown",type=float, default=0.25,help="duration of the learning rate decay")
     parser.add_argument("--lr", type=float, default=0.1, help="learning rate")
@@ -141,10 +98,12 @@ if __name__=="__main__" :
 
     # Parameter related to pixel loss 
     parser.add_argument('--pixel_loss_type', type=str, default='mse', choices = ['mse', 'mae'])
-    parser.add_argument("--lambda_pixel", type=float, default=10.0, help="weight of the (mae/mse) pixel loss")
+    parser.add_argument("--lambda_pixel", type=float, default=0.0, help="weight of the (mae/mse) pixel loss")
     
-    # Parameter related to perceptual loss 
-    parser.add_argument("--optimize_features_computation", action='store_true', help="Compute the features of original ensemble only once")
+        
+    # Focal Frequency Loss
+    parser.add_argument("--lambda_focal_frequency_loss", type=float, default=0.0, help="weight of the vgg (perceptual) loss")
+
     # VGG
     parser.add_argument("--lambda_perceptual_loss", type=float, default=1.0, help="weight of the vgg (perceptual) loss")
     parser.add_argument("--resize_input", type=float, default=0.0, help="resize input for vgg loss")
@@ -153,13 +112,14 @@ if __name__=="__main__" :
     parser.add_argument("--features_after_relu", action='store_true')
     parser.add_argument("--channel_computation", type=str, default='sol2', choices = ['sol1', 'sol2', 'sol3', 'sol4', 'sol5'], 
                     help="Either we compute layer by layer and member per member but we have to triple th einput to make it rgb or all in one (naive)")
-    parser.add_argument("--network_dir", type=str, default='/project/scratch/p200177/DE_371/resources/network_for_perceptual_loss/', help="Insert a path")
+    parser.add_argument("--network_dir", type=str, default='/project/home/p200177/DE_371/resources/network_for_perceptual_loss/', help="Insert a path")
     parser.add_argument("--style_layers", type=utils.str2intlist, default=[], help="style layers to include in vgg loss computation")
     parser.add_argument("--feature_layers", type=utils.str2intlist, default=[0,1,2,3], help="feature layers to include in vgg computation")
     parser.add_argument("--alpha_feature", type=float, default=1.0, help="weight of the feature/content loss")
     parser.add_argument("--alpha_style", type=float, default=0.01, help="weight of the style loss")
     parser.add_argument("--split_factor", type=int, default=2, help="splitting factor for patching")
-    
+    parser.add_argument("--multi_scale_perceptual_loss",  action='store_true')
+
     parser.add_argument("--invstep", type=int, default=50, help="optimize iterations")
     parser.add_argument("--inv_checkpoints", type=utils.str2intlist, default=[10, 25, 50])
     
@@ -216,7 +176,14 @@ if __name__=="__main__" :
        raise ValueError(f"Unknown normalization: {params.normalization}")
 
     ################ loading network #################
-    network = pSp(config=params).to(params.device)
+    if params.encoder_framework_type in ['pSp', "restyle-pSp"]:
+        network = pSp(config=params).to(params.device)
+    elif params.encoder_framework_type in ['e4e', "restyle-e4e"]:
+        network = e4e(config=params).to(params.device)
+    elif params.encoder_framework_type == 'inDomain':
+        network = inDomain(config=params).to(params.device)
+    elif params.encoder_framework_type == 'FeatureStyle':
+        network = FeatureStyleModule(config=params).to(params.device)
 
     ########### write inversion parameters to file ############
     config_file = params.output_dir + "hybrid_inversion_params.yaml"
@@ -308,68 +275,28 @@ if __name__=="__main__" :
                     if params.pack_dir :
                         np.save(params.pack_dir+f'Rsemble_sequence_{datename}.npy', Ens_r.numpy().astype(np.float32))
 
-                y_hat, latent = None, None
-                # latent_complete = torch.empty((Ens_r.shape[0], 14, 512))
-                # y_hat_complete = torch.empty(Ens_r.shape)
-                y_hats = {idx: [] for idx in range(Ens_r.shape[0])}
-                mem_cuda = torch.cuda.memory_allocated(device=params.device)
-                print('memory_allocated {}'.format(humanbytes(mem_cuda)))
-                # get the image corresponding to the latent average
-                avg_sample = network(
-                    network.latent_avg.unsqueeze(0),
-                    input_code=True,
-                    randomize_noise=False,return_latents=False,
-                    average_code=True)[0]
-                with torch.no_grad():
-                    avg_sample = avg_sample.to(params.device).float()                
+                ################ Forwarding encoder #################
+                if params.encoder_framework_type  in ['restyle-pSp', "restyle-e4e"]:
+                    init_latent = init_latent_restyle(params=params, network=network, Ens_r=Ens_r)
+                elif params.encoder_framework_type  in ['e4e', 'pSp']:
+                    init_latent = init_latent_psp_e4e(params=params, network=network, Ens_r=Ens_r)
+                elif params.encoder_framework_type == 'inDomain':
+                    init_latent = init_latent_inDomain(params=params, network=network, Ens_r=Ens_r)
+                elif params.encoder_framework_type == 'FeatureStyle':
+                    init_latent = init_latent_featureStyle(params=params, network=network, Ens_r=Ens_r)
+                else :
+                    raise NotImplementedError
 
-                    Ens_r = Ens_r.to(params.device)
-                    mem_cuda = torch.cuda.memory_allocated(device=params.device)
-                    print('memory_allocated {} iter {}'.format(humanbytes(mem_cuda), iter))
-                    t0 = time()
-                    # Restyle-Encoder Loop
-                    for iter in range(params.n_iters_per_batch):
-                        print('iter : ', iter)
-                        if iter == 0:
-                            avg_image_for_batch = avg_sample.unsqueeze(0).repeat(Ens_r.shape[0], 1, 1, 1)
-                            x_input = torch.cat([Ens_r, avg_image_for_batch], dim=1)
-                        else:
-                            x_input = torch.cat([Ens_r, y_hat], dim=1)
-                
-                        y_hat, latent = network.forward(x_input, latent=latent, return_latents=True)
-                        
-                        for idx in range(Ens_r.shape[0]):
-                            y_hats[idx].append([y_hat[idx]])
-
-                        if iter+1 in params.n_iters_per_batch_checkpoint :
-                            print("--saving inverted samples :", params.output_dir+'w_{}_{}_{}.npy'.format(params.date_index,params.lt_index, iter+1))
-                            np.save(params.output_dir+'w_{}_{}_{}.npy'.format(params.date_index,params.lt_index, iter+1),latent.cpu().detach().numpy())
-                            np.save(params.output_dir+'invertFsemble_{}_{}_{}.npy'.format(params.date_index,params.lt_index, iter+1),y_hat.cpu().detach().numpy())
-                            if params.plot_checkpoint:
-                                print("--plotting inverted samples :", params.output_dir+'w_{}_{}.npy'.format(params.date_index,params.lt_index))
-                                log_images_diff(
-                                    config=params,
-                                    x=Ens_r,
-                                    y_hat=y_hats,
-                                    iter=iter+1
-                                )
-                    
-                if params.plot_checkpoint:
-                    log_images(
-                        config=params,
-                        x=Ens_r,
-                        y_hat=y_hats
-                    )
-                print(latent.shape)
+                print(init_latent.shape)
                 inv.optimize(
                     Ens_r=Ens_r,
                     g_ema=network.decoder,
-                    latent_mean=latent,
+                    latent_mean=init_latent,
                     device=params.device,
                     params=params,
                     hybrid=True
                 )
-                print('Time taken for inversion :', time()-t0)
+                
 
 
 
