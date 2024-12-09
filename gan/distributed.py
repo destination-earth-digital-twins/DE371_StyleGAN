@@ -1,6 +1,5 @@
 from torch import distributed as dist
-import os
-
+import torch
 
 def get_rank():
     if not dist.is_available():
