@@ -21,7 +21,7 @@ export APPTAINER_BINDPATH="/project/home/p200177/DE_371:/project/home/p200177/DE
 export NCCL_ASYNC_ERROR_HANDLING=1
 module load Apptainer/1.2.4-GCCcore-12.3.0
 
-apptainer exec --nv /project/scratch/p200177/DE_371/resources/apptainer_container/container.sif torchrun --nproc_per_node=4 main_gan.py \
+apptainer exec --nv /project/home/p200177/DE_371/resources/apptainer_container/container.sif torchrun --nproc_per_node=4 main_gan.py \
         --data_dir='/project/home/p200177/DE_371/datasets/dataset_Meteo_France/IS_1_1.0_0_0_0_0_0_256_large_lt_done/' \
         --id_file="Large_lt_train_labels_1.csv" \
         --output_dir='/project/home/p200177/DE_371/experiments_WP1/gan_training/test_1GPU/' \
