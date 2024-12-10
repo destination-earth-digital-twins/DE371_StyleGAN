@@ -79,7 +79,7 @@ class Coach:
                 weights_deltas = [w.clone().detach().requires_grad_(True) if w is not None else w
                                   for w in weights_deltas]
                 y_hat = y_hat.clone().detach().requires_grad_(True)
-            y_hat, latent, weights_deltas, codes, w_inversion = self.net.forward(x,
+            y_hat, latent, weights_deltas, codes, w_inversion = self.net.forward(y,
                                                                                  y_hat=y_hat,
                                                                                  codes=codes,
                                                                                  weights_deltas=weights_deltas,
@@ -89,11 +89,14 @@ class Coach:
                                                                                  resize=True)
             if iter == 0:
                 initial_inversion = w_inversion
+
             loss, cur_loss_dict = self.calc_loss(x=y,
                                                 y=y,
                                                 y_hat=y_hat,
                                                 latent=latent,
-                                                weights_deltas=weights_deltas)
+                                                weights_deltas=weights_deltas,
+                                                option='train' if train else 'test'
+                                                )
             if train:
                 loss.backward()
 
@@ -113,7 +116,8 @@ class Coach:
                 x, y = batch
                 y_hat, latent = None, None
 
-
+                x = x.to(self.device).float()
+                y = y.to(self.device).float()
                 x, y, y_hat, loss_dict, w_inversion = self.perform_forward_on_batch(
                     x,
                     y,
@@ -137,7 +141,7 @@ class Coach:
                     # if not self.config.training_on_real_samples :
                     #     self.parse_and_log_images(fake_img, fake_img, estimated_fake_img, title='samples/train')
                     # else :
-                    self.parse_and_log_images(x, y, y_hat, w_inversion, title='samples/train')
+                    self.parse_and_log_images(x, y, y_hat, title='samples/train')
 
                     
                     
@@ -183,14 +187,14 @@ class Coach:
                     y,
                     y_hat,
                     latent,
-                    train=True
+                    train=False
                 )
 
             agg_loss_dict.append(cur_loss_dict)
 
 			# Logging related
             if batch_idx % 50 == 0:
-                self.parse_and_log_images(x, y, y_hat, w_inversion, title='samples/test', subscript='{:04d}'.format(batch_idx))
+                self.parse_and_log_images(x, y, y_hat, title='samples/test', subscript='{:04d}'.format(batch_idx))
 
 			# For first step just do sanity test on small amount of data
             if self.global_step == 0 and batch_idx >= 4:

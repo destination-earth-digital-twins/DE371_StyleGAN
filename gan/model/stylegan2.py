@@ -229,7 +229,7 @@ class ModulatedConv2d(nn.Module):
             f"upsample={self.upsample}, downsample={self.downsample})"
         )
 
-    def forward(self, input, style):
+    def forward(self, input, style, weights_delta=None):
         # print("####### MODULATED CONV #######")
         batch, in_channel, height, width = input.shape
         # print('a1 input shape', input.shape)
@@ -265,7 +265,10 @@ class ModulatedConv2d(nn.Module):
         
         style = self.modulation(style).view(batch, 1, in_channel, 1, 1)
         # print("a2 style shape", np.shape(style))
-        weight = self.scale * self.weight * style
+        if weights_delta is None:
+            weight = self.scale * self.weight * style
+        else:
+            weight = self.scale * (self.weight * (1 + weights_delta) * style)
         # print("a3 weight shape", weight.shape)
 
         if self.demodulate:
@@ -401,9 +404,9 @@ class StyledConv(nn.Module):
         # self.activate = ScaledLeakyReLU(0.2)
         self.activate = FusedLeakyReLU(out_channel)
 
-    def forward(self, input, style, noise=None):
+    def forward(self, input, style, noise=None, weights_delta=None):
         # # print("input styled ", input.shape)
-        out = self.conv(input, style)
+        out = self.conv(input, style, weights_delta=weights_delta)
         # # print("modulated styled ", out.shape)
         out = self.noise(out, noise=noise)
         # # print("noise styled", out.shape)
@@ -423,10 +426,10 @@ class ToRGB(nn.Module):
         self.conv = ModulatedConv2d(in_channel, nb_var, 1, style_dim, demodulate=False)
         self.bias = nn.Parameter(torch.zeros(1, nb_var, 1, 1))
 
-    def forward(self, input, style, skip=None):
+    def forward(self, input, style, skip=None, weights_delta=None):
         # print("####### TORGB #######")
         # print('From ToRGB', np.shape(input))
-        out = self.conv(input, style)
+        out = self.conv(input, style, weights_delta)
         out = out + self.bias
         input_conved = torch.clone(out)
         
@@ -574,8 +577,14 @@ class Generator(nn.Module):
         randomize_noise=True,
         return_rgb=False,
         features_in=None,
-        feature_scale=0
+        feature_scale=0,
+        weights_deltas=None
     ):
+        
+        total_convs = len(self.convs) + len(self.to_rgbs) + 2   # +2 for first conv and toRGB
+        if weights_deltas is None:
+            weights_deltas = [None] * total_convs
+
         if not input_is_latent:
             styles = [self.style(s) for s in styles]
 
@@ -619,11 +628,13 @@ class Generator(nn.Module):
         out = self.input(latent)
         # print("input gen ", out.shape)
         outs.append(out)
-        out = self.conv1(out, latent[:, 0], noise=noise[0])
+        # out = self.conv1(out, latent[:, 0], noise=noise[0])
+        out = self.conv1(out, latent[:, 0], noise=noise[0], weights_delta=weights_deltas[0])
         outs.append(out)
         # print("conv1 gen ", out.shape)
 
-        skip, input_conved = self.to_rgb1(out, latent[:, 1])
+        # skip, input_conved = self.to_rgb1(out, latent[:, 1])
+        skip, input_conved = self.to_rgb1(out, latent[:, 1], weights_delta=weights_deltas[1])
         # print("rgb1 ", skip.shape)
         if return_rgb:
             rgbs_saved = {}
@@ -638,19 +649,24 @@ class Generator(nn.Module):
             rgbs_saved['current_rgb_out'][1] = skip.detach().cpu().numpy()
 
         i = 1
+        weight_idx = 2
         for conv1, conv2, noise1, noise2, to_rgb in zip(
             self.convs[::2], self.convs[1::2], noise[1::2], noise[2::2], self.to_rgbs
         ):
             
             out = self.insert_feature(out, i, features_in=features_in, feature_scale=feature_scale)
-            out = conv1(out, latent[:, i], noise=noise1)
+            # out = conv1(out, latent[:, i], noise=noise1)
+            out = conv1(out, latent[:, i], noise=noise1, weights_delta=weights_deltas[weight_idx])
+
             outs.append(out)
             # print("From Generator :conv1 gen ", out.shape)
             out = self.insert_feature(out, i + 1, features_in=features_in, feature_scale=feature_scale)
-            out = conv2(out, latent[:, i + 1], noise=noise2)
+            # out = conv2(out, latent[:, i + 1], noise=noise2)
+            out = conv2(out, latent[:, i + 1], noise=noise2, weights_delta=weights_deltas[weight_idx + 1])
             # print("From Generator :conv2 gen ", out.shape)
             outs.append(out)
-            skip, input_conved, prev_rgb_upsampled, prev_rgb = to_rgb(out, latent[:, i + 2], skip)
+            # skip, input_conved, prev_rgb_upsampled, prev_rgb = to_rgb(out, latent[:, i + 2], skip)
+            skip, input_conved, prev_rgb_upsampled, prev_rgb = to_rgb(out, latent[:, i + 2], skip, weights_delta=weights_deltas[weight_idx + 2])
             # print("From Generator :rgb ", skip.shape)
             if return_rgb:
                 rgbs_saved['prev_rgb'][i//2 + 2] = prev_rgb.detach().cpu().numpy()
@@ -659,6 +675,7 @@ class Generator(nn.Module):
                 rgbs_saved['current_rgb_out'][i//2 + 2] = skip.detach().cpu().numpy()
 
             i += 2
+            weight_idx += 3
 
         image = skip
         # print("final gen ", image.shape)
