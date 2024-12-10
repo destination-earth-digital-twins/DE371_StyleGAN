@@ -50,8 +50,6 @@ class Coach:
 		# Initialize loss
 		
 		self.mse_loss = nn.MSELoss().to(self.device).eval()
-		if self.config.moco_lambda > 0:
-			self.moco_loss = moco_loss.MocoLoss(self.device)
 		if self.config.perceptual_lambda > 0 :
 			self.perceptual_loss = PerceptualLoss(config=self.config, device=self.device, multi_scale=self.config.multi_scale_perceptual_loss).to(self.device).eval()
         
@@ -130,7 +128,7 @@ class Coach:
 				disc_loss_dict = self.compute_discriminator_loss(x)
 				y_hat, latent = self.net.forward(x, return_latents=True)
                 
-				loss, encoder_loss_dict = self.calc_loss(x, y, y_hat, latent)
+				loss, encoder_loss_dict = self.calc_loss(x, y, y_hat, latent, option='train')
 				loss.backward()
 				self.optimizer.step()
 
@@ -176,26 +174,6 @@ class Coach:
 				if self.config.progressive_steps:
 					self.check_for_progressive_training_update()
 
-	def perform_val_iteration_on_batch(self, x, y):
-		y_hat, latent = None, None
-		cur_loss_dict, id_logs = None, None
-		y_hats = {idx: [] for idx in range(x.shape[0])}
-		for iter in range(self.config.n_iters_per_batch):
-			if iter == 0:
-				avg_image_for_batch = self.avg_image.unsqueeze(0).repeat(x.shape[0], 1, 1, 1)
-				x_input = torch.cat([x, avg_image_for_batch], dim=1)
-			else:
-				x_input = torch.cat([x, y_hat], dim=1)
-
-			y_hat, latent = self.net.forward(x_input, latent=latent, return_latents=True)
-
-			loss, cur_loss_dict = self.calc_loss(x, y, y_hat, latent, option = 'test')
-			# store intermediate outputs
-			for idx in range(x.shape[0]):
-				y_hats[idx].append([y_hat[idx]])
-
-		return y_hats, cur_loss_dict, id_logs
-
 	def validate(self):
 		self.net.eval()
 		agg_loss_dict = []
@@ -212,7 +190,7 @@ class Coach:
 				with torch.no_grad():
 					x, y = x.to(self.device).float(), y.to(self.device).float()
 					y_hat, latent = self.net.forward(y, return_latents=True)
-					_, cur_enc_loss_dict = self.calc_loss(x, y, y_hat, latent)
+					_, cur_enc_loss_dict = self.calc_loss(x, y, y_hat, latent, option='test')
 
 				cur_loss_dict = {**cur_disc_loss_dict, **cur_enc_loss_dict}
 				agg_loss_dict.append(cur_loss_dict)
@@ -319,12 +297,6 @@ class Coach:
 			loss_l2 = F.mse_loss(y_hat, y)
 			loss_dict['loss_l2'] = float(loss_l2)
 			loss += loss_l2 * self.config.l2_lambda
-
-		if self.config.moco_lambda > 0:
-			loss_moco, sim_improvement, id_logs = self.moco_loss(y_hat, y, x)
-			loss_dict['loss_moco'] = float(loss_moco)
-			loss_dict['id_improve'] = float(sim_improvement)
-			loss += loss_moco * self.config.moco_lambda
         	
 		if self.config.perceptual_lambda > 0 :
 			perceptual_loss = self.perceptual_loss(y_hat, y)

@@ -144,17 +144,17 @@ class PerceptualLoss(torch.nn.Module):
             
         features = []
         styles= []
-
-        # the samples have to be in range [0, 1] and normalized using
-        # mean = [0.485, 0.456, 0.406] and std = [0.229, 0.224, 0.225]
-        if self.config.channel_computation != 'sol5' :
-            x = (input_img-self.mean) / self.std
-        else :
-            # grayscale imagenet's train dataset mean and standard deviation 
+        x = input_img
+        # # the samples have to be in range [0, 1] and normalized using
+        # # mean = [0.485, 0.456, 0.406] and std = [0.229, 0.224, 0.225]
+        # if self.config.channel_computation != 'sol5' :
+        #     x = (input_img-self.mean) / self.std
+        # else :
+        #     # grayscale imagenet's train dataset mean and standard deviation 
             
-            grayscale_mean = 0.44531356896770125
-            grayscale_std = 0.2692461874154524
-            x = (input_img-grayscale_mean) / grayscale_std
+        #     grayscale_mean = 0.44531356896770125
+        #     grayscale_std = 0.2692461874154524
+        #     x = (input_img-grayscale_mean) / grayscale_std
 
         for i, block in enumerate(self.blocks):
             x = block(x)
