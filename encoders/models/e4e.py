@@ -20,7 +20,6 @@ class e4e(nn.Module):
         # Define architecture
         self.encoder = self.set_encoder()
         self.decoder = Generator(self.config.output_size, 512, 8, channel_multiplier=2)
-        self.face_pool = torch.nn.AdaptiveAvgPool2d((256, 256))
         # Load weights if needed
         self.load_weights()
 
@@ -89,9 +88,6 @@ class e4e(nn.Module):
                                              input_is_latent=input_is_latent,
                                              randomize_noise=randomize_noise,
                                              return_latents=return_latents)
-
-        if resize:
-            images = self.face_pool(images)
 
         if return_latents:
             return images, result_latent

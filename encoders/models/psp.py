@@ -8,6 +8,7 @@ from torch import nn
 from gan.model.stylegan2 import Generator
 from encoders.configs.paths_config import model_paths
 from encoders.models.encoders import fpn_encoders, restyle_psp_encoders
+from encoders.models.w_encoder import WEncoder
 from encoders.utils.model_utils import RESNET_MAPPING
 from collections import OrderedDict
 
@@ -37,6 +38,8 @@ class pSp(nn.Module):
             encoder = restyle_psp_encoders.BackboneEncoder(50, 'ir_se', self.n_styles, self.config)
         elif self.config.encoder_type == 'ResNetBackboneEncoder':
             encoder = restyle_psp_encoders.ResNetBackboneEncoder(self.n_styles, self.config)
+        elif self.config.encoder_type in ['SharedWeightsHyperNetResNet', 'SharedWeightsHyperNetResNetSeparable']:
+            encoder = WEncoder(50, 'ir_se', self.config)
         else:
             raise Exception(f'{self.config.encoder_type} is not a valid encoders')
         return encoder
