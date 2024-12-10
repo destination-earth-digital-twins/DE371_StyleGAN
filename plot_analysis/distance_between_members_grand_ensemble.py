@@ -6,13 +6,11 @@ import torch
 import argparse
 import os
 import numpy as np
-import yaml
-import pandas as pd
 import torch.nn.functional as F
 import perturbation.utils as utils
 import matplotlib.pyplot as plt
-from inversion.vgg_perceptual_loss import VGGPerceptualLoss
-from inversion.ssim import MS_SSIM
+from inversion.perceptual_loss.perceptual_loss import PerceptualLoss
+from inversion.experimental_loss.ssim import MS_SSIM
 import scipy
 torch.manual_seed(42) #reproducibility of runs
 
@@ -114,11 +112,9 @@ if __name__=="__main__" :
     seed = params.seed
     torch.manual_seed(seed)
 
-    VGG_loss = VGGPerceptualLoss(
-                            state_dict_path=params.vgg_state_dict_path,
-                            init_layer=True if params.vgg_computation=='sol4' else False,
-                            vgg_single_channel_input=True if params.vgg_computation=='sol5' else False
-            ).to(params.device)
+    VGG_loss = PerceptualLoss(config=params,
+                              device=params.device
+                              ).to(params.device)
     
     ms_ssim_module = MS_SSIM(data_range=1, size_average=True, channel=3)
     # Distance between two members look into : https://climpred.readthedocs.io/en/stable/metrics.html

@@ -17,7 +17,6 @@ from encoders.criteria.lpips.lpips import LPIPS
 from encoders.models.feature_style_encoder.feature_style_module import FeatureStyleModule
 from encoders.training.ranger import Ranger
 from inversion.perceptual_loss.perceptual_loss import PerceptualLoss
-from inversion.focal_frequency_loss import FocalFrequencyLoss
 
 import numpy as np
 
@@ -42,8 +41,6 @@ class Coach:
         self.mse_loss = nn.MSELoss().to(self.device).eval()
         if self.config.perceptual_lambda > 0 :
             self.perceptual_loss = PerceptualLoss(config=self.config, device=self.device, multi_scale=self.config.multi_scale_perceptual_loss).to(self.device).eval()
-        if self.config.ffl_lambda > 0 :
-            self.ffl_loss = FocalFrequencyLoss().to(self.device)
                             
 		# Initialize optimizer
         self.optimizer = self.configure_optimizers()
@@ -270,11 +267,6 @@ class Coach:
             # print('perceptual_loss', perceptual_loss)
             loss_dict['perceptual_loss_concat_img_y_hat_y_hat'] = float(perceptual_loss)
             loss += perceptual_loss * self.config.perceptual_lambda
-
-        if self.config.ffl_lambda > 0 :
-            ffl_loss = self.ffl_loss(img, y_hat)
-            loss_dict['ffl_loss'] = float(ffl_loss)
-            loss += ffl_loss * self.config.ffl_lambda
 
         if option != 'train' :
             if self.config.l2_lambda==0 :

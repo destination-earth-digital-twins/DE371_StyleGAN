@@ -12,7 +12,7 @@ import torch.nn.functional as F
 import perturbation.utils as utils
 import matplotlib.pyplot as plt
 from inversion.vgg_perceptual_loss import VGGPerceptualLoss
-from inversion.ssim import MS_SSIM
+from inversion.experimental_loss.ssim import MS_SSIM
 import scipy
 torch.manual_seed(42) #reproducibility of runs
 

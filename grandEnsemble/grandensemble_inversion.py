@@ -71,8 +71,6 @@ if __name__=="__main__" :
     
     # Parameter related to perceptual loss 
     parser.add_argument("--optimize_features_computation", action='store_true', help="Compute the features of original ensemble only once")
-    parser.add_argument("--progressive_loss_mode", action='store_true', help="Progressive Loss between pixel loss and perceptual loss | Start : Only MSE | End : Only Perceptual")
-
 
     # LPIPS
     parser.add_argument("--lpips_pnet", type=str, default='alex', choices=['alex','vgg','squeeze'], help="network type for lpips loss")

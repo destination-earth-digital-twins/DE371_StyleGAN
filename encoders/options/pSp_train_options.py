@@ -23,7 +23,6 @@ def createNamesFromLosses(config) :
     name ='loss_train'
     
     config_dict = vars(config)
-    mspl = ''
     start_from_latent_avg = ''
     training_on_real_samples = ''
     training_on_fake_samples = ''
@@ -34,9 +33,6 @@ def createNamesFromLosses(config) :
             if value !=0 :
                 name = name + '_' + arg + '_' + str(value)
         
-        if 'multi_scale_perceptual_loss' in arg :
-            mspl = '_multi_scale_PL'
-        
         if 'start_from_latent_avg' in arg:
             start_from_latent_avg = value
         
@@ -46,6 +42,6 @@ def createNamesFromLosses(config) :
         if 'training_on_fake_samples' in arg:
             training_on_fake_samples = value
             
-    name = f'{name}_{mspl}_start_from_latent_avg={start_from_latent_avg}_training_on_real={training_on_real_samples}_training_on_fake={training_on_fake_samples}/'
+    name = f'{name}_start_from_latent_avg={start_from_latent_avg}_training_on_real={training_on_real_samples}_training_on_fake={training_on_fake_samples}/'
     
     return name
