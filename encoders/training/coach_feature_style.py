@@ -9,11 +9,8 @@ from torch.utils.data import DataLoader
 import torch.nn.functional as F
 from tqdm import tqdm
 from encoders.utils import common, train_utils
-from encoders.criteria import w_norm, moco_loss, scattering_loss
-from encoders.criteria.SWD_loss import SwdLoss
 from encoders.configs import data_configs
 from encoders.datasets.arome_dataset import AromeDataset
-from encoders.criteria.lpips.lpips import LPIPS
 from encoders.models.feature_style_encoder.feature_style_module import FeatureStyleModule
 from encoders.training.ranger import Ranger
 from inversion.perceptual_loss.perceptual_loss import PerceptualLoss
