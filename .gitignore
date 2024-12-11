@@ -18,7 +18,6 @@ gan_2_ae/*
 /test_*.py
 *.log
 
-inversion/PerceptualSimilarity
 test_
 gan/model/2d_stylegan2-ada_nvidia.py
 gan/model/3d_stylegan2-ada_nvidia.py
@@ -35,15 +34,7 @@ inversion/hd_vgg_perceptual_loss.py
 gan/model/op_3d_other/*
 FeatureStyleEncoder
 idinvert_pytorch
-scripts/
-!init_inversion.sh
-!init_training_encoder.sh
-!init_training.sh
-!init_perturbation.sh
-!init_scaling_perturbation.sh
-!init_training_temporal.sh
-!init_encoder_inversion.sh
-!init_encoder_inversion_parallel.sh
+scripts/*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
