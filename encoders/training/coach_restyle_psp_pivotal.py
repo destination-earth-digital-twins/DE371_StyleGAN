@@ -9,10 +9,8 @@ from torch.utils.data import DataLoader
 import torch.nn.functional as F
 
 from encoders.utils import common, train_utils
-from encoders.criteria import w_norm, moco_loss, scattering_loss
 from encoders.configs import data_configs
 from encoders.datasets.arome_dataset import AromeDataset
-from encoders.criteria.lpips.lpips import LPIPS
 from encoders.models.psp import pSp
 from encoders.training.ranger import Ranger
 import numpy as np

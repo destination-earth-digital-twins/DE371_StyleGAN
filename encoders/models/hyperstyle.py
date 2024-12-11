@@ -92,7 +92,7 @@ class HyperStyle(nn.Module):
                                   for i in range(len(hypernet_outputs))]
 
         input_is_latent = (not input_code)
-        images, result_latent = self.decoder([codes],
+        images, result_latent, _ = self.decoder([codes],
                                              weights_deltas=weights_deltas,
                                              input_is_latent=input_is_latent,
                                              randomize_noise=randomize_noise,
@@ -142,19 +142,6 @@ class HyperStyle(nn.Module):
         d_filt = {k[len(name) + 1:]: v for k, v in d.items() if k[:len(name)] == name}
         return d_filt
 
-    def __get_pretrained_w_encoder(self):
-        print("Loading pretrained W encoder...")
-        config_w_encoder = vars(copy.deepcopy(self.config))
-        config_w_encoder['checkpoint_path'] = self.config.w_encoder_checkpoint_path
-        config_w_encoder['encoder_type'] = self.config.w_encoder_checkpoint_path
-        config_w_encoder['input_nc'] = 3
-        config_w_encoder = Namespace(**config_w_encoder)
-        w_net = pSp(config_w_encoder)
-        w_net = w_net.encoder
-        w_net.eval()
-        w_net.cuda()
-        return w_net
-
     def __get_initial_inversion(self, x, resize=True):
         # get initial inversion and reconstruction of batch
         with torch.no_grad():
@@ -167,7 +154,7 @@ class HyperStyle(nn.Module):
         config_w_encoder['encoder_type'] = self.config.w_encoder_type
         config_w_encoder['input_nc'] = 3
         config_w_encoder = Namespace(**config_w_encoder)
-        w_net = pSp(config_w_encoder)
+        w_net = pSp(config_w_encoder).to(self.config.device)
         w_net = w_net.encoder
         w_net.eval()
         w_net.cuda()
@@ -181,7 +168,7 @@ class HyperStyle(nn.Module):
             codes = codes + self.latent_avg.repeat(codes.shape[0], 1, 1)[:, 0, :]
         else:
             codes = codes + self.latent_avg.repeat(codes.shape[0], 1, 1)
-        y_hat, _ = self.decoder([codes],
+        y_hat, _, _ = self.decoder([codes],
                                 weights_deltas=None,
                                 input_is_latent=True,
                                 randomize_noise=False,

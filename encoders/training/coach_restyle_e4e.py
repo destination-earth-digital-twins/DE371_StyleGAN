@@ -10,7 +10,6 @@ import torch.nn.functional as F
 
 from tqdm import tqdm
 from encoders.utils import common, train_utils
-from encoders.criteria import moco_loss
 from encoders.configs import data_configs
 from encoders.datasets.arome_dataset import AromeDataset
 from encoders.models.e4e import e4e
