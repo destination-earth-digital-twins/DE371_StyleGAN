@@ -19,16 +19,6 @@ def no_weight_gradients():
     weight_gradients_disabled = old
 
 def conv3d(input, weight, bias=None, stride=1, padding=0, dilation=1, groups=1):
-    # if could_use_op(input):
-    #     return conv3d_gradfix(
-    #         transpose=False,
-    #         weight_shape=weight.shape,
-    #         stride=stride,
-    #         padding=padding,
-    #         output_padding=0,
-    #         dilation=dilation,
-    #         groups=groups,
-    #     ).apply(input, weight, bias)
 
     return F.conv3d(
         input=input,
@@ -50,16 +40,6 @@ def conv_transpose3d(
     groups=1,
     dilation=1,
 ):
-    # if could_use_op(input):
-    #     return conv3d_gradfix(
-    #         transpose=True,
-    #         weight_shape=weight.shape,
-    #         stride=stride,
-    #         padding=padding,
-    #         output_padding=output_padding,
-    #         groups=groups,
-    #         dilation=dilation,
-    #     ).apply(input, weight, bias)
 
     return F.conv_transpose3d(
         input=input,
@@ -71,25 +51,6 @@ def conv_transpose3d(
         dilation=dilation,
         groups=groups,
     )
-
-
-# def could_use_op(input):
-#     if (not enabled) or (not torch.backends.cudnn.enabled):
-#         return False
-    
-#     if input.device.type != "cuda":
-#         return False
-
-#     # if any(torch.__version__.startswith(x) for x in ["1.7.", "1.8."]):
-#     #     return True
-#     if any(torch.__version__.startswith(x) for x in ["1.7.", "1.8.", "2.0", "2.1"]):
-#         return True
-
-#     warnings.warn(
-#         f"conv3d_gradfix not supported on PyTorch {torch.__version__}. Falling back to torch.nn.functional.conv3d()."
-#     )
-
-#     return False
 
 
 def ensure_tuple(xs, ndim):
@@ -191,26 +152,6 @@ def conv3d_gradfix(
                                         output_padding=output_padding, groups=groups, 
                                         output_mask=[0,1,0])[1]
           
-            # op = torch._C._jit_get_operation(
-            #     "aten::cudnn_convolution_backward_weight"
-            #     if not transpose
-            #     else "aten::cudnn_convolution_transpose_backward_weight"
-            # )
-            # flags = [
-            #     torch.backends.cudnn.benchmark,
-            #     torch.backends.cudnn.deterministic,
-            #     torch.backends.cudnn.allow_tf32,
-            # ]
-            # grad_weight = op(
-            #     weight_shape,
-            #     grad_output,
-            #     input,
-            #     padding,
-            #     stride,
-            #     dilation,
-            #     groups,
-            #     *flags,
-            # )
             ctx.save_for_backward(grad_output, input)
 
             return grad_weight

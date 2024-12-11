@@ -113,7 +113,7 @@ class EqualConv3d(nn.Module):
         self.weight = nn.Parameter(
             torch.randn(out_channel, in_channel, *kernel_size)
         )
-        self.scale = 1 / math.sqrt(in_channel * kernel_size[-1] ** 2)
+        self.scale = 1 / math.sqrt(in_channel * kernel_size[-1] ** 3)
 
         self.stride = stride
         self.padding = padding
