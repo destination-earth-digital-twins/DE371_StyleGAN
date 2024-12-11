@@ -17,7 +17,7 @@ gan_2_ae/*
 .vscode/
 /test_*.py
 *.log
-
+scripts/
 test_
 gan/model/2d_stylegan2-ada_nvidia.py
 gan/model/3d_stylegan2-ada_nvidia.py

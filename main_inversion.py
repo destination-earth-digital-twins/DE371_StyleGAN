@@ -81,8 +81,9 @@ if __name__=="__main__" :
     # Noise optimization and loss noise parameter
     parser.add_argument("--noise_optimize", action='store_true', help="joint optimization of noise and latent code (1) or latent code optimization only (0)?")
     parser.add_argument("--feature_optimize", action='store_true', help="to enable optimization of feature map")
-    parser.add_argument("--feature_id", type=int, default=5, help="features to optimize")
-    
+    parser.add_argument("--feature_id", type=int, default=6, help="features to optimize")
+    parser.add_argument("--lambda_features", type=float, default=1, help="weight of the noise regularization")
+
     parser.add_argument("--lambda_noise", type=float, default=1e5, help="weight of the noise regularization")
     # In case noise_optimize=0, the lambda_noise is not taken into account in the loss computation
     parser.add_argument("--fixed_noise", action='store_true', help="Fixing the noise during optimization")

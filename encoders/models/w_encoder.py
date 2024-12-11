@@ -2,7 +2,7 @@ import math
 import torch
 from torch.nn import Conv2d, BatchNorm2d, PReLU, Sequential, Module
 
-from models.encoders.helpers import get_blocks, bottleneck_IR, bottleneck_IR_SE
+from encoders.models.encoders.helpers import get_blocks, bottleneck_IR, bottleneck_IR_SE
 from gan.model.stylegan2 import EqualLinear
 
 

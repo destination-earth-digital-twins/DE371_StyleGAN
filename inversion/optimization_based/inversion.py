@@ -11,7 +11,6 @@ from tqdm import tqdm
 from inversion.perceptual_loss.perceptual_loss import PerceptualLoss
 from inversion.plotter import online_inv_plot, online_inv_plot, create_frame
 from inversion.experimental_loss.ssim import ssim, ms_ssim, SSIM, MS_SSIM
-from inversion.experimental_loss.focal_frequency_loss import FocalFrequencyLoss
 from inversion.perceptual_loss.lpips.lpips import LPIPS
 
 import time
@@ -86,7 +85,7 @@ def feature_noise(feature, strength):
     noise = torch.randn_like(feature) * strength
     return feature + noise
 
-def optimize(Ens_r, g_ema, latent_mean, device, params, hybrid=False):
+def optimize(Ens_r, g_ema, latent_mean, device, params, features_in=None, hybrid=False):
 
     """
 
@@ -127,9 +126,14 @@ def optimize(Ens_r, g_ema, latent_mean, device, params, hybrid=False):
         latent_in = latent_mean.detach().clone().unsqueeze(0).repeat(Ens_r.shape[0], 1) # (B, 512)
         latent_in = latent_in.unsqueeze(1).repeat(1, g_ema.n_latent, 1) # (B, 14, 512)
         latent_in.requires_grad = True
-        if params.feature_optimize : 
+        
+    if params.feature_optimize : 
+        if features_in is None :
             _, features, _ = g_ema([latent_in], input_is_latent=True, return_features=True)
             feature = features[params.feature_id].detach().clone().to(device)
+            feature.requires_grad = True
+        else :
+            feature = features_in.detach().clone().to(device)
             feature.requires_grad = True
 
     with torch.no_grad():
@@ -182,10 +186,6 @@ def optimize(Ens_r, g_ema, latent_mean, device, params, hybrid=False):
     if params.lambda_ms_ssim :
         ms_ssim_module = MS_SSIM(data_range=1, size_average=True, channel=3)
 
-    ### Focal Frequency Loss ###
-    if params.lambda_focal_frequency_loss:
-        focal_frequency_loss_module = FocalFrequencyLoss()
-
     list_perceptual_loss = []
     list_time_to_compute_vgg_loss=[]
     list_time_to_compute_mse_loss=[]
@@ -208,11 +208,9 @@ def optimize(Ens_r, g_ema, latent_mean, device, params, hybrid=False):
             features_in = [None]*(params.feature_id)+ [feature] + [None]*(13-(params.feature_id)) 
 
         if params.fixed_noise or params.noise_optimize :
-            Gen = g_ema([latent_n], input_is_latent=True, noise=noises, features_in=features_in, feature_scale=1)
+            img_gen, features_out, _ = g_ema([latent_n], input_is_latent=True, return_features=True, noise=noises, features_in=features_in, feature_scale=1)
         else :
-            Gen = g_ema([latent_n], input_is_latent=True, noise=None, features_in=features_in, feature_scale=1)
-
-        img_gen = Gen[0] # generated samples
+            img_gen, features_out, _ = g_ema([latent_n], input_is_latent=True, return_features=True, noise=None, features_in=features_in, feature_scale=1)
 
         batch, channel, height, width = img_gen.shape
         # print('img_gen shape :', img_gen.shape)
@@ -222,6 +220,12 @@ def optimize(Ens_r, g_ema, latent_mean, device, params, hybrid=False):
         else :
             noise_loss = 0
         
+        if params.feature_optimize : 
+            feature_loss = F.mse_loss(features_in[params.feature_id], features_out[params.feature_id])
+            loss += feature_loss*params.lambda_features
+        else :
+            feature_loss=0
+
         # perceptual loss
         perceptual_loss = torch.tensor(0.).to(device)
         if params.lambda_perceptual_loss>0:
@@ -245,12 +249,6 @@ def optimize(Ens_r, g_ema, latent_mean, device, params, hybrid=False):
         if params.lambda_ms_ssim>0. : 
             ms_ssim_loss = 1 - ms_ssim_module((img_gen+1)/2, (Ens_r+1)/2)
             loss += ms_ssim_loss*params.lambda_ms_ssim
-
-        # ffl loss
-        ffl_loss = torch.tensor(0.).to(device)
-        if params.lambda_focal_frequency_loss:
-            ffl_loss = focal_frequency_loss_module(img_gen, Ens_r)
-            loss += ffl_loss * params.lambda_focal_frequency_loss
 
         # mae/mse pixel loss
         if params.pixel_loss_type=='mse' :
@@ -278,11 +276,13 @@ def optimize(Ens_r, g_ema, latent_mean, device, params, hybrid=False):
             display += f" || ms_ssim_loss: {ms_ssim_loss.item():.6f}"
         if params.lambda_perceptual_loss>0. : 
             display += f" || perceptual_loss: {perceptual_loss.item():.6f}"
-        if params.lambda_focal_frequency_loss>0. :
-            display += f" || focal_frequency_loss: {ffl_loss.item():.6f}"
         if params.lambda_lpips_loss>0. :
             display += f" || lpips_loss: {lpips_loss.item():.6f}"
+        if params.feature_optimize:
+            display += f" || feature_loss: {feature_loss.item():.6f}"
         
+
+
         display += f" || mae_loss (test only): {F.l1_loss(img_gen, Ens_r).item():.6f}" 
             
         pbar.set_description((display))
@@ -306,19 +306,19 @@ def optimize(Ens_r, g_ema, latent_mean, device, params, hybrid=False):
                 online_inv_plot(Ens_r.cpu().detach().numpy(), img_gen.cpu().detach().numpy(), figtitle=figtitle, figname=figname)
 
         # gif
-        if params.plot_gif:
-            if i==0 :
-                frames = []
-            fig = online_inv_plot(Ens_r.cpu().detach().numpy(), img_gen.cpu().detach().numpy(), figtitle=figtitle, figname=figname, savefig=False)
-            frames.append(create_frame(fig))
-    if params.plot_gif:
-        # Just for the love of GIFs
-        frame_one = frames[0]
-        frame_one.save(
-            params.output_dir + f"plot_time_step_period_{params.date_index}_{params.lt_index}.gif",
-            format="GIF",
-            append_images=frames,
-            save_all=True,
-            duration=20*params.invstep,
-            loop=0,
-        )
+    #     if params.plot_gif and i%100==0:
+    #         if i==0 :
+    #             frames = []
+    #         fig = online_inv_plot(Ens_r.cpu().detach().numpy(), img_gen.cpu().detach().numpy(), figtitle=figtitle, figname=figname, savefig=False)
+    #         frames.append(create_frame(fig))
+    # if params.plot_gif:
+    #     # Just for the love of GIFs
+    #     frame_one = frames[0]
+    #     frame_one.save(
+    #         params.output_dir + f"plot_time_step_period_{params.date_index}_{params.lt_index}.gif",
+    #         format="GIF",
+    #         append_images=frames,
+    #         save_all=True,
+    #         duration=20*params.invstep,
+    #         loop=0,
+    #     )
