@@ -1,7 +1,6 @@
 import torch
 import matplotlib
 matplotlib.use('Agg')
-from generate_sample import humanbytes
 
 
 
@@ -10,7 +9,6 @@ def init_latent_restyle(params, network, Ens_r):
     
     y_hats = {idx: [] for idx in range(Ens_r.shape[0])}
     mem_cuda = torch.cuda.memory_allocated(device=params.device)
-    print('memory_allocated {}'.format(humanbytes(mem_cuda)))
     # get the image corresponding to the latent average
     avg_sample = network(
         network.latent_avg.unsqueeze(0),
@@ -45,7 +43,6 @@ def init_latent_psp_e4e(params, network, Ens_r):
     y_hat, latent = None, None
 
     mem_cuda = torch.cuda.memory_allocated(device=params.device)
-    print('memory_allocated {}'.format(humanbytes(mem_cuda)))
 
     with torch.no_grad():             
         Ens_r = Ens_r.to(params.device)
@@ -70,6 +67,6 @@ def init_latent_featureStyle(params, network, Ens_r):
 
     with torch.no_grad():             
         Ens_r = Ens_r.to(params.device)
-        concat_img, _, _, _, y_hat, latent = network.forward(Ens_r, feature_scale=1, train=False, return_latent=True)
+        concat_img, feature, _, _, y_hat, latent = network.forward(Ens_r, feature_scale=1, train=False, return_latent=True)
 
-    return latent
+    return latent, feature

@@ -19,7 +19,7 @@ DATA_DIR_F='/home/brochetc/Bureau/Thèse/présentations_thèse/images_des_entrai
 #output_dir='/scratch/mrmn/brochetc/GAN_2D/Set_13/resnet_128_wgan-hinge_64_64_1_0.001_0.001/Instance_1/log/' # change to your path
 CI=[78,206,55,183]
 
-
+# TODO : Not sure this file is useful, might think to delete it in a near future!  @clement ?
 N_tests=1
 
 for n in range(N_tests):

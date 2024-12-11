@@ -129,26 +129,23 @@ def online_pert_plot(
           ):
 
         fig, ax = plt.subplots(figsize=(15,5*len(var_names)), nrows=3, ncols=len(var_names))
-        for var in var_names:
+        for id, var in enumerate(var_names):
             var_id = dict_var[var]
 
             vmin = np.min([np.min(packsample[:,var_id,crop[0]:crop[1],crop[2]:crop[3]])])
             vmax = np.min([np.max(packsample[:,var_id,crop[0]:crop[1],crop[2]:crop[3]])])
 
-            ax = fig.add_subplot(331)
-            ax.set_title(f"{var} real")
-            im = ax.imshow(packsample[mem_idx,var_id,crop[0]:crop[1],crop[2]:crop[3]], clim=(vmin, vmax), origin="lower", cmap=colormap_var[id])
-            fig.colorbar(im, shrink=0.5)
+            ax[0][id].set_title(f"{var} real")
+            im = ax[0][id].imshow(packsample[mem_idx,var_id,crop[0]:crop[1],crop[2]:crop[3]], clim=(vmin, vmax), origin="lower", cmap=colormap_var[id])
+            fig.colorbar(im, ax=ax[0][id], shrink=0.5)
 
-            ax = fig.add_subplot(334)
-            im = ax.imshow(invsample[mem_idx,var_id,crop[0]:crop[1],crop[2]:crop[3]], clim=(vmin, vmax), origin="lower", cmap=colormap_var[id])
-            ax.set_title(f"{var} inv")
-            fig.colorbar(im, shrink=0.5)
+            ax[1][id].set_title(f"{var} inv")
+            im = ax[1][id].imshow(invsample[mem_idx,var_id,crop[0]:crop[1],crop[2]:crop[3]], clim=(vmin, vmax), origin="lower", cmap=colormap_var[id])
+            fig.colorbar(im, ax=ax[1][id], shrink=0.5)
 
-            ax = fig.add_subplot(337)
-            ax.set_title(f"{var} perturbated")
-            im = ax.imshow(pert_sample[mem_pert_idx,var_id,crop[0]:crop[1],crop[2]:crop[3]], clim=(vmin, vmax), origin="lower", cmap=colormap_var[id])
-            fig.colorbar(im, shrink=0.5)
+            ax[2][id].set_title(f"{var} perturbated")
+            im = ax[2][id].imshow(pert_sample[mem_pert_idx,var_id,crop[0]:crop[1],crop[2]:crop[3]], clim=(vmin, vmax), origin="lower", cmap=colormap_var[id])
+            fig.colorbar(im, ax=ax[2][id], shrink=0.5)
 
         fig.suptitle(figtitle)
         fig.tight_layout()

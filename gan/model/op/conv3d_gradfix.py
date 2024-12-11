@@ -1,0 +1,181 @@
+import contextlib
+import warnings
+
+import torch
+from torch import autograd
+from torch.nn import functional as F
+
+enabled = True
+weight_gradients_disabled = False
+
+
+@contextlib.contextmanager
+def no_weight_gradients():
+    global weight_gradients_disabled
+
+    old = weight_gradients_disabled
+    weight_gradients_disabled = True
+    yield
+    weight_gradients_disabled = old
+
+def conv3d(input, weight, bias=None, stride=1, padding=0, dilation=1, groups=1):
+
+    return F.conv3d(
+        input=input,
+        weight=weight,
+        bias=bias,
+        stride=stride,
+        padding=padding,
+        dilation=dilation,
+        groups=groups,
+    )
+
+def conv_transpose3d(
+    input,
+    weight,
+    bias=None,
+    stride=1,
+    padding=0,
+    output_padding=0,
+    groups=1,
+    dilation=1,
+):
+
+    return F.conv_transpose3d(
+        input=input,
+        weight=weight,
+        bias=bias,
+        stride=stride,
+        padding=padding,
+        output_padding=output_padding,
+        dilation=dilation,
+        groups=groups,
+    )
+
+
+def ensure_tuple(xs, ndim):
+    xs = tuple(xs) if isinstance(xs, (tuple, list)) else (xs,) * ndim
+
+    return xs
+
+
+conv3d_gradfix_cache = dict()
+
+
+def conv3d_gradfix(
+    transpose, weight_shape, stride, padding, output_padding, dilation, groups
+):
+    ndim = 3
+    weight_shape = tuple(weight_shape)
+    stride = ensure_tuple(stride, ndim)
+    padding = ensure_tuple(padding, ndim)
+    output_padding = ensure_tuple(output_padding, ndim)
+    dilation = ensure_tuple(dilation, ndim)
+
+    key = (transpose, weight_shape, stride, padding, output_padding, dilation, groups)
+    if key in conv3d_gradfix_cache:
+        return conv3d_gradfix_cache[key]
+
+    common_kwargs = dict(
+        stride=stride, padding=padding, dilation=dilation, groups=groups
+    )
+
+    def calc_output_padding(input_shape, output_shape):
+        if transpose:
+            return [0, 0, 0]
+
+        return [
+            input_shape[i + 2]
+            - (output_shape[i + 2] - 1) * stride[i]
+            - (1 - 2 * padding[i])
+            - dilation[i] * (weight_shape[i + 2] - 1)
+            for i in range(ndim)
+        ]
+
+    class Conv3d(autograd.Function):
+        @staticmethod
+        def forward(ctx, input, weight, bias):
+            if not transpose:
+                out = F.conv3d(input=input, weight=weight, bias=bias, **common_kwargs)
+            else:
+                out = F.conv_transpose3d(
+                    input=input,
+                    weight=weight,
+                    bias=bias,
+                    output_padding=output_padding,
+                    **common_kwargs,
+                )
+
+            ctx.save_for_backward(input, weight)
+
+            return out
+
+        @staticmethod
+        def backward(ctx, grad_output):
+            # input, weight = ctx.saved_tensors
+            input, weight, bias = ctx.saved_tensors
+            grad_input, grad_weight, grad_bias = None, None, None
+
+            if ctx.needs_input_grad[0]:
+                p = calc_output_padding(
+                    input_shape=input.shape, output_shape=grad_output.shape
+                )
+                grad_input = conv3d_gradfix(
+                    transpose=(not transpose),
+                    weight_shape=weight_shape,
+                    output_padding=p,
+                    **common_kwargs,
+                ).apply(grad_output, weight, None)
+
+            if ctx.needs_input_grad[1] and not weight_gradients_disabled:
+                grad_weight = Conv3dGradWeight.apply(grad_output, input)
+
+            if ctx.needs_input_grad[2]:
+                grad_bias = grad_output.sum((0, 2, 3, 4))
+
+            return grad_input, grad_weight, grad_bias
+
+    class Conv3dGradWeight(autograd.Function):
+        @staticmethod
+        def forward(ctx, grad_output, input, bias):
+            bias_shape = bias.shape if (bias is not None) else None
+            empty_weight = torch.empty(
+                weight_shape,
+                dtype=input.dtype, 
+                layout=input.layout, 
+                device=input.device
+            )
+            grad_weight = torch.ops.aten.convolution_backward(grad_output, input, empty_weight, 
+                                        bias_sizes=bias_shape, stride=stride, 
+                                        padding=padding, dilation=dilation, 
+                                        transposed=transpose,
+                                        output_padding=output_padding, groups=groups, 
+                                        output_mask=[0,1,0])[1]
+          
+            ctx.save_for_backward(grad_output, input)
+
+            return grad_weight
+
+        @staticmethod
+        def backward(ctx, grad_grad_weight):
+            grad_output, input = ctx.saved_tensors
+            grad_grad_output, grad_grad_input = None, None
+
+            if ctx.needs_input_grad[0]:
+                grad_grad_output = Conv3d.apply(input, grad_grad_weight, None)
+
+            if ctx.needs_input_grad[1]:
+                p = calc_output_padding(
+                    input_shape=input.shape, output_shape=grad_output.shape
+                )
+                grad_grad_input = conv3d_gradfix(
+                    transpose=(not transpose),
+                    weight_shape=weight_shape,
+                    output_padding=p,
+                    **common_kwargs,
+                ).apply(grad_output, grad_grad_weight, None)
+            return grad_grad_output, grad_grad_input, None
+
+    conv3d_gradfix_cache[key] = Conv3d
+
+    return Conv3d

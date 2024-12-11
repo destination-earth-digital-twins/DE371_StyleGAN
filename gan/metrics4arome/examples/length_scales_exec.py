@@ -8,6 +8,7 @@ Created on Wed Aug 31 13:52:03 2022
 Executable code for length scale testing
 
 """
+# TODO : Not sure this file is useful, might think to delete it in a near future!  @clement ?
 
 import length_scales as ls
 import numpy as np

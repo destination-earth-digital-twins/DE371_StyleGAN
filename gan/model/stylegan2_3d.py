@@ -6,8 +6,10 @@ from torch import nn
 from torch.nn import functional as F
 import numpy as np
 
-from gan.model.op_3d import upfirdn3d, conv3d_gradfix
+from gan.model.op.conv3d_gradfix import conv3d_gradfix
+from gan.model.op.upfirdn3d import upfirdn3d
 
+# TODO : The code needs to be reviewed by an other person than Victor (ex : @clement))
 
 library = {'stylegan2_3d' : {'G' :  'Generator3D', 'D' : 'Discriminator3D'}}
 
@@ -111,7 +113,7 @@ class EqualConv3d(nn.Module):
         self.weight = nn.Parameter(
             torch.randn(out_channel, in_channel, *kernel_size)
         )
-        self.scale = 1 / math.sqrt(in_channel * kernel_size[-1] ** 2)
+        self.scale = 1 / math.sqrt(in_channel * kernel_size[-1] ** 3)
 
         self.stride = stride
         self.padding = padding

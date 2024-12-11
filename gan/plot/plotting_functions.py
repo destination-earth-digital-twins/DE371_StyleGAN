@@ -11,7 +11,6 @@ Plotting Functions for 2D experiments
 
 
 import matplotlib.pyplot as plt
-import matplotlib as mpl
 from torch import empty
 import torch
 from numpy import log10, histogram

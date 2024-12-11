@@ -15,8 +15,6 @@ import os
 import numpy as np
 import yaml
 import pandas as pd
-from encoders.utils import common, train_utils
-import matplotlib.pyplot as plt
 import matplotlib
 matplotlib.use('Agg')
 import perturbation.utils as utils
@@ -25,11 +23,7 @@ from inversion.hybrid_based.inversion import init_latent_restyle, init_latent_ps
 from encoders.models.e4e import e4e
 from encoders.models.in_domain import inDomain
 from encoders.models.feature_style_encoder.feature_style_module import FeatureStyleModule
-from generate_sample import humanbytes
-from time import time
-from inversion.encoder_based.utils import log_images_diff
 import inversion.optimization_based.inversion as inv
-from time import time
 
 torch.manual_seed(42) #reproducibility of runs
 
@@ -83,6 +77,9 @@ if __name__=="__main__" :
     
     parser.add_argument("--noise_strength", type=float, default=0.005, help="strength of the noise level")
     parser.add_argument("--noise_ramp",type=float,default=0.75,help="duration of the noise level decay")
+    parser.add_argument("--feature_optimize", action='store_true', help="to enable optimization of feature map")
+    parser.add_argument("--feature_id", type=int, default=6, help="features to optimize")
+    parser.add_argument("--lambda_features", type=float, default=1, help="weight of the noise regularization")
 
     # Noise optimization and loss noise parameter
     parser.add_argument("--noise_optimize", action='store_true', help="joint optimization of noise and latent code (1) or latent code optimization only (0)?")
@@ -99,6 +96,7 @@ if __name__=="__main__" :
     parser.add_argument("--lambda_focal_frequency_loss", type=float, default=0.0, help="weight of the vgg (perceptual) loss")
 
     # VGG
+    parser.add_argument("--lambda_lpips_loss", type=float, default=0.0, help="weight of the LPIPS loss")
     parser.add_argument("--lambda_perceptual_loss", type=float, default=1.0, help="weight of the vgg (perceptual) loss")
     parser.add_argument("--resize_input", type=float, default=0.0, help="resize input for vgg loss")
     parser.add_argument("--network_type", type=str, default='vgg16', choices=['vgg16','vgg11','vgg13','vgg19','alexnet','squeezenet1_1','resnet18','resnet34','resnet50','resnet101','resnet152','set_vit_b_16'])
@@ -269,6 +267,7 @@ if __name__=="__main__" :
                     if params.pack_dir :
                         np.save(params.pack_dir+f'Rsemble_sequence_{datename}.npy', Ens_r.numpy().astype(np.float32))
 
+                init_feature=None
                 ################ Forwarding encoder #################
                 if params.encoder_framework_type  in ['restyle-pSp', "restyle-e4e"]:
                     init_latent = init_latent_restyle(params=params, network=network, Ens_r=Ens_r)
@@ -277,7 +276,7 @@ if __name__=="__main__" :
                 elif params.encoder_framework_type == 'inDomain':
                     init_latent = init_latent_inDomain(params=params, network=network, Ens_r=Ens_r)
                 elif params.encoder_framework_type == 'FeatureStyle':
-                    init_latent = init_latent_featureStyle(params=params, network=network, Ens_r=Ens_r)
+                    init_latent, init_feature = init_latent_featureStyle(params=params, network=network, Ens_r=Ens_r)
                 else :
                     raise NotImplementedError
 
@@ -288,6 +287,7 @@ if __name__=="__main__" :
                     latent_mean=init_latent,
                     device=params.device,
                     params=params,
+                    features_in=init_feature,
                     hybrid=True
                 )
                 

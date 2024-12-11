@@ -15,7 +15,7 @@ import gan.memutils.memory_consumption as memco
 import gan.metrics4arome as METR
 import gan.metrics4arome.spectrum_analysis as Spectral
 import gan.metrics4arome.wasserstein_distances as WD
-import metrics4arome.inception_metrics as inception
+import gan.metrics4arome.inception_metrics as inception
 import gan.model.trainer_ddp as trainer
 import gan.plot.plotting_functions as plf
 import torch
