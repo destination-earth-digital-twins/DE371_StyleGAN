@@ -1,3 +1,5 @@
+''' Inspired from : https://github.com/yuval-alaluf/hyperstyle/blob/main/training/coach_hyperstyle.py '''
+
 import os
 import matplotlib
 import matplotlib.pyplot as plt
@@ -11,7 +13,7 @@ from tqdm import tqdm
 from encoders.utils import common, train_utils
 from encoders.configs import data_configs
 from encoders.datasets.arome_dataset import AromeDataset
-from encoders.models.psp import pSp
+from encoders.models.hyperstyle import HyperStyle
 from encoders.training.ranger import Ranger
 from inversion.perceptual_loss.perceptual_loss import PerceptualLoss
 import numpy as np
@@ -25,7 +27,7 @@ class Coach:
         self.config.device = self.device
 
         # Initialize network
-        self.net = pSp(self.config, restyle_mode=False).to(self.device)
+        self.net = HyperStyle(self.config).to(self.device)
 
         # Estimate latent_avg via dense sampling if latent_avg is not available
         if self.net.latent_avg is None:
@@ -35,9 +37,6 @@ class Coach:
         
         if self.config.perceptual_lambda > 0 or self.config.perceptual_lambda_on_fake_samples > 0:
             self.perceptual_loss = PerceptualLoss(config=self.config, device=self.device, multi_scale=self.config.multi_scale_perceptual_loss).to(self.device).eval()
-
-        if not self.config.training_on_real_samples and not self.config.training_on_fake_samples :     
-            raise NotImplementedError
                 
 		# Initialize optimizer
         self.optimizer = self.configure_optimizers()
@@ -70,34 +69,59 @@ class Coach:
         self.best_val_loss = None
         if self.config.save_interval is None:
             self.config.save_interval = self.config.max_steps
+    
+    def perform_forward_on_batch(self, x, y, y_hat, latent, train=False):
+        latent, weights_deltas, w_inversion, initial_inversion = None, None, None, None
+        cur_loss_dict, codes = None, None
+        y_hats = {idx: [] for idx in range(x.shape[0])}
+        for iter in range(self.config.n_iters_per_batch):
+            if iter > 0 and train:
+                weights_deltas = [w.clone().detach().requires_grad_(True) if w is not None else w
+                                  for w in weights_deltas]
+                y_hat = y_hat.clone().detach().requires_grad_(True)
+            y_hat, latent, weights_deltas, codes, w_inversion = self.net.forward(x,
+                                                                                 y_hat=y_hat,
+                                                                                 codes=codes,
+                                                                                 weights_deltas=weights_deltas,
+                                                                                 return_latents=True,
+                                                                                 randomize_noise=False,
+                                                                                 return_weight_deltas_and_codes=True,
+                                                                                 resize=True)
+            if iter == 0:
+                initial_inversion = w_inversion
+            loss, cur_loss_dict = self.calc_loss(x=y,
+                                                y=y,
+                                                y_hat=y_hat,
+                                                latent=latent,
+                                                weights_deltas=weights_deltas)
+            if train:
+                loss.backward()
+
+            # store intermediate outputs
+            for idx in range(x.shape[0]):
+                y_hats[idx].append([y_hat[idx].detach().cpu()])
+        return x, y, y_hats, cur_loss_dict, initial_inversion
+
 
     def train(self):
         self.net.train()
         self.pbar = tqdm(range(self.config.max_steps))
         while self.global_step < self.config.max_steps:
             for batch_idx, batch in enumerate(self.train_dataloader):
+
                 self.optimizer.zero_grad()
                 x, y = batch
-                # x, y 
                 y_hat, latent = None, None
-                if self.config.training_on_real_samples :
-                    x, y = x.to(self.device).float(), y.to(self.device).float()
-                    y_hat, latent = self.net.forward(x, return_latents=True)
-                
-                if self.config.training_on_fake_samples:
-                    # generate fake images
-                    z = torch.randn((x.shape[0], 512), device=self.config.device).detach()
-                    fake_img, fake_w, _ = self.net.decoder([z],
-                                                           return_latents=True,
-                                                           randomize_noise=False
-                                                           )
-                    estimated_fake_img, estimated_fake_w = self.net.forward(fake_img, return_latents=True)
-                    
-                    loss, loss_dict = self.calc_loss(fake_img, fake_img, estimated_fake_img, latent, fake_w, estimated_fake_w, option='train', sample_origin='fake_sample')
-                else :
-                    loss, loss_dict = self.calc_loss(x, y, y_hat, latent, option='train', sample_origin='true_sample')
 
-                loss.backward()
+
+                x, y, y_hat, loss_dict, w_inversion = self.perform_forward_on_batch(
+                    x,
+                    y,
+                    y_hat,
+                    latent,
+                    train=True
+                )
+
                 self.optimizer.step()
 
 				# Logging related
@@ -110,10 +134,10 @@ class Coach:
                 
                 if self.global_step % self.config.image_interval == 0: # or (self.global_step < 1000 and self.global_step % 25 == 0):
                     print('plotting for train')
-                    if not self.config.training_on_real_samples :
-                        self.parse_and_log_images(fake_img, fake_img, estimated_fake_img, title='samples/train')
-                    else :
-                        self.parse_and_log_images(x, y, y_hat, title='samples/train')
+                    # if not self.config.training_on_real_samples :
+                    #     self.parse_and_log_images(fake_img, fake_img, estimated_fake_img, title='samples/train')
+                    # else :
+                    self.parse_and_log_images(x, y, y_hat, w_inversion, title='samples/train')
 
                     
                     
@@ -151,29 +175,22 @@ class Coach:
         agg_loss_dict = []
         for batch_idx, batch in enumerate(self.test_dataloader):
             x, y = batch
-            
+            x, y = x.to(self.device).float(), y.to(self.device).float()
+            y_hat, latent = None, None
             with torch.no_grad():
-                x, y = x.to(self.device).float(), y.to(self.device).float()
-                
-                y_hat, latent = self.net.forward(y, return_latents=True)
-                _, cur_loss_dict = self.calc_loss(x, y, y_hat, latent, option='test', sample_origin='true_sample')
-                if self.config.training_on_fake_samples:
-                    # generate fake images
-                    z = torch.randn((x.shape[0], 512), device=self.config.device).detach()
-                    fake_img, fake_w, _ = self.net.decoder([z],
-                                                           return_latents=True,
-                                                           randomize_noise=False
-                                                           )
-                    estimated_fake_img, estimated_fake_w = self.net.forward(fake_img, return_latents=True)
-                    _, cur_loss_dict = self.calc_loss(fake_img, fake_img, estimated_fake_img, latent, fake_w, estimated_fake_w, option='test', sample_origin='fake_sample')
+                x, y, y_hat, cur_loss_dict, w_inversion = self.perform_forward_on_batch(
+                    x,
+                    y,
+                    y_hat,
+                    latent,
+                    train=True
+                )
 
             agg_loss_dict.append(cur_loss_dict)
 
 			# Logging related
             if batch_idx % 50 == 0:
-                if not self.config.training_on_real_samples :
-                    self.parse_and_log_images(fake_img, fake_img, estimated_fake_img, title='samples/test_fake_img', subscript='{:04d}'.format(batch_idx))
-                self.parse_and_log_images(x, y, y_hat, title='samples/test', subscript='{:04d}'.format(batch_idx))
+                self.parse_and_log_images(x, y, y_hat, w_inversion, title='samples/test', subscript='{:04d}'.format(batch_idx))
 
 			# For first step just do sanity test on small amount of data
             if self.global_step == 0 and batch_idx >= 4:
@@ -208,7 +225,7 @@ class Coach:
                 f.write('Step - {}, \n{}\n'.format(self.global_step, loss_dict))
 
     def configure_optimizers(self):
-        params = list(self.net.encoder.parameters())
+        params = list(self.net.hypernet.parameters())
         if self.config.train_decoder:
             params += list(self.net.decoder.parameters())
         if self.config.optim_name == 'adam':
@@ -249,33 +266,27 @@ class Coach:
         print("Number of test samples: {}".format(len(test_dataset)))
         return train_dataset, test_dataset
 
-    def calc_loss(self, x, y, y_hat, latent, fake_w=None, estimated_fake_w=None, option ='train', sample_origin='true_sample'):
+    def calc_loss(self, x, y, y_hat, latent, weights_deltas, option ='train'):
         loss_dict = {}
         loss = 0.0
         
         if self.config.l2_lambda > 0:
             loss_l2 = F.mse_loss(y_hat, y)
-            loss_dict['loss_l2_on_'+sample_origin] = float(loss_l2)
+            loss_dict['loss_l2'] = float(loss_l2)
             loss += loss_l2 * self.config.l2_lambda
         
         if self.config.perceptual_lambda > 0 :
             perceptual_loss = self.perceptual_loss(y_hat, y)
-            loss_dict['perceptual_loss_on_'+sample_origin] = float(perceptual_loss)
+            loss_dict['perceptual_loss'] = float(perceptual_loss)
             loss += perceptual_loss * self.config.perceptual_lambda
 
         if option != 'train' :
             if self.config.l2_lambda==0 :
                 loss_l2 = F.mse_loss(y_hat, y)
-                loss_dict['loss_l2_on_'+sample_origin] = float(loss_l2)
+                loss_dict['loss_l2'] = float(loss_l2)
             
             loss_mae = F.l1_loss(y_hat,y)
-            loss_dict['loss_mae_on_'+sample_origin] = float(loss_mae)
-            
-        
-        if self.config.l2_lambda_on_fake_latent > 0 and (estimated_fake_w is not None and fake_w is not None):
-            loss_l2_on_fake_latent = F.mse_loss(estimated_fake_w, fake_w)
-            loss_dict['loss_l2_on_fake_latent'] = float(loss_l2_on_fake_latent)
-            loss += loss_l2_on_fake_latent * self.config.l2_lambda_on_fake_latent
+            loss_dict['loss_mae'] = float(loss_mae)
 
         loss_dict['loss_total'] = float(loss)
         return loss, loss_dict
@@ -297,11 +308,19 @@ class Coach:
 
     def parse_and_log_images(self, x, y, y_hat, title, subscript=None, display_count=1):
         sample_data = []
-        for i in range(display_count):                
+        for i in range(display_count):
+            if isinstance(y_hat, dict):
+                output = [
+					[common.numpyfy(y_hat[i][iter_idx][0])]
+					for iter_idx in range(len(y_hat[i]))
+				]
+            else:
+                output = [common.numpyfy(y_hat[i])]
+                
             cur_sample_data = {
 				'input': common.numpyfy(x[i]),
 				'target': common.numpyfy(y[i]),
-				'output': [common.numpyfy(y_hat[i])],
+				'output': output, # ouput has len = the number of iterations for residual
 			}
 
             sample_data.append(cur_sample_data)
@@ -310,7 +329,7 @@ class Coach:
 
     def log_images(self, name, sample_data, subscript=None, log_latest=False):
 
-        fig = common.vis_samples_diff(sample_data, self.config.n_vars, single=True)
+        fig = common.vis_samples(sample_data, self.config.n_vars)
         step = self.global_step
         if log_latest:
             step = 0
@@ -318,6 +337,18 @@ class Coach:
             path = os.path.join(self.log_dir, name, '{}_{:04d}.png'.format(subscript, step))
         else:
             path = os.path.join(self.log_dir, name, '{:04d}.png'.format(step))
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        fig.savefig(path)
+        plt.close(fig)
+
+        fig = common.vis_samples_diff(sample_data, self.config.n_vars)
+        step = self.global_step
+        if log_latest:
+            step = 0
+        if subscript:
+            path = os.path.join(self.log_dir, name, '{}_{:04d}_diff.png'.format(subscript, step))
+        else:
+            path = os.path.join(self.log_dir, name, '{:04d}_diff.png'.format(step))
         os.makedirs(os.path.dirname(path), exist_ok=True)
         fig.savefig(path)
         plt.close(fig)

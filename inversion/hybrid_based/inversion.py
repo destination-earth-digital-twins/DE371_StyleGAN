@@ -7,8 +7,7 @@ from generate_sample import humanbytes
 
 def init_latent_restyle(params, network, Ens_r):
     y_hat, latent = None, None
-    # latent_complete = torch.empty((Ens_r.shape[0], 14, 512))
-    # y_hat_complete = torch.empty(Ens_r.shape)
+    
     y_hats = {idx: [] for idx in range(Ens_r.shape[0])}
     mem_cuda = torch.cuda.memory_allocated(device=params.device)
     print('memory_allocated {}'.format(humanbytes(mem_cuda)))

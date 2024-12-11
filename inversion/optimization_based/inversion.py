@@ -9,13 +9,12 @@ import numpy as np
 import pickle
 from tqdm import tqdm
 from inversion.perceptual_loss.perceptual_loss import PerceptualLoss
-from inversion.plotter import online_inv_plot_2, online_inv_plot
-from inversion.ssim import ssim, ms_ssim, SSIM, MS_SSIM
-from inversion.focal_frequency_loss import FocalFrequencyLoss
+from inversion.plotter import online_inv_plot, online_inv_plot, create_frame
+from inversion.experimental_loss.ssim import ssim, ms_ssim, SSIM, MS_SSIM
+from inversion.experimental_loss.focal_frequency_loss import FocalFrequencyLoss
 from inversion.perceptual_loss.lpips.lpips import LPIPS
 
 import time
-from torch.autograd import Variable
 
 def noise_regularize(noises):
     r'''
@@ -130,8 +129,6 @@ def optimize(Ens_r, g_ema, latent_mean, device, params, hybrid=False):
         latent_in.requires_grad = True
         if params.feature_optimize : 
             _, features, _ = g_ema([latent_in], input_is_latent=True, return_features=True)
-            # print([feature.shape for feature in features])
-            # np.save(f'{params.output_dir}features_mean.npy',np.array(features))
             feature = features[params.feature_id].detach().clone().to(device)
             feature.requires_grad = True
 
@@ -190,12 +187,12 @@ def optimize(Ens_r, g_ema, latent_mean, device, params, hybrid=False):
         focal_frequency_loss_module = FocalFrequencyLoss()
 
     list_perceptual_loss = []
-    list_pixel_loss = []
     list_time_to_compute_vgg_loss=[]
     list_time_to_compute_mse_loss=[]
     features_in = None
 
     for i in pbar:
+        loss = 0
         t = i / params.invstep
         if params.lr_rampdown ==0 and params.lr_rampup == 0:
             lr = params.lr
@@ -221,58 +218,54 @@ def optimize(Ens_r, g_ema, latent_mean, device, params, hybrid=False):
         # print('img_gen shape :', img_gen.shape)
         if params.noise_optimize:
             noise_loss = noise_regularize(noises)
+            loss+=noise_loss*params.lambda_noise
         else :
             noise_loss = 0
         
-        # compute vgg/perceptual loss
+        # perceptual loss
         perceptual_loss = torch.tensor(0.).to(device)
         if params.lambda_perceptual_loss>0:
-                t0 = time.time()
-                perceptual_loss = perceptual_loss_class(img_gen=img_gen)
-                list_time_to_compute_vgg_loss.append(time.time()-t0)
-                list_perceptual_loss.append(perceptual_loss.cpu().detach().numpy())
+            t0 = time.time()
+            perceptual_loss = perceptual_loss_class(img_gen=img_gen)
+            list_time_to_compute_vgg_loss.append(time.time()-t0)
+            list_perceptual_loss.append(perceptual_loss.cpu().detach().numpy())
+            loss += perceptual_loss*params.lambda_perceptual_loss
         else :
             list_time_to_compute_vgg_loss.append(np.NaN)
             list_perceptual_loss.append(np.NaN)
         
+        # lpips loss
         lpips_loss = torch.tensor(0.).to(device)
         if params.lambda_lpips_loss>0:
             lpips_loss = lpips_loss_class(Ens_r, img_gen)
+            loss += lpips_loss*params.lambda_lpips_loss
 
-        # compute ms_ssim loss
+        # ms_ssim loss
         ms_ssim_loss = torch.tensor(0.).to(device)
         if params.lambda_ms_ssim>0. : 
             ms_ssim_loss = 1 - ms_ssim_module((img_gen+1)/2, (Ens_r+1)/2)
+            loss += ms_ssim_loss*params.lambda_ms_ssim
 
-        # compute ffl loss
+        # ffl loss
         ffl_loss = torch.tensor(0.).to(device)
         if params.lambda_focal_frequency_loss:
             ffl_loss = focal_frequency_loss_module(img_gen, Ens_r)
+            loss += ffl_loss * params.lambda_focal_frequency_loss
 
-        # compute mae/mse pixel loss
+        # mae/mse pixel loss
         if params.pixel_loss_type=='mse' :
             t0 = time.time()
             pixel_loss = F.mse_loss(img_gen, Ens_r)
             list_time_to_compute_mse_loss.append(time.time()-t0)
-            list_pixel_loss.append(pixel_loss.cpu().detach().numpy())
+            loss += params.lambda_pixel*pixel_loss
 
         elif params.pixel_loss_type=='mae':
             pixel_loss = F.l1_loss(img_gen, Ens_r)
+            loss+=params.lambda_pixel*pixel_loss
 
         else:
             raise ValueError(f"unknown pixel_loss_type: {params.pixel_loss_type}")
-
-        if params.lambda_perceptual_loss>0. :
-            weighted_perceptual_loss = params.lambda_perceptual_loss*perceptual_loss
-        else :
-            weighted_perceptual_loss=0
-
-        # compute total loss
-        if not params.progressive_loss_mode :
-            loss = params.noise_optimize*params.lambda_noise*noise_loss + params.lambda_pixel*pixel_loss + params.lambda_ms_ssim*ms_ssim_loss + weighted_perceptual_loss + ffl_loss * params.lambda_focal_frequency_loss + lpips_loss * params.lambda_lpips_loss
-        else :
-            loss = params.noise_optimize*params.lambda_noise*noise_loss + params.lambda_pixel*pixel_loss+weighted_perceptual_loss+params.lambda_ms_ssim*ms_ssim_loss + ffl_loss * params.lambda_focal_frequency_loss*t  + lpips_loss * params.lambda_lpips_loss * t
-
+    
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
@@ -288,23 +281,15 @@ def optimize(Ens_r, g_ema, latent_mean, device, params, hybrid=False):
         if params.lambda_focal_frequency_loss>0. :
             display += f" || focal_frequency_loss: {ffl_loss.item():.6f}"
         if params.lambda_lpips_loss>0. :
-            display += f" || lambda_lpips_loss: {lpips_loss.item():.6f}"
-        # if weighted_perceptual_loss: 
-        #     display += f" || weighted_perceptual_loss: {weighted_perceptual_loss:.6f}"
-        # if params.lambda_pixel>0. : 
-        #     display += f" || pixel_loss: {pixel_loss.item():.6f}"
-        #     display += f" || weighted_pixel_loss: {params.lambda_pixel*pixel_loss.item():.6f}"
-            
-        # if params.lambda_noise>0. : 
-        #     display += f" || noise_loss: {noise_loss:.6f}"
-        #     display += f" || weighted_noise_loss: {params.noise_optimize*params.lambda_noise*noise_loss:.6f}"
-            
+            display += f" || lpips_loss: {lpips_loss.item():.6f}"
+        
+        display += f" || mae_loss (test only): {F.l1_loss(img_gen, Ens_r).item():.6f}" 
             
         pbar.set_description((display))
 
         if (i + 1) % 100 == 0 or i==params.invstep-1:
             latent_path.append(latent_in.detach().clone())
-
+        
         if i+1 in params.inv_checkpoints:
             print(f"--saving checkpoint {i+1}:", params.output_dir+'w_{}_{}_{}.npy'.format(params.date_index,params.lt_index,i+1))
             np.save(params.output_dir+'w_{}_{}_{}.npy'.format(params.date_index,params.lt_index,i+1),latent_in.cpu().detach().numpy())
@@ -318,4 +303,22 @@ def optimize(Ens_r, g_ema, latent_mean, device, params, hybrid=False):
                 figname = params.output_dir + f"{params.date_index}_{params.lt_index}_step_{i+1}.png"
                 print(f"--plotting checkpoint {i+1}: {figname}")
                 figtitle = f"{params.date_index}_{params.lt_index}_step_{i+1}"
-                online_inv_plot_2(Ens_r.cpu().detach().numpy(), img_gen.cpu().detach().numpy(), figtitle=figtitle, figname=figname)
+                online_inv_plot(Ens_r.cpu().detach().numpy(), img_gen.cpu().detach().numpy(), figtitle=figtitle, figname=figname)
+
+        # gif
+        if params.plot_gif:
+            if i==0 :
+                frames = []
+            fig = online_inv_plot(Ens_r.cpu().detach().numpy(), img_gen.cpu().detach().numpy(), figtitle=figtitle, figname=figname, savefig=False)
+            frames.append(create_frame(fig))
+    if params.plot_gif:
+        # Just for the love of GIFs
+        frame_one = frames[0]
+        frame_one.save(
+            params.output_dir + f"plot_time_step_period_{params.date_index}_{params.lt_index}.gif",
+            format="GIF",
+            append_images=frames,
+            save_all=True,
+            duration=20*params.invstep,
+            loop=0,
+        )

@@ -84,12 +84,6 @@ if __name__=="__main__" :
     parser.add_argument("--noise_strength", type=float, default=0.005, help="strength of the noise level")
     parser.add_argument("--noise_ramp",type=float,default=0.75,help="duration of the noise level decay")
 
-    # Progressive loss mode
-    # action='store_true': 
-    #   Sets the value to True if the argument is called without any value (e.g. --progressive_loss_mode)
-    #   If the arguments is omitted, parser sets the value to False
-    parser.add_argument("--progressive_loss_mode", action='store_true', help="Progressive Loss between pixel loss and perceptual loss | Start : Only MSE | End : Only Perceptual")
-
     # Noise optimization and loss noise parameter
     parser.add_argument("--noise_optimize", action='store_true', help="joint optimization of noise and latent code (1) or latent code optimization only (0)?")
     parser.add_argument("--lambda_noise", type=float, default=1e5, help="weight of the noise regularization")

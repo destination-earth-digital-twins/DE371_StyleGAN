@@ -77,12 +77,6 @@ if __name__=="__main__" :
     parser.add_argument("--var_indices", type=utils.str2intlist, default=[1,2,3])
     parser.add_argument("--Shape", type=tuple, default=(3,256,256), help='size of the samples')
     parser.add_argument("--crop_indices", type=int, nargs='+', default=[0,256,0,256])
-    
-    # Progressive loss mode
-    # action='store_true': 
-    #   Sets the value to True if the argument is called without any value (e.g. --progressive_loss_mode)
-    #   If the arguments is omitted, parser sets the value to False
-    parser.add_argument("--progressive_loss_mode", action='store_true', help="Progressive Loss between pixel loss and perceptual loss | Start : Only MSE | End : Only Perceptual")
 
     # Noise optimization and loss noise parameter
     parser.add_argument("--noise_optimize", action='store_true', help="joint optimization of noise and latent code (1) or latent code optimization only (0)?")
@@ -100,7 +94,8 @@ if __name__=="__main__" :
     # Focal Frequency Loss
     parser.add_argument("--lambda_focal_frequency_loss", type=float, default=0.0, help="weight of the vgg (perceptual) loss")
 
-    # Perceptual Loss
+    # Perceptual Loss / LPIPS loss
+    parser.add_argument("--lambda_lpips_loss", type=float, default=1.0, help="weight of the LPIPS loss")
     parser.add_argument("--lambda_perceptual_loss", type=float, default=1.0, help="weight of the vgg (perceptual) loss")
     parser.add_argument("--resize_input", type=float, default=0.0, help="resize input for vgg loss")
     parser.add_argument("--network_type", type=str, default='vgg16', choices=['vgg16','vgg11','vgg13','vgg19','alexnet','squeezenet1_1','resnet18','resnet34','resnet50','resnet101','resnet152','set_vit_b_16'])
@@ -118,8 +113,8 @@ if __name__=="__main__" :
     parser.add_argument("--invstep", type=int, default=1000, help="optimize iterations")
     parser.add_argument("--inv_checkpoints", type=utils.str2intlist, default=[100,200,300,400,500,1000])
     parser.add_argument("--plot_checkpoint", action='store_true')
+    parser.add_argument("--plot_gif", action='store_true', help="Plotting gif of optimization")
     
-    parser.add_argument("--lambda_lpips_loss", type=float, default=1.0, help="weight of the LPIPS loss")
 
     # lambda_ms_ssim
     parser.add_argument("--lambda_ms_ssim", type=float, default=0, help="weight of the MS-SSIM loss")
@@ -133,8 +128,7 @@ if __name__=="__main__" :
     parser.add_argument("--seed", type=int, default=42)
     
     params = parser.parse_args()
-    print(type(params))
-
+    
     # fix some of the inputs
     params.Shape = tuple(params.Shape)
     params.crop_indices = tuple(params.crop_indices)
@@ -146,8 +140,7 @@ if __name__=="__main__" :
         os.makedirs(params.pack_dir)
 
     # set the seed for reproduciibility of runs
-    seed = params.seed
-    torch.manual_seed(seed)
+    torch.manual_seed(params.seed)
 
     ################## loading dates and file names ##
     df = pd.read_csv(params.real_data_dir + params.dates_file)
@@ -200,18 +193,12 @@ if __name__=="__main__" :
 
     ########### write inversion parameters to file ############
     config_file = params.output_dir + "inversion_params.yaml"
-    print("writing params config file:", config_file)
     try:
         file=open(config_file,"w")
         yaml.dump(params.__dict__,file)
     except Exception as e:
          print("unable to write params config file")
          print(e)
-
-    # print inversion parameters
-    print("\nInversion parameters:")
-    for key, value in params.__dict__.items():
-        print(f"{key}: {value}")
 
     #################### main loop ##################
     for date_ in list_dates:
@@ -226,23 +213,23 @@ if __name__=="__main__" :
             already_exist = []
             if params.pack_dir != '' :
                 if os.path.isfile(params.pack_dir+f'Rsemble_{datename}_{lt}.npy'):
-                    print(params.pack_dir+f'Rsemble_{datename}_{lt}.npy' + 'Pack already Exist')
+                    # print(params.pack_dir+f'Rsemble_{datename}_{lt}.npy' + 'Pack already Exist')
                     already_exist.append(True)
                 else :
-                    print(params.pack_dir+f'Rsemble_{datename}_{lt}.npy' + 'Pack do not Exist')
+                    # print(params.pack_dir+f'Rsemble_{datename}_{lt}.npy' + 'Pack do not Exist')
                     already_exist.append(False)
             for i in params.inv_checkpoints :
                 if os.path.isfile(params.output_dir+'w_{}_{}_{}.npy'.format(params.date_index,lt,i)):
-                    print(params.output_dir+'w_{}_{}_{}.npy'.format(params.date_index,lt,i) + ' already Exist')
+                    # print(params.output_dir+'w_{}_{}_{}.npy'.format(params.date_index,lt,i) + ' already Exist')
                     already_exist.append(True)
                 else :
-                    print(params.output_dir+'w_{}_{}_{}.npy'.format(params.date_index,lt,i) + ' do not Exist')
+                    # print(params.output_dir+'w_{}_{}_{}.npy'.format(params.date_index,lt,i) + ' do not Exist')
                     already_exist.append(False)
                 if os.path.isfile(params.output_dir+'invertFsemble_{}_{}_{}.npy'.format(params.date_index,lt,i)):
-                    print(params.output_dir+'invertFsemble_{}_{}_{}.npy'.format(params.date_index,lt,i) +' already Exist')
+                    # print(params.output_dir+'invertFsemble_{}_{}_{}.npy'.format(params.date_index,lt,i) +' already Exist')
                     already_exist.append(True)
                 else :
-                    print(params.output_dir+'invertFsemble_{}_{}_{}.npy'.format(params.date_index,lt,i) + ' do not Exist')
+                    # print(params.output_dir+'invertFsemble_{}_{}_{}.npy'.format(params.date_index,lt,i) + ' do not Exist')
                     already_exist.append(False)
                 # if os.path.isfile(params.output_dir+'noise_{}_{}_{}.p'.format(params.date_index,lt,i)):
                 #     already_exist.append(True)
