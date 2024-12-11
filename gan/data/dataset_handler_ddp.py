@@ -140,6 +140,9 @@ class ISDataset(Dataset):
                 
                 _idx = idx + self.nb_members*self.config.timestep_period*leadtime_id + self.cursor_incomplete_date*self.nb_leadtime_in_dataset*self.nb_members
                 if self.config.cutoff_dataset_leadtimes :
+                    # To consider always the same leadtime per sequence
+                    # ex : if cutoff_dataset_leadtimes is True we obtain 3/6/9 everytime we call the get item
+                    # Else we obtain 3/6/9 and then 4/7/10 and then 5/8/11
                     _idx += ((self.nb_leadtime_in_dataset-1)*self.nb_members)*((idx)//self.nb_members)
 
                 # print('sample id', _idx)
