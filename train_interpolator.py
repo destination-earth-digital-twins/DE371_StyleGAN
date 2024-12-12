@@ -114,6 +114,10 @@ class InterpolatorDataset(Dataset):
         self.invstep = invstep
         self.dt = dt
         self.fmt = fmt
+        if len(self.leadtimes) >= 2:
+            self.leadtime_step = self.leadtimes[1] - self.leadtimes[0]
+        else:
+            self.leadtime_step = None
         self.indices = self._build_index()
 
     def __len__(self):
@@ -136,7 +140,7 @@ class InterpolatorDataset(Dataset):
 
         while current_date <= end_date:
             date_str = current_date.strftime("%Y-%m-%d")
-            for t_start in range(self.leadtimes[0], self.leadtimes[-1] - self.dt + 1):
+            for t_start in range(self.leadtimes[0], self.leadtimes[-1] - self.dt + 1, self.leadtime_step):
                 t_end = t_start + self.dt
                 for t_int in range(1, self.dt):
                     t_int = t_start + t_int

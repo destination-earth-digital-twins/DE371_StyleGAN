@@ -21,8 +21,8 @@ export APPTAINER_BINDPATH="/project/home/p200177/DE_371/:/project/home/p200177/D
 module load Apptainer/1.2.4-GCCcore-12.3.0
 
 apptainer exec --nv /project/home/p200177/DE_371/resources/apptainer_container/container.sif torchrun --nproc_per_node=4 --master_port=29500 train_interpolator.py \
-        --model_name='LatentInterpolatorCorrector' \
-        --training_description='1024-3-pixel1000-2020-2021-period' \
+        --model_name='LatentInterpolator' \
+        --training_description='1024-3-pixel1000-perc0-2020-2021-period' \
         --num_workers=16 \
         --weight_decay=1e-5 \
         --learning_rate=1e-3 \
@@ -34,6 +34,7 @@ apptainer exec --nv /project/home/p200177/DE_371/resources/apptainer_container/c
         --normalization="Layer" \
         --dropout=0.0 \
         --epochs=20 \
+        --batch_size=4 \
         --start_date=2020-06-15 \
         --end_date=2021-05-25 \
-        --num_layers=3 > training-dist.log 2>&1
+        --num_layers=3 > training-dist-6.log 2>&1
