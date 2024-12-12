@@ -399,10 +399,16 @@ def main():
         '--num_workers', type=int, default=0, help="Number of workers for the dataloader."
     )
     parser.add_argument(
-        '--latent_space_vectors_path', type=str, default='/project/home/p200177/DE_371/experiments_WP2/temporal_downscaling_experiments/inversion_hourly/inversion/'
+        '--inv_dir', type=str, default='/project/home/p200177/DE_371/experiments_WP2/temporal_downscaling_experiments/inversion_hourly/inversion/'
     )
     parser.add_argument(
-        '--real_samples_path', type=str, default='/project/home/p200177/DE_371/experiments_WP2/temporal_downscaling_experiments/inversion_hourly/pack/'
+        '--pack_dir', type=str, default='/project/home/p200177/DE_371/experiments_WP2/temporal_downscaling_experiments/inversion_hourly/pack/'
+    )
+    parser.add_argument(
+        '--inv_dir_val', type=str, default='/project/home/p200177/DE_371/experiments_WP2/temporal_downscaling_experiments/inversion_hourly/validation/inversion/'
+    )
+    parser.add_argument(
+        '--pack_dir_val', type=str, default='/project/home/p200177/DE_371/experiments_WP2/temporal_downscaling_experiments/inversion_hourly/validation/pack/'
     )
     parser.add_argument(
         '--model_name', type=str, default='LatentInterpolator', help="Name of the model."
@@ -444,13 +450,10 @@ def main():
         '--batch_size', type=int, default=4, help="Number of batches."
     )
     parser.add_argument(
-        '--start_date', type=str, default="2021-10-01", help="Start date."
+        '--start_date', type=str, default="2020-06-15", help="Start date."
     )
     parser.add_argument(
-        '--end_date', type=str, default="2021-10-03", help="End date."
-    )
-    parser.add_argument(
-        '--training_data_ratio', type=float, default=0.9, help="Ratio of the training data to the total data."
+        '--end_date', type=str, default="2021-05-25", help="End date."
     )
     # Generation settings
     parser.add_argument(
@@ -482,13 +485,14 @@ def main():
     lr_decay = args.lr_decay
     output_shape = args.shape
     ckpt_dir = args.ckpt_dir
-    inv_dir = args.latent_space_vectors_path
-    pack_dir = args.real_samples_path
+    inv_dir = args.inv_dir
+    pack_dir = args.pack_dir
+    inv_dir_val = args.inv_dir_val
+    pack_dir_val = args.pack_dir_val
     epochs = args.epochs
     batch_size = args.batch_size
     start_date = args.start_date
     end_date = args.end_date
-    training_data_ratio = args.training_data_ratio
 
     # Set up DDP
     world_size=int(os.environ['WORLD_SIZE'])
@@ -507,7 +511,7 @@ def main():
         print(f"Model name: {model_name}")
         print(f"Loading latent space vectors from {start_date} to {end_date}...")
 
-    dataset = InterpolatorDataset(
+    training_dataset = InterpolatorDataset(
         start_date=start_date,
         end_date=end_date,
         latent_basepath=f"{inv_dir}w",
@@ -515,25 +519,26 @@ def main():
         leadtimes=np.arange(1, 46, 1),
         dt=6,
         fmt='npy')
-
-    indices = np.random.permutation(len(dataset))
-    train_size = int(training_data_ratio * len(dataset))
-    train_indices = indices[:train_size]
-    val_indices = indices[train_size:]
-
-    train_dataset = Subset(dataset, train_indices)
-    val_dataset = Subset(dataset, val_indices)
+    
+    validation_dataset = InterpolatorDataset(
+        start_date=start_date,
+        end_date=end_date,
+        latent_basepath=f"{inv_dir_val}w",
+        real_basepath=f"{pack_dir_val}Rsemble",
+        leadtimes=np.arange(1, 46, 1),
+        dt=6,
+        fmt='npy')
 
     if dist.get_rank() == 0:
-        print(f"Number of training examples: {len(train_dataset)}")
-        print(f"Number of validation examples: {len(val_dataset)}")
+        print(f"Number of training examples: {len(training_dataset)}")
+        print(f"Number of validation examples: {len(validation_dataset)}")
 
     # Use DistributedSampler to distribute data across multiple processes
-    train_sampler = DistributedSampler(train_dataset, num_replicas=dist.get_world_size(), rank=dist.get_rank(), shuffle=True)
-    val_sampler = DistributedSampler(val_dataset, num_replicas=dist.get_world_size(), rank=dist.get_rank(), shuffle=False)
+    train_sampler = DistributedSampler(training_dataset, num_replicas=dist.get_world_size(), rank=dist.get_rank(), shuffle=True)
+    val_sampler = DistributedSampler(validation_dataset, num_replicas=dist.get_world_size(), rank=dist.get_rank(), shuffle=False)
 
-    training_dataloader = DataLoader(train_dataset, batch_size=batch_size, sampler=train_sampler, num_workers=num_workers)
-    validation_dataloader = DataLoader(val_dataset, batch_size=batch_size, sampler=val_sampler, num_workers=num_workers)
+    training_dataloader = DataLoader(training_dataset, batch_size=batch_size, sampler=train_sampler, num_workers=num_workers)
+    validation_dataloader = DataLoader(validation_dataset, batch_size=batch_size, sampler=val_sampler, num_workers=num_workers)
     
     # Initialize model, loss function and optimizer
     if model_name in model_classes:
@@ -581,7 +586,7 @@ def main():
         scheduler.step()
 
         # Save model every 5 epochs
-        if (current_epoch + 1) % 5 == 0:
+        if (current_epoch + 1) % 2 == 0:
             dt = datetime.today().strftime("%Y-%m-%dT%H_%M")
             output_name = f"/project/home/p200177/DE_371/experiments_WP2/temporal_downscaling_experiments/interpolation_models/{model_name}-{training_description}-epoch-{current_epoch+1}-{dt}.pt"
             if dist.get_rank() == 0:  # Only rank 0 saves the model
