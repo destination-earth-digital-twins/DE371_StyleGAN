@@ -280,7 +280,6 @@ if __name__=="__main__" :
                 else :
                     raise NotImplementedError
 
-                print(init_latent.shape)
                 inv.optimize(
                     Ens_r=Ens_r,
                     g_ema=network.decoder,

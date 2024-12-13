@@ -34,7 +34,9 @@ def sm_pca(
     renorm=False,
     import_perturbation=False,
     save_perturbation=False,
-    path_perturbation=''
+    path_perturbation='',
+    Ens_feature=None,
+    feature_id=6
 ):
 
     N, R, D = Ens_w.shape
@@ -42,6 +44,9 @@ def sm_pca(
 
     Ens_final = np.zeros((N * per_cond, 3, 256, 256), dtype="float32")
     w_final = np.zeros((N * per_cond, R, D))
+
+    if Ens_feature is not None:
+        Ens_feature = Ens_feature.to(device)
 
     if save_perturbation and not import_perturbation :
         perturbation = np.zeros((N * per_cond, R, D))
@@ -162,7 +167,26 @@ def sm_pca(
             if verbose:
                 print("wnew", w_new.shape)
             w = w_new
-            sample, _, _ = G([w.to(device)], input_is_latent=True)
+
+            # features for generator
+            features_in = None
+            if Ens_feature is not None:
+                
+                sample, features_out_inv, _ = G([Ens_w1[k].unsqueeze(0).to(device)], input_is_latent=True, return_features=True)
+
+                sample, features_out_pert, _ = G([w.to(device)], input_is_latent=True, return_features=True)
+                
+                F = Ens_feature[k].unsqueeze(0).repeat(per_cond, 1, 1, 1)
+                feature_map_from_pert = features_out_pert[feature_id]
+                feature_map_from_inv = features_out_inv[feature_id].repeat(per_cond, 1, 1, 1)
+
+                feature_to_insert = F + feature_map_from_pert - feature_map_from_inv
+                features_in = [None]*(feature_id)+ [feature_to_insert] + [None]*(13-(feature_id))
+                sample, _, _ = G([w.to(device)],  features_in=features_in, feature_scale=1, input_is_latent=True)
+            else :
+                
+                sample, _, _ = G([w.to(device)],  input_is_latent=True)
+
             Ens_final[k * per_cond : (k + 1) * per_cond] = sample.detach().cpu().numpy()
             w_final[k * per_cond : (k + 1) * per_cond] = w.detach().cpu().numpy()
             if save_perturbation and not import_perturbation:

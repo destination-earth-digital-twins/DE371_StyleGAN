@@ -298,7 +298,8 @@ def optimize(Ens_r, g_ema, latent_mean, device, params, features_in=None, hybrid
                     pickle.dump({j : n.cpu().detach().numpy() for j,n in enumerate(noises)},f)
 
             np.save(params.output_dir+'invertFsemble_{}_{}_{}.npy'.format(params.date_index,params.lt_index,i+1),img_gen.cpu().detach().numpy())
-
+            if params.feature_optimize:
+                np.save(params.output_dir+'feature_{}_{}_{}.npy'.format(params.date_index,params.lt_index,i+1),feature.cpu().detach().numpy())
             if params.plot_checkpoint :
                 figname = params.output_dir + f"{params.date_index}_{params.lt_index}_step_{i+1}.png"
                 print(f"--plotting checkpoint {i+1}: {figname}")
