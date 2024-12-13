@@ -586,7 +586,7 @@ def main():
         scheduler.step()
 
         # Save model every 5 epochs
-        if (current_epoch + 1) % 2 == 0:
+        if (current_epoch + 1) % 5 == 0:
             dt = datetime.today().strftime("%Y-%m-%dT%H_%M")
             output_name = f"/project/home/p200177/DE_371/experiments_WP2/temporal_downscaling_experiments/interpolation_models/{model_name}-{training_description}-epoch-{current_epoch+1}-{dt}.pt"
             if dist.get_rank() == 0:  # Only rank 0 saves the model

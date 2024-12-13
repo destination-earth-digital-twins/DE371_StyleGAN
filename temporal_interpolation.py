@@ -54,8 +54,8 @@ def interpolate(dataloader, model, generator, device, args):
             output_dir = args.base_dir + args.output_dir
 
             save_image(f"{output_dir}/inv_{date}_{t_int}_{args.invstep}.npy", r_inverted)
-            save_image(f"{output_dir}/interpolated_latent_linear_{date}_{t_int}_{args.invstep}.npy", r_latent_nn_interpolation)
-            save_image(f"{output_dir}/interpolated_NN_{date}_{t_int}_{args.invstep}.npy", r_latent_linear_interpolation)
+            save_image(f"{output_dir}/interpolated_latent_linear_{date}_{t_int}_{args.invstep}.npy", r_latent_linear_interpolation)
+            save_image(f"{output_dir}/interpolated_NN_{date}_{t_int}_{args.invstep}.npy", r_latent_nn_interpolation)
             save_image(f"{output_dir}/interpolated_phys_linear_{date}_{t_int}.npy", r_phys_interpolated)
         
     print("Overall metrics:")
@@ -68,7 +68,8 @@ def interpolate(dataloader, model, generator, device, args):
     print(f"Relative NN interpolation improvement (compared to physical linear, %): {relative_improvement}\n")
 
 def save_image(output_path, img_generated):
-    np.save(output_path, img_generated.cpu().detach().numpy())
+    if not os.path.exists(output_path):
+        np.save(output_path, img_generated.cpu().detach().numpy())
 
 def main():
     parser = argparse.ArgumentParser()
