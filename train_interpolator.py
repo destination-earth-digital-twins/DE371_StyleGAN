@@ -102,10 +102,102 @@ class LatentInterpolatorCorrector(nn.Module):
         w_corrected = w_linear_flat + correction  # [batch_size, 7168]
         
         return w_corrected.view(batch_size, self.style_dims, self.latent_dims)  # [batch_size, 14, 512]
+    
+class LatentInterpolator2(nn.Module):
+    def __init__(self, args, style_dims=14, latent_dims=512):
+        super(LatentInterpolator2, self).__init__()
+        self.style_dims = style_dims
+        self.latent_dims = latent_dims
+        input_dim = 2 * latent_dims * style_dims # Inputs: w_start, w_end
+
+        layers = []
+        for i in range(args.num_layers):
+            in_features = input_dim if i == 0 else args.num_neurons
+            out_features = latent_dims * style_dims if i == args.num_layers - 1 else args.num_neurons
+
+            layers.append(nn.Linear(in_features, out_features))
+            if i < args.num_layers - 1:
+                if args.normalization == "Layer":
+                    layers.append(nn.LayerNorm(out_features))
+                elif args.normalization == "Batch":
+                    layers.append(nn.BatchNorm1d(out_features))
+                layers.append(nn.ReLU())
+                if args.dropout > 0:
+                    layers.append(nn.Dropout(p=args.dropout))
+
+        self.network = nn.Sequential(*layers)
+
+    def forward(self, w_start, w_end, t):
+        batch_size = w_start.size(0)  # Get batch size
+
+        # Flatten latent space vectors
+        w_start_flat = w_start.view(batch_size, -1)  # [batch_size, 14, 512] -> [batch_size, 7168]
+        w_end_flat = w_end.view(batch_size, -1)      # [batch_size, 14, 512] -> [batch_size, 7168]
+
+        # Expand `t` and concatenate inputs
+        t_expanded = t.view(batch_size, 1)  # Ensure t is [batch_size, 1]
+        x = torch.cat([
+            w_start_flat * (1.  - t_expanded),
+            w_end_flat * t_expanded
+        ], dim=1)  # Concatenate along feature dimension
+
+        # Pass through the feedforward network
+        w_predicted = self.network(x)  # [batch_size, 7168]
+
+        return w_predicted.view(batch_size, self.style_dims, self.latent_dims)  # [batch_size, 14, 512]
+
+class LatentInterpolatorCorrector2(nn.Module):
+    def __init__(self, args, style_dims=14, latent_dims=512):
+        super(LatentInterpolatorCorrector2, self).__init__()
+        self.style_dims = style_dims
+        self.latent_dims = latent_dims
+        input_dim = 2 * latent_dims * style_dims  # Inputs: w_start, w_end
+
+        layers = []
+        for i in range(args.num_layers):
+            in_features = input_dim if i == 0 else args.num_neurons
+            out_features = latent_dims * style_dims if i == args.num_layers - 1 else args.num_neurons
+
+            layers.append(nn.Linear(in_features, out_features))
+            if i < args.num_layers - 1:
+                if args.normalization == "Layer":
+                    layers.append(nn.LayerNorm(out_features))
+                elif args.normalization == "Batch":
+                    layers.append(nn.BatchNorm1d(out_features))
+                layers.append(nn.ReLU())
+                if args.dropout > 0:
+                    layers.append(nn.Dropout(p=args.dropout)) 
+
+        self.network = nn.Sequential(*layers)
+
+    def forward(self, w_start, w_end, t):
+        batch_size = w_start.size(0)  # Get batch size
+
+        # Flatten latent space vectors
+        w_start_flat = w_start.view(batch_size, -1)  # [batch_size, 14, 512] -> [batch_size, 7168]
+        w_end_flat = w_end.view(batch_size, -1)      # [batch_size, 14, 512] -> [batch_size, 7168]
+
+        # Expand `t` and concatenate inputs
+        t_expanded = t.view(batch_size, 1)  # Ensure t is [batch_size, 1]
+        x = torch.cat([
+            w_start_flat * (1.  - t_expanded),
+            w_end_flat * t_expanded
+        ], dim=1)  # Concatenate along feature dimension
+
+        # Compute linear interpolation
+        w_linear_flat = w_start_flat + t_expanded * (w_end_flat - w_start_flat)  # [batch_size, 7168]
+        
+        # Pass through the feedforward network
+        correction = self.network(x)  # [batch_size, 7168]
+
+        # Add correction to linear interpolation
+        w_corrected = w_linear_flat + correction  # [batch_size, 7168]
+        
+        return w_corrected.view(batch_size, self.style_dims, self.latent_dims)  # [batch_size, 14, 512]
 
 class InterpolatorDataset(Dataset):
     def __init__(self, start_date, end_date, latent_basepath, real_basepath,
-                 leadtimes=np.arange(1, 46, 1), invstep=1000, dt=6, fmt='npy'):
+                 leadtimes=np.arange(1, 46, 1), invstep=1000, dt=6, fmt='npy', include_input_leadtimes=False):
         self.start_date = start_date
         self.end_date = end_date
         self.latent_basepath = latent_basepath
@@ -114,6 +206,7 @@ class InterpolatorDataset(Dataset):
         self.invstep = invstep
         self.dt = dt
         self.fmt = fmt
+        self.include_input_leadtimes = include_input_leadtimes
         if len(self.leadtimes) >= 2:
             self.leadtime_step = self.leadtimes[1] - self.leadtimes[0]
         else:
@@ -138,11 +231,17 @@ class InterpolatorDataset(Dataset):
         end_date = datetime.strptime(self.end_date, "%Y-%m-%d")
         current_date = start_date
 
+        t_int_min = 1
+        t_int_max = self.dt
+
         while current_date <= end_date:
             date_str = current_date.strftime("%Y-%m-%d")
             for t_start in range(self.leadtimes[0], self.leadtimes[-1] - self.dt + 1, self.leadtime_step):
                 t_end = t_start + self.dt
-                for t_int in range(1, self.dt):
+                if self.include_input_leadtimes:
+                    t_int_min = 0
+                    t_int_max = self.dt + 1
+                for t_int in range(t_int_min, t_int_max):
                     t_int = t_start + t_int
                     # Check if the required files exist
                     latent_files_exist = all(
@@ -360,8 +459,10 @@ def test_loop(dataloader, model, generator, loss_function, current_epoch, percep
             print(f"Epoch {current_epoch+1} - Latent linear interpolation MSE (1000x): {mean_latent_linear_interpolation_mse * 1E3}")
             print(f"Epoch {current_epoch+1} - Latent NN interpolation MSE (1000x): {mean_latent_nn_interpolation_mse * 1E3}")
 
-            relative_improvement = 100 * (mean_phys_linear_interpolation_mse - mean_latent_nn_interpolation_mse) / mean_phys_linear_interpolation_mse
-            print(f"Epoch {current_epoch+1} - Relative NN interpolation improvement (compared to physical linear, %): {relative_improvement}\n")
+            # Do not include to avoid division by zero
+            if not dataloader.dataset.include_input_leadtimes:
+                relative_improvement = 100 * (mean_phys_linear_interpolation_mse - mean_latent_nn_interpolation_mse) / mean_phys_linear_interpolation_mse
+                print(f"Epoch {current_epoch+1} - Relative NN interpolation improvement (compared to physical linear, %): {relative_improvement}\n")
 
     dist.barrier()  # Ensure synchronization between all ranks before proceeding
 
@@ -501,7 +602,9 @@ def main():
 
     model_classes = {
         "LatentInterpolator": LatentInterpolator,
-        "LatentInterpolatorCorrector": LatentInterpolatorCorrector
+        "LatentInterpolatorCorrector": LatentInterpolatorCorrector,
+        "LatentInterpolator2" : LatentInterpolator2,
+        "LatentInterpolatorCorrector2": LatentInterpolatorCorrector2,
     }
 
     if dist.get_rank() == 0:
@@ -518,7 +621,8 @@ def main():
         real_basepath=f"{pack_dir}Rsemble",
         leadtimes=np.arange(1, 46, 1),
         dt=6,
-        fmt='npy')
+        fmt='npy',
+        include_input_leadtimes=True)
     
     validation_dataset = InterpolatorDataset(
         start_date=start_date,
@@ -527,7 +631,8 @@ def main():
         real_basepath=f"{pack_dir_val}Rsemble",
         leadtimes=np.arange(1, 46, 1),
         dt=6,
-        fmt='npy')
+        fmt='npy',
+        include_input_leadtimes=True)
 
     if dist.get_rank() == 0:
         print(f"Number of training examples: {len(training_dataset)}")
