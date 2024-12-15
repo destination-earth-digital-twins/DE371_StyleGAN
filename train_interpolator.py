@@ -195,6 +195,173 @@ class LatentInterpolatorCorrector2(nn.Module):
         
         return w_corrected.view(batch_size, self.style_dims, self.latent_dims)  # [batch_size, 14, 512]
 
+class DualAutoencoderInterpolator(nn.Module):
+    def __init__(self, args, style_dims=14, latent_dims=512, compressed_dim=512):
+        """
+        Dual autoencoder interpolator that compresses w_start and w_end to a smaller dimension, 
+        interpolates them, and then reconstructs w_int.
+        
+        Args:
+            args: Model configuration arguments.
+            style_dims: Number of style dimensions (default = 14).
+            latent_dims: Dimension of each style (default = 512).
+            compressed_dim: Dimension of the compressed latent space (default = 512).
+        """
+        super(DualAutoencoderInterpolator, self).__init__()
+        
+        self.style_dims = style_dims
+        self.latent_dims = latent_dims
+        self.compressed_dim = compressed_dim
+
+        # **Encoder network** for w_start and w_end
+        self.encoder_w = self._build_encoder(args, input_dim=latent_dims * style_dims, compressed_dim=compressed_dim)
+
+        # **Decoder network** to reconstruct w_int
+        self.decoder = self._build_decoder(args, compressed_dim=compressed_dim, output_dim=latent_dims * style_dims)
+
+    def _build_encoder(self, args, input_dim, compressed_dim):
+        """Builds the encoder to reduce w_start and w_end to a lower-dimensional latent space."""
+        layers = []
+        for i in range(args.num_layers):
+            in_features = input_dim if i == 0 else args.num_neurons
+            out_features = compressed_dim if i == args.num_layers - 1 else args.num_neurons
+
+            layers.append(nn.Linear(in_features, out_features))
+            if i < args.num_layers - 1:
+                if args.normalization == "Layer":
+                    layers.append(nn.LayerNorm(out_features))
+                elif args.normalization == "Batch":
+                    layers.append(nn.BatchNorm1d(out_features))
+                layers.append(nn.ReLU())
+                if args.dropout > 0:
+                    layers.append(nn.Dropout(p=args.dropout))
+        return nn.Sequential(*layers)
+
+    def _build_decoder(self, args, compressed_dim, output_dim):
+        """Builds the decoder to reconstruct w_int from the compressed latent space."""
+        layers = []
+        for i in range(args.num_layers):
+            in_features = compressed_dim if i == 0 else args.num_neurons
+            out_features = output_dim if i == args.num_layers - 1 else args.num_neurons
+
+            layers.append(nn.Linear(in_features, out_features))
+            if i < args.num_layers - 1:
+                if args.normalization == "Layer":
+                    layers.append(nn.LayerNorm(out_features))
+                elif args.normalization == "Batch":
+                    layers.append(nn.BatchNorm1d(out_features))
+                layers.append(nn.ReLU())
+                if args.dropout > 0:
+                    layers.append(nn.Dropout(p=args.dropout))
+        return nn.Sequential(*layers)
+
+    def forward(self, w_start, w_end, t):
+        batch_size = w_start.size(0)
+
+        # Flatten w_start and w_end
+        w_start_flat = w_start.view(batch_size, -1)  # [batch_size, 14, 512] -> [batch_size, 7168]
+        w_end_flat = w_end.view(batch_size, -1)      # [batch_size, 14, 512] -> [batch_size, 7168]
+
+        # Pass through encoders
+        h_start = self.encoder_w(w_start_flat)  # [batch_size, 7168] -> [batch_size, 256]
+        h_end = self.encoder_w(w_end_flat)      # [batch_size, 7168] -> [batch_size, 256]
+
+        # Interpolate in latent space
+        t_expanded = t.view(batch_size, 1)  # Ensure t is [batch_size, 1]
+        h_combined = h_start * (1 - t_expanded) + h_end * t_expanded  # Interpolation in compressed space
+
+        # Decode to reconstruct w_int
+        w_int_flat = self.decoder(h_combined)  # [batch_size, 256] -> [batch_size, 7168]
+        w_int = w_int_flat.view(batch_size, self.style_dims, self.latent_dims)  # [batch_size, 7168] -> [batch_size, 14, 512]
+
+        return w_int
+    
+class DualAutoencoderInterpolatorCorrector(nn.Module):
+    def __init__(self, args, style_dims=14, latent_dims=512, compressed_dim=512):
+        """
+        Dual autoencoder interpolator that compresses w_start and w_end to a smaller dimension, 
+        interpolates them, and then reconstructs w_int.
+        
+        Args:
+            args: Model configuration arguments.
+            style_dims: Number of style dimensions (default = 14).
+            latent_dims: Dimension of each style (default = 512).
+            compressed_dim: Dimension of the compressed latent space (default = 512).
+        """
+        super(DualAutoencoderInterpolatorCorrector, self).__init__()
+        
+        self.style_dims = style_dims
+        self.latent_dims = latent_dims
+        self.compressed_dim = compressed_dim
+
+        # **Encoder network** for w_start and w_end
+        self.encoder_w = self._build_encoder(args, input_dim=latent_dims * style_dims, compressed_dim=compressed_dim)
+
+        # **Decoder network** to reconstruct w_int
+        self.decoder = self._build_decoder(args, compressed_dim=compressed_dim, output_dim=latent_dims * style_dims)
+
+    def _build_encoder(self, args, input_dim, compressed_dim):
+        """Builds the encoder to reduce w_start and w_end to a lower-dimensional latent space."""
+        layers = []
+        for i in range(args.num_layers):
+            in_features = input_dim if i == 0 else args.num_neurons
+            out_features = compressed_dim if i == args.num_layers - 1 else args.num_neurons
+
+            layers.append(nn.Linear(in_features, out_features))
+            if i < args.num_layers - 1:
+                if args.normalization == "Layer":
+                    layers.append(nn.LayerNorm(out_features))
+                elif args.normalization == "Batch":
+                    layers.append(nn.BatchNorm1d(out_features))
+                layers.append(nn.ReLU())
+                if args.dropout > 0:
+                    layers.append(nn.Dropout(p=args.dropout))
+        return nn.Sequential(*layers)
+
+    def _build_decoder(self, args, compressed_dim, output_dim):
+        """Builds the decoder to reconstruct w_int from the compressed latent space."""
+        layers = []
+        for i in range(args.num_layers):
+            in_features = compressed_dim if i == 0 else args.num_neurons
+            out_features = output_dim if i == args.num_layers - 1 else args.num_neurons
+
+            layers.append(nn.Linear(in_features, out_features))
+            if i < args.num_layers - 1:
+                if args.normalization == "Layer":
+                    layers.append(nn.LayerNorm(out_features))
+                elif args.normalization == "Batch":
+                    layers.append(nn.BatchNorm1d(out_features))
+                layers.append(nn.ReLU())
+                if args.dropout > 0:
+                    layers.append(nn.Dropout(p=args.dropout))
+        return nn.Sequential(*layers)
+
+    def forward(self, w_start, w_end, t):
+        batch_size = w_start.size(0)
+
+        # Flatten w_start and w_end
+        w_start_flat = w_start.view(batch_size, -1)  # [batch_size, 14, 512] -> [batch_size, 7168]
+        w_end_flat = w_end.view(batch_size, -1)      # [batch_size, 14, 512] -> [batch_size, 7168]
+
+        # Pass through encoders
+        h_start = self.encoder_w(w_start_flat)  # [batch_size, 7168] -> [batch_size, 256]
+        h_end = self.encoder_w(w_end_flat)      # [batch_size, 7168] -> [batch_size, 256]
+
+        # Interpolate in latent space
+        t_expanded = t.view(batch_size, 1)  # Ensure t is [batch_size, 1]
+        h_combined = h_start * (1 - t_expanded) + h_end * t_expanded  # Interpolation in compressed space
+
+        # Decode to reconstruct w_int
+        correction = self.decoder(h_combined)  # [batch_size, 256] -> [batch_size, 7168]
+
+        # Compute linear interpolation
+        w_linear_flat = w_start_flat + t_expanded * (w_end_flat - w_start_flat)  # [batch_size, 7168]
+
+        # Add correction to linear interpolation
+        w_corrected = w_linear_flat + correction  # [batch_size, 7168]
+        
+        return w_corrected.view(batch_size, self.style_dims, self.latent_dims)  # [batch_size, 14, 512]
+
 class InterpolatorDataset(Dataset):
     def __init__(self, start_date, end_date, latent_basepath, real_basepath,
                  leadtimes=np.arange(1, 46, 1), invstep=1000, dt=6, fmt='npy', include_input_leadtimes=False):
@@ -605,6 +772,8 @@ def main():
         "LatentInterpolatorCorrector": LatentInterpolatorCorrector,
         "LatentInterpolator2" : LatentInterpolator2,
         "LatentInterpolatorCorrector2": LatentInterpolatorCorrector2,
+        "DualAutoencoderInterpolator": DualAutoencoderInterpolator,
+        "DualAutoencoderInterpolatorCorrector": DualAutoencoderInterpolatorCorrector
     }
 
     if dist.get_rank() == 0:
