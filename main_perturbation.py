@@ -87,7 +87,6 @@ def compute_generate_save(G, params, metrics_list, Means, Maxs):
     
     title = f'{params.date_index}_{params.lt_index}_{params.inv_step}_{params.N_conditioners}'
     
-    
     if params.save_w_perturbated:
         if params.save_perturbation and not params.import_perturbation :
             title+='_generated_pert'

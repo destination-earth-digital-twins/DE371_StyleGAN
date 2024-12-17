@@ -15,19 +15,12 @@ import argparse
 import os
 import numpy as np
 import pickle
-import pandas as pd
-from datetime import date, timedelta, datetime
-
-from time import perf_counter
 from collections import OrderedDict
-
 print('importing network')
 from gan.model.stylegan2 import Generator
 import metrics4arome as metrics
-
 import perturbation.utils as utils
 import perturbation.smpca as smpca
-from shutil import copyfile
 from inversion.plotter import online_pert_plot
 device = 'cuda'
 
@@ -46,11 +39,7 @@ def str2list(li):
 
 def compute_generate_save(G, params, metrics_list, Means, Maxs, scale):
 
-    N_samples = params.N_samples
-
-    print('simple load')
     Ens_r = utils.collate_R_ensemble(params.pack_dir,params.mb,params.lt_index, params.var_indices)
-    print('r (rescaled) loaded')
     print(params.mb, params.lt_index)
     
     w_ens = torch.tensor(utils.collate_w_ensemble(params.inv_data_dir, params.mb, params.lt_index, params.var_indices, params.inv_step), dtype=torch.float32)
@@ -58,22 +47,22 @@ def compute_generate_save(G, params, metrics_list, Means, Maxs, scale):
     
     print('w loaded')
     print('############### Perturbating ###############')
-    
     Whitening = torch.load(params.eigendir + 'Whitening.pt') if params.sample_rule=='stochastic' else None
     Coloring = torch.load(params.eigendir + 'Coloring.pt') if params.sample_rule=='stochastic' else None
     w0 = torch.load(params.eigendir + 'latent_mean.pt') if params.sample_rule=='stochastic' else None
-    scale = torch.tensor(np.load(os.path.join(params.scale_dir,"ema_scale.npy")).astype(np.float32)[params.scale_interp_step], device=device)
-    interp = torch.tensor(np.load(os.path.join(params.scale_dir,"ema_interp.npy")).astype(np.float32)[params.scale_interp_step], device=device)
+    betas = torch.tensor(np.load(os.path.join(params.scale_dir,"ema_scale.npy")).astype(np.float32)[params.scale_interp_step], device=device)
+    alphas = torch.tensor(np.load(os.path.join(params.scale_dir,"ema_interp.npy")).astype(np.float32)[params.scale_interp_step], device=device)
 
     gen, w_new = smpca.sm_pca(
-        w_ens, 
-        G, 
-        N_samples, 
-        params.style_indices,
-        params.device,
-        params.sample_rule,
-        scale=scale,interp=interp,
-        verbose=True,
+        Ens_w=w_ens, 
+        G=G, 
+        N_samples=params.N_samples, 
+        sm_ind=params.style_indices,
+        device=params.device, 
+        sample_rule=params.sample_rule,
+        betas=betas,
+        alphas=alphas,
+        verbose=params.verbose,
         Whitening=Whitening,
         Coloring=Coloring,
         w0=w0
@@ -121,15 +110,12 @@ if __name__=="__main__" :
     
     ########################### Directories ###########################
 
-    parser.add_argument('--ckpt_dir', type = str, 
-                        default ='/project/home/p200177/DE_371/resources/models/trained_generator/000024.pt')
-    parser.add_argument('--real_data_dir', type = str, default ='/project/home/p200177/DE_371/datasets/dataset_Meteo_France/grandEnsemble/AROME/')
-    parser.add_argument('--inv_data_dir', type=str, default='/project/home/p200177/DE_371/experiments_WP1/Grand_Ensemble/Inversion/')
-    parser.add_argument('--output_dir',type = str, 
-                        default ='/scratch/work/brochetc/Exp_StyleGAN/Perturbation_GE/')
-    parser.add_argument('--eigendir',type = str, 
-                        default ='/project/home/p200177/DE_371/datasets/dataset_Meteo_France/eigenvalues_gan_training/')
-    parser.add_argument("--pack_dir", type=str, default = '/project/home/p200177/DE_371/experiments_WP1/Grand_Ensemble/Pack/') # storing "packed" (normalized) real data
+    parser.add_argument('--ckpt_dir', type = str, default ='')
+    parser.add_argument('--real_data_dir', type = str, default ='')
+    parser.add_argument('--inv_data_dir', type=str, default='')
+    parser.add_argument('--output_dir',type = str, default ='')
+    parser.add_argument('--eigendir',type = str, default ='')
+    parser.add_argument("--pack_dir", type=str, default = '') # storing "packed" (normalized) real data
     
     parser.add_argument('--mean_file', type=str, default='Mean_4_var.npy')
     parser.add_argument('--max_file', type=str, default='MaxNew_4_var.npy')
@@ -148,7 +134,7 @@ if __name__=="__main__" :
     parser.add_argument('--sample_rule', type=str, default='stochastic', 
                         choices = ['stochastic', 'extrapolation'])
     parser.add_argument('--style_indices', type = str2list, default='[0,0,0,0,0,0,0,0,0,0,0,0,0,0]')
-    parser.add_argument('--scale_dir', type=str, default="/project/home/p200177/DE_371/datasets/dataset_Meteo_France/scale_dir_gan_training/")
+    parser.add_argument('--scale_dir', type=str, default="")
     parser.add_argument('--scale_interp_step',type=int, default=-1)
 
     parser.add_argument('--unbias',action='store_true')
@@ -164,10 +150,6 @@ if __name__=="__main__" :
     params = parser.parse_args()
     root_dir = params.output_dir 
     params.output_dir = params.output_dir + f'{params.sample_rule}_{params.style_indices}_{params.unbias}/' 
-    
-    N_samples = params.N_samples
-
-    N_draws = params.N_draws
     
     ################## carrying scaling info to pass it whenever needed
     
@@ -218,14 +200,13 @@ if __name__=="__main__" :
     
     metrics_list = ['quantiles', 'variance', 'std_diff', 'mean_bias']
     
-    for draw_idx in range(N_draws) : # we make N_draws choices of random 16 members,
+    for draw_idx in range(params.N_draws) : # we make N_draws choices of random 16 members,
         print(f"Drawing {draw_idx}th")
         mb = utils.initsmall().astype(np.uint32)  # select the associated w, and generate new samples from these (with offset for python)
-
         params.mb = mb
         for lt in params.leadtimes:
-            np.save(params.output_dir + f'mb_{draw_idx}_{lt}_{params.inv_step}.npy', np.array(mb))
-            print(mb,lt)
+            np.save(params.output_dir + f'mb_{draw_idx}_{lt}_{params.inv_step}.npy', np.array(params.mb))
+            print(params.mb,lt)
 
             params.lt_index = lt
             params.draw_index = draw_idx
