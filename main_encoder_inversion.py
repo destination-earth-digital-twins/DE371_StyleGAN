@@ -27,7 +27,7 @@ from encoders.models.in_domain import inDomain
 from encoders.models.feature_style_encoder.feature_style_module import FeatureStyleModule
 from generate_sample import humanbytes
 from time import time
-from inversion.encoder_based.utils import log_images_diff
+from inversion.encoder_based.encoder_utils import log_images_diff
 
 torch.manual_seed(42) #reproducibility of runs
 
