@@ -4,7 +4,7 @@ from encoders.utils import common, train_utils
 import matplotlib.pyplot as plt
 import matplotlib
 matplotlib.use('Agg')
-import perturbation.utils as utils
+import utils.utils as utils
 from generate_sample import humanbytes
 from time import time
 from inversion.encoder_based.utils import log_images_diff

@@ -1,6 +1,6 @@
 from inversion.perceptual_loss.perceptual_loss import PerceptualLoss, MultiPerceptualLoss
 from argparse import ArgumentParser
-import perturbation.utils as utils
+import utils.utils as utils
 import torch
 parser = ArgumentParser()
 

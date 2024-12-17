@@ -24,7 +24,7 @@ from gan.model.stylegan2 import Generator
 print('Importing inversion algo')
 import inversion.optimization_based.inversion as inv
 print('Importing perturbation utils')
-import perturbation.utils as utils
+import utils.utils as utils
 
 
 torch.manual_seed(42) #reproducibility of runs
