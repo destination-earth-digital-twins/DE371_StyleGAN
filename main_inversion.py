@@ -37,7 +37,7 @@ if __name__=="__main__" :
     
     parser.add_argument('--inversion_type', default='hybrid', type=str, choices=["optimization","encoder","hybrid"], help='Type of inversion')
 
-    ########################### Directories ###########################
+    ########################### Encoder-related parameters ###########################
     parser.add_argument('--encoder_framework_type', default='pSp', type=str, choices=["pSp", "e4e", "restyle-pSp", "restyle-e4e", "FeatureStyle", "inDomain"], help='Type of encoder')
     parser.add_argument('--checkpoint_path', default='', type=str, help='Path to ReStyle model checkpoint')
     parser.add_argument('--dataset_type', default='arome_encode', type=str, help='Type of dataset/experiment to run')
@@ -52,6 +52,8 @@ if __name__=="__main__" :
     # arguments for iterative encoding
     parser.add_argument('--n_iters_per_batch', default=10, type=int,help='Number of forward passes per batch during training')
     parser.add_argument('--n_iters_per_batch_checkpoint', type=utils.str2intlist, default=[1,5,10], help='Number of forward passes per batch during training')
+    
+    ########################### Directories ###########################
 
     # Real Data Directory - PATH to samples of the dataset
     parser.add_argument('--real_data_dir', type = str, default='')
@@ -118,7 +120,7 @@ if __name__=="__main__" :
     parser.add_argument("--split_factor", type=int, default=2, help="splitting factor for patching")
     parser.add_argument("--multi_scale_perceptual_loss",  action='store_true')
 
-    parser.add_argument("--invstep", type=int, default=50, help="optimize iterations")
+    parser.add_argument("--invstep", type=int, default=50, help="optimize iterations (default is 50 when hybrid-based and 1000 when optimization-based)")
     parser.add_argument("--inv_checkpoints", type=utils.str2intlist, default=[10, 25, 50])
     
     # lambda_ms_ssim
