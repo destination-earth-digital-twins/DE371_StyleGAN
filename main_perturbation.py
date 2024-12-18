@@ -82,7 +82,8 @@ def compute_generate_save(G, params, metrics_list, Means, Maxs):
         import_perturbation=params.import_perturbation,
         save_perturbation=params.save_perturbation,
         path_perturbation=params.path_perturbation,
-        Ens_feature=Ens_feature
+        Ens_feature=Ens_feature,
+        feature_scale=params.feature_scale
     )
 
     if params.verbose:
@@ -166,7 +167,9 @@ if __name__=="__main__" :
     parser.add_argument('--eigendir',type = str, default ='/project/home/p200177/DE_371/datasets/dataset_Meteo_France/eigenvalues_gan_training/')
     
     # Feature incorporation
-    parser.add_argument('--feature_insertion', action="store_true")
+    # See https://arxiv.org/pdf/2202.02183 for more info on Feature insertion
+    parser.add_argument('--feature_insertion', action="store_true", help='Whether to insert the predicted features into the generator.')
+    parser.add_argument('--feature_scale', type=float, default=1, help='Scale of inserted features')
 
     # Dataset information
     parser.add_argument("--normalization", type=str, default="meanmax", choices=["minmax", "meanmax"])
