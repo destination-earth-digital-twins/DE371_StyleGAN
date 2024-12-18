@@ -39,7 +39,7 @@ if __name__=="__main__" :
 
     ########################### Directories ###########################
     parser.add_argument('--encoder_framework_type', default='pSp', type=str, choices=["pSp", "e4e", "restyle-pSp", "restyle-e4e", "FeatureStyle", "inDomain"], help='Type of encoder')
-    parser.add_argument('--checkpoint_path', default='/project/scratch/p200177/DE_371/victorsanchez/results/encoder/restyle_pSp_training/lr_0.001_vgg_lambda_1.0_resnet34=trained_10_iter/Instance_1/checkpoints/iteration_50000.pt', type=str, help='Path to ReStyle model checkpoint')
+    parser.add_argument('--checkpoint_path', default='', type=str, help='Path to ReStyle model checkpoint')
     parser.add_argument('--dataset_type', default='arome_encode', type=str, help='Type of dataset/experiment to run')
     parser.add_argument('--encoder_type', default='ResNetBackboneEncoder', type=str, help='Which encoder to use')
     parser.add_argument('--input_nc', default=6, type=int, help='Number of input image channels to the ReStyle encoder. Should be set to 6.')
@@ -54,11 +54,11 @@ if __name__=="__main__" :
     parser.add_argument('--n_iters_per_batch_checkpoint', type=utils.str2intlist, default=[1,5,10], help='Number of forward passes per batch during training')
 
     # Real Data Directory - PATH to samples of the dataset
-    parser.add_argument('--real_data_dir', type = str, default='/project/home/p200177/DE_371/datasets/dataset_Meteo_France/IS_1_1.0_0_0_0_0_0_256_large_lt_done/')
+    parser.add_argument('--real_data_dir', type = str, default='')
     # Output Directory - PATH where the output of the inversion will be saved
-    parser.add_argument('--output_dir',type = str, default ='/project/scratch/p200177/DE_371/victorsanchez/results/member_inversion/hybrid_inversion/test/inversion/')
+    parser.add_argument('--output_dir',type = str, default ='')
     # Pack Directory - PATH where the packed ensembles will be saved
-    parser.add_argument("--pack_dir", type=str, default = '/project/scratch/p200177/DE_371/victorsanchez/results/member_inversion/hybrid_inversion/test/pack/') # storing "packed" (normalized) real data
+    parser.add_argument("--pack_dir", type=str, default = '') # storing "packed" (normalized) real data
     
     # Dataset information
     parser.add_argument("--normalization", type=str, default="meanmax", choices=["minmax", "meanmax"])
@@ -110,7 +110,7 @@ if __name__=="__main__" :
     parser.add_argument("--features_after_relu", action='store_true')
     parser.add_argument("--channel_computation", type=str, default='sol2', choices = ['sol1', 'sol2', 'sol3', 'sol4', 'sol5'], 
                     help="Either we compute layer by layer and member per member but we have to triple th einput to make it rgb or all in one (naive)")
-    parser.add_argument("--network_dir", type=str, default='/project/home/p200177/DE_371/resources/network_for_perceptual_loss/', help="Insert a path")
+    parser.add_argument("--network_dir", type=str, default='', help="Insert a path")
     parser.add_argument("--style_layers", type=utils.str2intlist, default=[], help="style layers to include in vgg loss computation")
     parser.add_argument("--feature_layers", type=utils.str2intlist, default=[0,1,2,3], help="feature layers to include in vgg computation")
     parser.add_argument("--alpha_feature", type=float, default=1.0, help="weight of the feature/content loss")
