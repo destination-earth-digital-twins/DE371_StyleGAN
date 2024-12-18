@@ -3,34 +3,30 @@ A new proposal to generate ensemble predictions matching the AROME-EPS dataset. 
 A non-exhaustive diagram representing the global architecture is available on [Google Drive](https://drive.google.com/file/d/12Yidj0SBGblODHQIHi9Gf1WzNTqLoiJq/view?usp=sharing).  
 Most of the core code is taken as is from [Rosinality's stylegan2-pytorch github page](https://github.com/rosinality/stylegan2-pytorch) and adapted to  run on Meteo France clusters. 
 See the paper here: ??
-Authors: C. Brochet, G. Moldovan
+Authors: C. Brochet, G. Moldovan, V. Sanchez, A. Bonamy
 
 # Repository Structure
 
 | Path | Description |
 | --- | --- |
-|[styleganpnria](https://github.com/flyIchtus/styleganPNRIA)|Root folder of the repository|
-|&ensp;&ensp;&boxvr;&nbsp; [Dockerfile](https://github.com/flyIchtus/styleganpnria/blob/main/Dockerfile)|Docker configuration file|
-|&ensp;&ensp;&boxvr;&nbsp; [docs](https://github.com/your-username/styleganpnria/blob/main/docs)|Documentation folder|
-|&ensp;&ensp;&boxvr;&nbsp; [expe_init.py](https://github.com/your-username/styleganpnria/blob/main/expe_init.py)|Script for launching experiments.|
-|&ensp;&ensp;&boxvr;&nbsp; [gan](https://github.com/flyIchtus/styleganpnria/blob/main)|Main folder for StyleGAN code|
-|&ensp;&ensp;&boxvr;&nbsp; [gan_2_ae](https://github.com/flyIchtus/styleganpnria/blob/main/gan_2_ae)|Subfolder with gan_2_ae-related files|
-|&ensp;&ensp;&boxvr;&nbsp; [grandensemble_inversion.py](https://github.com/your-username/styleganpnria/blob/main/grandensemble_inversion.py)|Script for grand ensemble inversion|
-|&ensp;&ensp;&boxvr;&nbsp; [grandensemble_perturbation.py](https://github.com/flyIchtus/styleganpnria/blob/main/grandensemble_perturbation.py)|Script for grand ensemble perturbation|
-|&ensp;&ensp;&boxvr;&nbsp; [hyperparams](https://github.com/flyIchtus/styleganpnria/blob/main/hyperparams)|Subfolder with hyperparameter files|
-|&ensp;&ensp;&boxvr;&nbsp; [__init__.py](https://github.com/flyIchtus/styleganpnria/blob/main/__init__.py)|Python package initialization file|
-|&ensp;&ensp;&boxvr;&nbsp; [main_gan.py](https://github.com/flyIchtus/styleganpnria/blob/main/main_gan.py)|Script for main GAN operations|
-|&ensp;&ensp;&boxvr;&nbsp; [main_inversion.py](https://github.com/flyIchtus/styleganpnria/blob/main/main_inversion.py)|Script for inversion operations|
-|&ensp;&ensp;&boxvr;&nbsp; [main_perturbation.py](https://github.com/flyIchtus/styleganpnria/blob/main/main_perturbation.py)|Script for generation of GAN ensembles|
-|&ensp;&ensp;&boxvr;&nbsp; [metrics4arome](https://github.com/flyIchtus/styleganpnria/blob/main/metrics4arome)|Metrics for on-the-fly evaluation|
-|&ensp;&ensp;&boxvr;&nbsp; [metrics4ensemble](https://github.com/flyIchtus/styleganpnria/blob/main/metrics4ensemble)|Metrics for ensemble evaluation|
-|&ensp;&ensp;&boxvr;&nbsp; [metric_tests_exec.py](https://github.com/flyIchtus/styleganpnria/blob/main/metric_tests_exec.py)|Script for metric tests (execution)|
-|&ensp;&ensp;&boxvr;&nbsp; [metric_tests_scat.py](https://github.com/flyIchtus/styleganpnria/blob/main/metric_tests_scat.py)|Script for metric tests (scatter)|
-|&ensp;&ensp;&boxvr;&nbsp; [optuna_trial.py](https://github.com/flyIchtus/styleganpnria/blob/main/optuna_trial.py)|Script for Optuna trials|
-|&ensp;&ensp;&boxvr;&nbsp; [perturbation](https://github.com/flyIchtus/styleganpnria/blob/main/perturbation)|Subfolder with perturbation-related files|
-|&ensp;&ensp;&boxvr;&nbsp; [preprocessing](https://github.com/flyIchtus/styleganpnria/blob/main/preprocessing)|Subfolder with preprocessing-related files|
-|&ensp;&ensp;&boxvr;&nbsp; [README.md](https://github.com/flyIchtus/styleganpnria/blob/main/README.md)|Main repository documentation|
-|&ensp;&ensp;&boxur;&nbsp; [requirements.txt](https://github.com/flyIchtus/styleganpnria/blob/main/requirements.txt)|List of required Python packages|
+|[DE371_StyleGAN](https://github.com/destination-earth-digital-twins/DE371_StyleGAN)|Root folder of the repository|
+|&ensp;&ensp;&boxvr;&nbsp; [docs](https://github.com/destination-earth-digital-twins/DE371_StyleGAN/tree/wp1_refacto/docs)|Documentation folder|
+|&ensp;&ensp;&boxvr;&nbsp; [encoders](https://github.com/destination-earth-digital-twins/DE371_StyleGAN/tree/wp1_refacto/encoders)|Subfolder with Encoder-based StyleGAN Inversion approach |
+|&ensp;&ensp;&boxvr;&nbsp; [gan](https://github.com/destination-earth-digital-twins/DE371_StyleGAN/tree/wp1_refacto/gan)|Subfolder with StyleGAN code|
+|&ensp;&ensp;&boxvr;&nbsp; [grandEnsemble](https://github.com/destination-earth-digital-twins/DE371_StyleGAN/tree/wp1_refacto/grandEnsemble)|Subfolder with grandEnsemble study|
+|&ensp;&ensp;&boxvr;&nbsp; [inversion](https://github.com/destination-earth-digital-twins/DE371_StyleGAN/tree/wp1_refacto/inversion)|Subfolder with StyleGAN Inversion (Optimization, Encoder Hybrid) related file|
+|&ensp;&ensp;&boxvr;&nbsp; [latent_analysis](https://github.com/destination-earth-digital-twins/DE371_StyleGAN/tree/wp1_refacto/latent_analysis)|Subfolder for latent analysis of StyleGAN|
+|&ensp;&ensp;&boxvr;&nbsp; [perturbation](https://github.com/destination-earth-digital-twins/DE371_StyleGAN/tree/wp1_refacto/perturbation)|Subfolder with perturbation-related files|
+|&ensp;&ensp;&boxvr;&nbsp; [plot_analysis](https://github.com/destination-earth-digital-twins/DE371_StyleGAN/tree/wp1_refacto/plot_analysis)|Main folder for plot analysis|
+|&ensp;&ensp;&boxvr;&nbsp; [scripts_examples](https://github.com/destination-earth-digital-twins/DE371_StyleGAN/tree/wp1_refacto/)|Main folder for scripts|
+|&ensp;&ensp;&boxvr;&nbsp; [container.def](https://github.com/destination-earth-digital-twins/DE371_StyleGAN/tree/wp1_refacto/container.def)|Apptainer configuration file|
+|&ensp;&ensp;&boxvr;&nbsp; [Dockerfile](https://github.com/destination-earth-digital-twins/DE371_StyleGAN/tree/wp1_refacto/Dockerfile)|Docker configuration file|
+|&ensp;&ensp;&boxvr;&nbsp; [main_gan.py](https://github.com/destination-earth-digital-twins/DE371_StyleGAN/tree/wp1_refacto/main_gan.py)|Script for main GAN operations|
+|&ensp;&ensp;&boxvr;&nbsp; [main_inversion.py](https://github.com/destination-earth-digital-twins/DE371_StyleGAN/tree/wp1_refacto/main_inversion.py)|Script for inversion operations|
+|&ensp;&ensp;&boxvr;&nbsp; [main_perturbation.py](https://github.com/destination-earth-digital-twins/DE371_StyleGAN/tree/wp1_refacto/main_perturbation.py)|Script for generation of GAN ensembles|
+|&ensp;&ensp;&boxvr;&nbsp; [preprocessing](https://github.com/destination-earth-digital-twins/DE371_StyleGAN/tree/wp1_refacto/preprocessing)|Subfolder with preprocessing-related files|
+|&ensp;&ensp;&boxvr;&nbsp; [README.md](https://github.com/destination-earth-digital-twins/DE371_StyleGAN/tree/wp1_refacto/README.md)|Main repository documentation|
+|&ensp;&ensp;&boxur;&nbsp; [requirements.txt](https://github.com/destination-earth-digital-twins/DE371_StyleGAN/tree/wp1_refacto/requirements.txt)|List of required Python packages|
 
 
 
@@ -77,96 +73,13 @@ To efficiently load and organize the dataset, a metadata CSV file is utilized. T
 This metadata file plays a crucial role in loading the dataset efficiently and ensuring the proper association of each sample with its corresponding attributes. Please update the file path in your code to reflect the location of your metadata CSV file.
 ## Training Experiments
 
-Experiments are run with the [expe_init.py](https://github.com/flyIchtus/styleganPNRIA/blob/main/expe_init.py) file, which reads three configuration files found [here](https://github.com/flyIchtus/styleganPNRIA/tree/main/gan/configs).
-
-### Description of configuration files:
-
-### `main.yaml`
-
-#### Experiment Initialization
-
-- **data_dir**: Path to the directory containing input data.
-- **output_dir**: Path to the directory where the experiment outputs will be stored.
-- **config_dir**: Path to the directory containing configuration files. Example:
-- **id_file**: Relative path to the CSV file containing labels, relative to data_dir.
-- **SET_NUM**: Identifier for the experiment set.
-- **max_relaunch**: Number of times to relaunch the experiment after timeout.
-- **auto_relaunch**: Set to True for automatic relaunch. Manual relaunches (e.g., from pretrained) should have auto_relaunch=False to prevent overwriting previous results.
-- **main_file**: Main Python script file for the experiment. Example: main_gan.py
-- **slurm_file**: Script file called by Slurm's sbatch (expe_init_belenos). Relevant for the Belenos platform.
-- **nb_gpus**: Number of GPUs to be used. Example: 4
-
-#### Experiment Parameters (ensemble)
-
-**General Parameters:**
-
-- **total_steps**: Number of total steps for each experiment. Example: [500001]
-- **epochs_num**: Number of epochs for each experiment. Example: [25]
-- **pretrained_model**: Step indices for pretrained models. Set to -1 if no pretrained model. Example: [108000]
-
-**Generator and Discriminator Configuration:**
-
-- **var_names**: Variable names for used training. Example: ["[rr,u,v,t2m]"]
-- **batch_size**: Real batch size is batch_size * N, where N is the number of GPUs. Example: [8]
-- **lr_D**: Learning rate for the discriminator. Example: [0.002]
-- **lr_G**: Learning rate for the generator. Example: [0.002]
-- **g_channels**: Number of generator channels. Example: [3]
-- **d_channels**: Number of discriminator channels. Example: [3]
-- **path_batch_shrink**: Batch shrinkage factors for the path regularization. Example: [2]
-- **tanh_output**: Use of tanh output. Example: [True]
-
-**StyleGAN Configuration:**
-
-- **model**: Model name. Example: ['stylegan2']
-- **train_type**: Training type. Example: ['stylegan']
-- **latent_dim**: Dimension of the latent space. Example: [512]
-- **use_noise**: Use of noise injection. Example: [False]
-
-**Database Parameters:**
-
-- **crop_indexes**: Crop indexes for input AROME forecasts. Example: ["[0,256,0,256]"]
-- **crop_size**: Crop size. Example: ["[256,256]"]
-- **full_size**: Full size of input AROME forecasts. Example: ["[256,256]"]
-
-**Configuration Files for dataset handling and scheduler config:**
-
-- **dataset_handler_config**: Relative paths to dataset handler configuration files. Example: ['dataset_handler_config.yaml']
-- **scheduler_config**: Relative paths to scheduler configuration files. Example: ['scheduler_config.yaml']
-
-
-### dataset_handler_config.yaml
-
-The configuration file includes various settings for preprocessing and normalization of the precipitation variable. Below are the details of each parameter:
-
-- **stat_folder**: Path to the folder where statistical files are stored. Example: '"/stat_files"'
-
-- **stat_version**: Name of the statistical file. The actual file name would be, for example, `mean_[stat_version]_log_ppx.npy`. Example: '"rr"'
-
-#### Pour la variable rr (For_rr)
-- **log_transform_iteration**: Number of times the log transformation is applied to the variable 'rr'. Example: '1'
-
-- **symetrization**: Whether symmetrization is applied to the variable 'rr'. Example: 'False'
-
-- **gaussian_std**: Threshold between rain and no rain to add Gaussian noise where 'rr < gaussian_std'. Example: '0'
-
-#### Normalization
-
-- **type**: Type of normalization to be applied. Choose between '"mean"', '"minmax"', or '"None"'. Example: '"minmax"'
-
-- **per_pixel**: Whether normalization is applied with global values to each pixel or specific pixel values. Example: 'False'
-
-    If `per_pixel` is `True`, the following options are used. For the 'rr' variable:
-
-    - **blur_iteration**: The number of times a Gaussian convolution is applied to the grid containing the max/min/mean/max_std. Example: '1'
-
-
+Experiments are run with the [main_gan.py](https://github.com/destination-earth-digital-twins/DE371_StyleGAN/tree/wp1_refacto/main_gan.py) file
 
 
 ### Launching example
 
 ```python
-python3 expe_init.py --config_file exemple_config/main.yaml # Path relative to `config_path`
-}
+python3 main_gan.py
 ``` 
 will launch an experiment with the configuration given by the .yaml files.
 
@@ -194,7 +107,7 @@ The output files will be written in `output_dir`.
 
 ## INVERSION TO THE LATENT SPACE
 
-Once a skilled Generator is obtained, one can invert real AROME ensemble forecasts to the latent space using [main_inversion](https://github.com/flyIchtus/styleganPNRIA/blob/main/main_inversion.py). The inversion is configurated with the following parser parameters:
+Once a skilled Generator is obtained, one can invert real AROME ensemble forecasts to the latent space using [main_inversion](https://github.com/destination-earth-digital-twins/DE371_StyleGAN/tree/wp1_refacto//main_inversion.py). The inversion is configurated with the following parser parameters:
 
 #### Directory Paths
 
@@ -273,7 +186,7 @@ Once a skilled Generator is obtained, one can invert real AROME ensemble forecas
 
 ## GENERATION OF GAN-ENRICHED ENSEMBLES
 
-Once a skilled Generator is obtained real ensemble members have successfully been inverted to the latent space, one can enrich this ensembles using [main_perturbation.py](https://github.com/flyIchtus/styleganPNRIA/blob/main/main_perturbation.py)
+Once a skilled Generator is obtained real ensemble members have successfully been inverted to the latent space, one can enrich this ensembles using [main_perturbation.py](https://github.com/destination-earth-digital-twins/DE371_StyleGAN/tree/wp1_refacto//main_perturbation.py)
 
 #### Directory Paths
 
@@ -339,11 +252,3 @@ Once a skilled Generator is obtained real ensemble members have successfully bee
 
 - **`--runtime_metrics`**: Flag to enable the collection of runtime metrics.  
   - *Default*: `False`
-
-## TODO :
-
-Test various configs to validate 'test_merge_rr' branch
-Merge 'test_merge_rr' branch to main
-Prune (severely) the other branches
-Do some cleaning with old, unused pieces of code
-Commit some code from belenos about optuna optimization and perturbation pca (create new branch, push, test and merge)
