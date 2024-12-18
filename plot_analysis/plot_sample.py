@@ -9,13 +9,8 @@ def main():
 
     parser = argparse.ArgumentParser(description="Generate samples from the generator")
 
-    parser.add_argument(
-        "--path", type=str, default="/project/home/p200177/DE_371/experiments_WP1/gan_training/generated_unconditional_static_ensemble/" # change with your path
-    )
-
-    parser.add_argument(
-        "--filename", type=str, default="_x_sample_24_" 
-    )
+    parser.add_argument("--path", type=str, default="" )
+    parser.add_argument( "--filename", type=str, default="" )
 
     args = parser.parse_args()
     

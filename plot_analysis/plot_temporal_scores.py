@@ -120,14 +120,7 @@ if __name__=="__main__" :
     parser.add_argument('--timestep_period', type=int, default=6)
     parser.add_argument('--stack_sample_along_time_and_variable', action='store_true')
     parser.add_argument('--cutoff_dataset_leadtimes', action='store_true', help='To only consider [t+dt, t+2*dt...] and not the leadtime between t and dt')
-    
-    # Training settings -schedulers
-    parser.add_argument('--lrD_sched', type=str, default='None', \
-                        choices=['None','exp', 'linear', 'cyclic'])
-    parser.add_argument('--lrG_sched', type=str, default='None', \
-                        choices=['None','exp', 'linear', 'cyclic'])
-    parser.add_argument('--lrD_gamma', type=float, default=0.95)
-    parser.add_argument('--lrG_gamma', type=float, default=0.95)
+
     
     
     # Testing and plotting setting
