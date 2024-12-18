@@ -25,7 +25,7 @@ print('importing network')
 from gan.model.stylegan2 import Generator
 import metrics4arome as metrics
 
-import perturbation.utils as utils
+import utils.utils as utils
 import perturbation.smpca as smpca
 from shutil import copyfile
 from inversion.plotter import online_pert_plot

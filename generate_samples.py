@@ -9,7 +9,7 @@ from torchvision.utils import save_image
 from gan.model.stylegan2 import Generator
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
-import perturbation.utils as utils
+import utils.utils as utils
 
 torch.manual_seed(42)  # Ensure reproducibility
 

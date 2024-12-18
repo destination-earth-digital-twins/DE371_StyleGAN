@@ -20,7 +20,7 @@ from time import perf_counter
 from collections import OrderedDict
 from gan.model.stylegan2 import Generator
 
-import perturbation.utils as utils
+import utils.utils as utils
 import perturbation.smpca as smpca
 from shutil import copyfile
 from inversion.plotter import online_pert_plot
