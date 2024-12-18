@@ -5,9 +5,10 @@ import torch
 from torch.utils.data import DataLoader
 import numpy as np
 
-import perturbation.utils as utils
+import time_interpolation.models as models
 
-from train_interpolator import LatentInterpolator, LatentInterpolatorCorrector, InterpolatorDataset, load_generator, generate_image_from_latent, linear_interpolation, get_mse
+from time_interpolation.training import load_generator, generate_image_from_latent, linear_interpolation, get_mse
+from time_interpolation.dataset import InterpolatorDataset
 
 def interpolate(dataloader, model, generator, device, args):
     mean_inverted_mse = torch.zeros(3).to(device)
@@ -30,7 +31,7 @@ def interpolate(dataloader, model, generator, device, args):
             r_inverted = generate_image_from_latent(w_t, generator).to(device)
             r_latent_nn_interpolation = generate_image_from_latent(w_interpolated, generator).to(device)
             r_latent_linear_interpolation = generate_image_from_latent(w_latent_linear_interpolation, generator)
-            r_phys_interpolated = linear_interpolation(r_start, r_end, t[0])
+            r_phys_interpolated = linear_interpolation(r_start, r_end, t)
             
             # Compute MSE metrics
             inverted_mse = get_mse(r_t, r_inverted, device)
@@ -109,9 +110,15 @@ def main():
 
     # Load the model checkpoint
     model_classes = {
-        "LatentInterpolator": LatentInterpolator,
-        "LatentInterpolatorCorrector": LatentInterpolatorCorrector
+        "LatentInterpolator": models.LatentInterpolator,
+        "LatentInterpolatorCorrector": models.LatentInterpolatorCorrector,
+        "LatentInterpolator2" : models.LatentInterpolator2,
+        "LatentInterpolatorCorrector2": models.LatentInterpolatorCorrector2,
+        "DualAutoencoderInterpolator": models.DualAutoencoderInterpolator,
+        "DualAutoencoderInterpolatorCorrector": models.DualAutoencoderInterpolatorCorrector,
+        "LatentVectorInterpolatorCorrector": models.LatentVectorInterpolatorCorrector
     }
+
     # Initialize model, loss function and optimizer
     if model_name in model_classes:
         model = model_classes[model_name](args).to(device)
@@ -140,7 +147,7 @@ def main():
         latent_basepath=f"{inv_dir}w",
         real_basepath=f"{pack_dir}Rsemble",
         leadtimes=np.arange(1, 26, 6),
-        dt=6, fmt='npy')
+        dt=6, fmt='npy', include_input_leadtimes=False)
     
     intepolation_dataloader = DataLoader(dataset, batch_size=1, num_workers=num_workers)
 

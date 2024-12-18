@@ -14,13 +14,13 @@ export CUDA_HOME=/usr/local/cuda-12.1
 export NVHPC_CUDA_HOME=/usr/local/cuda-12.1
 export CXX=g++ #the compiler for cpp extensions
 export CC=gcc  #the compiler to access the good cpp standard
-export APPTAINER_BINDPATH="/project/home/p200177/DE_371:/project/home/p200177/DE_371/,/project/scratch/p200177/DE_371:/project/scratch/p200177/DE_371/"
+export APPTAINER_BINDPATH="/project/home/p200177/DE_371/:/project/home/p200177/DE_371/"
 module load Apptainer/1.2.4-GCCcore-12.3.0
 
 leadtimes='[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44]'
 
-apptainer exec --nv /project/scratch/p200177/DE_371/resources/apptainer_container/container.sif python3 main_inversion.py \
-        --ckpt_dir='/project/scratch/p200177/DE_371/victorsanchez/models/trained_generator/000024.pt' \
+apptainer exec --nv /project/home/p200177/DE_371/resources/apptainer_container/container.sif python3 main_inversion.py \
+        --ckpt_dir='/project/home/p200177/DE_371/resources/models/trained_generator/000024.pt' \
         --real_data_dir='/project/home/p200177/DE_371/datasets/dataset_Meteo_France/IS_1_1.0_0_0_0_0_0_256_large_lt_done/' \
         --output_dir='/project/home/p200177/DE_371/experiments_WP2/temporal_downscaling_experiments/inversion_hourly/inversion/' \
         --pack_dir='/project/home/p200177/DE_371/experiments_WP2/temporal_downscaling_experiments/inversion_hourly/pack/' \
@@ -34,15 +34,15 @@ apptainer exec --nv /project/scratch/p200177/DE_371/resources/apptainer_containe
         --invstep=1000 \
         --inv_checkpoints='[1000]' \
         --feature_layers='[0,1,2,3]' \
-        --dates_file='Large_lt_train_labels_1.csv' \
-        --date_start=2021-02-15 \
-        --date_stop=2021-02-25 \
+        --dates_file='Large_lt_train_labels_2.csv' \
+        --date_start=2021-04-25 \
+        --date_stop=2021-05-05 \
         --leadtimes="$leadtimes" \
         --network_type='vgg16' \
-        --plot_checkpoint > inversion_hourly_9.log 2>&1 &
+        --plot_checkpoint > inversion_hourly_33.log 2>&1 &
 
-apptainer exec --nv /project/scratch/p200177/DE_371/resources/apptainer_container/container.sif python3 main_inversion.py \
-        --ckpt_dir='/project/scratch/p200177/DE_371/victorsanchez/models/trained_generator/000024.pt' \
+apptainer exec --nv /project/home/p200177/DE_371/resources/apptainer_container/container.sif python3 main_inversion.py \
+        --ckpt_dir='/project/home/p200177/DE_371/resources/models/trained_generator/000024.pt' \
         --real_data_dir='/project/home/p200177/DE_371/datasets/dataset_Meteo_France/IS_1_1.0_0_0_0_0_0_256_large_lt_done/' \
         --output_dir='/project/home/p200177/DE_371/experiments_WP2/temporal_downscaling_experiments/inversion_hourly/inversion/' \
         --pack_dir='/project/home/p200177/DE_371/experiments_WP2/temporal_downscaling_experiments/inversion_hourly/pack/' \
@@ -56,15 +56,15 @@ apptainer exec --nv /project/scratch/p200177/DE_371/resources/apptainer_containe
         --invstep=1000 \
         --inv_checkpoints='[1000]' \
         --feature_layers='[0,1,2,3]' \
-        --dates_file='Large_lt_train_labels_1.csv' \
-        --date_start=2021-03-15 \
-        --date_stop=2021-03-25 \
+        --dates_file='Large_lt_train_labels_2.csv' \
+        --date_start=2021-05-05 \
+        --date_stop=2021-05-15 \
         --leadtimes="$leadtimes" \
         --network_type='vgg16' \
-        --plot_checkpoint > inversion_hourly_10.log 2>&1 &
+        --plot_checkpoint > inversion_hourly_34.log 2>&1 &
 
-apptainer exec --nv /project/scratch/p200177/DE_371/resources/apptainer_container/container.sif python3 main_inversion.py \
-        --ckpt_dir='/project/scratch/p200177/DE_371/victorsanchez/models/trained_generator/000024.pt' \
+apptainer exec --nv /project/home/p200177/DE_371/resources/apptainer_container/container.sif python3 main_inversion.py \
+        --ckpt_dir='/project/home/p200177/DE_371/resources/models/trained_generator/000024.pt' \
         --real_data_dir='/project/home/p200177/DE_371/datasets/dataset_Meteo_France/IS_1_1.0_0_0_0_0_0_256_large_lt_done/' \
         --output_dir='/project/home/p200177/DE_371/experiments_WP2/temporal_downscaling_experiments/inversion_hourly/inversion/' \
         --pack_dir='/project/home/p200177/DE_371/experiments_WP2/temporal_downscaling_experiments/inversion_hourly/pack/' \
@@ -78,15 +78,15 @@ apptainer exec --nv /project/scratch/p200177/DE_371/resources/apptainer_containe
         --invstep=1000 \
         --inv_checkpoints='[1000]' \
         --feature_layers='[0,1,2,3]' \
-        --dates_file='Large_lt_train_labels_1.csv' \
-        --date_start=2021-04-15 \
-        --date_stop=2021-04-25 \
+        --dates_file='Large_lt_train_labels_2.csv' \
+        --date_start=2021-05-25 \
+        --date_stop=2021-06-05 \
         --leadtimes="$leadtimes" \
         --network_type='vgg16' \
-        --plot_checkpoint > inversion_hourly_11.log 2>&1 &
+        --plot_checkpoint > inversion_hourly_35.log 2>&1 &
 
-apptainer exec --nv /project/scratch/p200177/DE_371/resources/apptainer_container/container.sif python3 main_inversion.py \
-        --ckpt_dir='/project/scratch/p200177/DE_371/victorsanchez/models/trained_generator/000024.pt' \
+apptainer exec --nv /project/home/p200177/DE_371/resources/apptainer_container/container.sif python3 main_inversion.py \
+        --ckpt_dir='/project/home/p200177/DE_371/resources/models/trained_generator/000024.pt' \
         --real_data_dir='/project/home/p200177/DE_371/datasets/dataset_Meteo_France/IS_1_1.0_0_0_0_0_0_256_large_lt_done/' \
         --output_dir='/project/home/p200177/DE_371/experiments_WP2/temporal_downscaling_experiments/inversion_hourly/inversion/' \
         --pack_dir='/project/home/p200177/DE_371/experiments_WP2/temporal_downscaling_experiments/inversion_hourly/pack/' \
@@ -100,10 +100,10 @@ apptainer exec --nv /project/scratch/p200177/DE_371/resources/apptainer_containe
         --invstep=1000 \
         --inv_checkpoints='[1000]' \
         --feature_layers='[0,1,2,3]' \
-        --dates_file='Large_lt_train_labels_1.csv' \
-        --date_start=2021-05-15 \
-        --date_stop=2021-05-25 \
+        --dates_file='Large_lt_train_labels_2.csv' \
+        --date_start=2021-06-05 \
+        --date_stop=2021-06-15 \
         --leadtimes="$leadtimes" \
         --network_type='vgg16' \
-        --plot_checkpoint > inversion_hourly_12.log 2>&1 &
+        --plot_checkpoint > inversion_hourly_36.log 2>&1 &
 wait
