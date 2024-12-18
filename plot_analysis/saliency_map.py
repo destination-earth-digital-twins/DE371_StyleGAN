@@ -1,7 +1,6 @@
 import torchvision
 import  torchvision.transforms as transforms
 import matplotlib.pyplot as plt
-
 import torch
 import torch.nn as nn
 import argparse
@@ -10,10 +9,7 @@ import numpy as np
 from collections import OrderedDict
 import yaml
 import pandas as pd
-
 import utils.utils as utils
-
-# TODO : Saliency map with discriminator
 
 if __name__=="__main__" :
     
