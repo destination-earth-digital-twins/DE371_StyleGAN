@@ -82,7 +82,8 @@ def compute_generate_save(G, params, metrics_list, Means, Maxs):
         import_perturbation=params.import_perturbation,
         save_perturbation=params.save_perturbation,
         path_perturbation=params.path_perturbation,
-        Ens_feature=Ens_feature
+        Ens_feature=Ens_feature,
+        feature_scale=params.feature_scale
     )
 
     if params.verbose:
@@ -167,6 +168,8 @@ if __name__=="__main__" :
     
     # Feature incorporation
     parser.add_argument('--feature_insertion', action="store_true")
+    parser.add_argument('--feature_scale', type=float, default=1)
+    
 
     # Dataset information
     parser.add_argument("--normalization", type=str, default="meanmax", choices=["minmax", "meanmax"])

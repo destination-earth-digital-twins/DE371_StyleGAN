@@ -36,7 +36,8 @@ def sm_pca(
     save_perturbation=False,
     path_perturbation='',
     Ens_feature=None,
-    feature_id=6
+    feature_id=6,
+    feature_scale=1
 ):
 
     N, R, D = Ens_w.shape
@@ -182,7 +183,7 @@ def sm_pca(
 
                 feature_to_insert = F + feature_map_from_pert - feature_map_from_inv
                 features_in = [None]*(feature_id)+ [feature_to_insert] + [None]*(13-(feature_id))
-                sample, _, _ = G([w.to(device)],  features_in=features_in, feature_scale=1, input_is_latent=True)
+                sample, _, _ = G([w.to(device)],  features_in=features_in, feature_scale=feature_scale, input_is_latent=True)
             else :
                 
                 sample, _, _ = G([w.to(device)],  input_is_latent=True)
