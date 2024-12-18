@@ -155,3 +155,46 @@ def online_pert_plot(
             print(f"unable to save figure: {figname}")
         plt.close()
         return
+
+
+def online_pert_diff_plot(
+          packsample, 
+          pert_sample, 
+          crop=[0,-1,0,-1], 
+          mem_idx=0, 
+          mem_pert_idx=0,figtitle=" ", 
+          figname="inv.png",  
+          var_names=['u','v','t2m'], 
+          dict_var={'u': 0, 'v': 1, 't2m': 2},
+          colormap_var=['viridis','viridis','coolwarm']
+          ):
+
+        fig, ax = plt.subplots(figsize=(15,5*len(var_names)), nrows=3, ncols=len(var_names))
+        for id, var in enumerate(var_names):
+            var_id = dict_var[var]
+
+            vmin = np.min([np.min(packsample[:,var_id,crop[0]:crop[1],crop[2]:crop[3]])])
+            vmax = np.min([np.max(packsample[:,var_id,crop[0]:crop[1],crop[2]:crop[3]])])
+
+            ax[0][id].set_title(f"{var} real")
+            im = ax[0][id].imshow(packsample[mem_idx,var_id,crop[0]:crop[1],crop[2]:crop[3]], clim=(vmin, vmax), origin="lower", cmap=colormap_var[id])
+            fig.colorbar(im, ax=ax[0][id], shrink=0.5)
+
+            ax[1][id].set_title(f"{var} perturbated")
+            im = ax[1][id].imshow(pert_sample[mem_pert_idx,var_id,crop[0]:crop[1],crop[2]:crop[3]], clim=(vmin, vmax), origin="lower", cmap=colormap_var[id])
+            fig.colorbar(im, ax=ax[1][id], shrink=0.5)
+
+            diff = pert_sample[mem_pert_idx,var_id,crop[0]:crop[1],crop[2]:crop[3]] - packsample[mem_idx,var_id,crop[0]:crop[1],crop[2]:crop[3]]
+            ax[2][id].set_title(f"{var} diff")
+            im = ax[2][id].imshow(diff, clim=(vmin, vmax), origin="lower", cmap="RdYlGn")
+            im.set_clim(-0.1,0.1)
+            fig.colorbar(im, ax=ax[2][id], shrink=0.5)
+
+        fig.suptitle(figtitle)
+        fig.tight_layout()
+        try:
+            fig.savefig(figname, dpi=100)
+        except Exception:
+            print(f"unable to save figure: {figname}")
+        plt.close()
+        return

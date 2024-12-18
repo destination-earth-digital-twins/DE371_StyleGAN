@@ -23,7 +23,7 @@ from gan.model.stylegan2 import Generator
 import utils.utils as utils
 import perturbation.smpca as smpca
 from shutil import copyfile
-from inversion.plotter import online_pert_plot
+from inversion.plotter import online_pert_plot, online_pert_diff_plot
 
 
 def str2list(li):
@@ -48,6 +48,9 @@ def compute_generate_save(G, params, metrics_list, Means, Maxs):
     Ens_r = torch.tensor(np.load(params.pack_dir+f'Rsemble_{datename}_{lt}.npy'), dtype = torch.float32)
     w_ens = torch.tensor(np.load(params.data_dir + f'w_{params.date_index}_{params.lt_index}_{params.inv_step}.npy').astype(np.float32))
     inv_ens=np.load(params.data_dir + f'invertFsemble_{params.date_index}_{params.lt_index}_{params.inv_step}.npy').astype(np.float32)
+    Ens_feature=None
+    if params.feature_insertion:
+        Ens_feature=torch.tensor(np.load(params.data_dir + f'feature_{params.date_index}_{params.lt_index}_{params.inv_step}.npy').astype(np.float32))
     # subsampling if N_conditioners is lower than initial ensemble size
     if (params.N_conditioners<w_ens.shape[0]):
         cond_indices = np.random.choice(range(w_ens.shape[0]), params.N_conditioners)
@@ -78,7 +81,8 @@ def compute_generate_save(G, params, metrics_list, Means, Maxs):
         w0=w0,
         import_perturbation=params.import_perturbation,
         save_perturbation=params.save_perturbation,
-        path_perturbation=params.path_perturbation
+        path_perturbation=params.path_perturbation,
+        Ens_feature=Ens_feature
     )
 
     if params.verbose:
@@ -111,6 +115,15 @@ def compute_generate_save(G, params, metrics_list, Means, Maxs):
         mem_idx=0 if params.N_conditioners>1 else cond_indices, 
         figtitle=f"Generated samples for {title}", 
         figname=params.output_dir + f"/samples/genFsemble_{title}.png"
+    )
+
+    online_pert_diff_plot(
+        packsample=Ens_r.numpy(), 
+        pert_sample=gen,
+        crop=[0,-1,0,-1],
+        mem_idx=0 if params.N_conditioners>1 else cond_indices, 
+        figtitle=f"Generated samples for {title}", 
+        figname=params.output_dir + f"/samples/diff_genFsemble_{title}.png"
     )
 
     if params.runtime_metrics:
@@ -152,7 +165,9 @@ if __name__=="__main__" :
     parser.add_argument('--add_name',type = str, default='')
     parser.add_argument('--eigendir',type = str, default ='/project/home/p200177/DE_371/datasets/dataset_Meteo_France/eigenvalues_gan_training/')
     
-    
+    # Feature incorporation
+    parser.add_argument('--feature_insertion', action="store_true")
+
     # Dataset information
     parser.add_argument("--normalization", type=str, default="meanmax", choices=["minmax", "meanmax"])
     parser.add_argument('--max_file', type=str, default='MaxNew_4_var.npy') # use 'MaxNew_4_var.npy' if AROME data # max_rr_log.npy

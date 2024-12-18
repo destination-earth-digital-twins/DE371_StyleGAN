@@ -85,7 +85,7 @@ def feature_noise(feature, strength):
     noise = torch.randn_like(feature) * strength
     return feature + noise
 
-def optimize(Ens_r, g_ema, latent_mean, device, params, features_in=None, hybrid=False):
+def optimize(Ens_r, g_ema, init_latent, device, params, features_in=None, hybrid=False):
 
     """
 
@@ -97,7 +97,7 @@ def optimize(Ens_r, g_ema, latent_mean, device, params, features_in=None, hybrid
 
         g_ema :  stylegan Generator
 
-        latent_mean : inversion starting point
+        init_latent : inversion starting point
             torch.tensor, shape B x (2 log2(H) -2) x 512
 
             if eg H = 256, 2 log2(H) - 2 = 14
@@ -112,18 +112,18 @@ def optimize(Ens_r, g_ema, latent_mean, device, params, features_in=None, hybrid
 
     """
     Ens_r = Ens_r.to(device) # torch.Size([B, CH, 256, 256])
-    latent_mean = latent_mean.to(device) # torch.Size([512])
+    init_latent = init_latent.to(device) # torch.Size([512])
     if hybrid : 
-        if len(latent_mean.shape) == 2 :
-            latent_in = latent_mean.detach().clone().unsqueeze(0).repeat(Ens_r.shape[0], 1) # (B, 512)
+        if len(init_latent.shape) == 2 :
+            latent_in = init_latent.detach().clone().unsqueeze(0).repeat(Ens_r.shape[0], 1) # (B, 512)
             latent_in = latent_in.unsqueeze(1).repeat(1, g_ema.n_latent, 1) # (B, 14, 512)
             latent_in.requires_grad = True
         else :
-            latent_in = latent_mean
+            latent_in = init_latent
             latent_in.requires_grad = True
             
     else :
-        latent_in = latent_mean.detach().clone().unsqueeze(0).repeat(Ens_r.shape[0], 1) # (B, 512)
+        latent_in = init_latent.detach().clone().unsqueeze(0).repeat(Ens_r.shape[0], 1) # (B, 512)
         latent_in = latent_in.unsqueeze(1).repeat(1, g_ema.n_latent, 1) # (B, 14, 512)
         latent_in.requires_grad = True
         
@@ -298,7 +298,8 @@ def optimize(Ens_r, g_ema, latent_mean, device, params, features_in=None, hybrid
                     pickle.dump({j : n.cpu().detach().numpy() for j,n in enumerate(noises)},f)
 
             np.save(params.output_dir+'invertFsemble_{}_{}_{}.npy'.format(params.date_index,params.lt_index,i+1),img_gen.cpu().detach().numpy())
-
+            if params.feature_optimize:
+                np.save(params.output_dir+'feature_{}_{}_{}.npy'.format(params.date_index,params.lt_index,i+1),feature.cpu().detach().numpy())
             if params.plot_checkpoint :
                 figname = params.output_dir + f"{params.date_index}_{params.lt_index}_step_{i+1}.png"
                 print(f"--plotting checkpoint {i+1}: {figname}")
