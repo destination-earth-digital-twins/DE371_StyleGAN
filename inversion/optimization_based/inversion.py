@@ -8,11 +8,10 @@ import torch.nn.functional as F
 import numpy as np
 import pickle
 from tqdm import tqdm
-from inversion.perceptual_loss.perceptual_loss import PerceptualLoss
+
 from inversion.plotter import online_inv_plot, online_inv_plot, create_frame
 from inversion.experimental_loss.ssim import ssim, ms_ssim, SSIM, MS_SSIM
-from inversion.perceptual_loss.lpips.lpips import LPIPS
-
+from inversion.perceptual_loss.perceptual import PerceptualLoss, LPIPS
 import time
 
 def noise_regularize(noises):
@@ -135,6 +134,7 @@ def optimize(Ens_r, g_ema, latent_mean, device, params, features_in=None, hybrid
         else :
             feature = features_in.detach().clone().to(device)
             feature.requires_grad = True
+        print('Optimizing feature map of shape:', feature.shape)
 
     with torch.no_grad():
         noise_sample = torch.randn(Ens_r.shape[0], 512, device=device) # torch.Size([B,512]) (z)
@@ -168,19 +168,11 @@ def optimize(Ens_r, g_ema, latent_mean, device, params, features_in=None, hybrid
 
     #### Perceptual Loss ####
     if params.lambda_perceptual_loss>0:
-        perceptual_loss_class = PerceptualLoss(
-                                        config=params,
-                                        device=device,
-                                        multi_scale=params.multi_scale_perceptual_loss
-                                        ).to(device).eval()
-        perceptual_loss_class.compute_perceptual_features(img=Ens_r)
+        perceptual_loss_class = PerceptualLoss().to(device).eval()
+        perceptual_loss_class.compute_perceptual_features(Ens_r)
     
     if params.lambda_lpips_loss>0:
-        lpips_loss_class = LPIPS(
-                                config=params,
-                                device=device,
-                                multi_scale=params.multi_scale_perceptual_loss
-                                ).to(device).eval()
+        lpips_loss_class = LPIPS().to(device).eval()
     # MS-SSIM module for MS-SSIM loss
     # ssim_module = SSIM(data_range=1, size_average=True, channel=1)
     if params.lambda_ms_ssim :
@@ -230,7 +222,7 @@ def optimize(Ens_r, g_ema, latent_mean, device, params, features_in=None, hybrid
         perceptual_loss = torch.tensor(0.).to(device)
         if params.lambda_perceptual_loss>0:
             t0 = time.time()
-            perceptual_loss = perceptual_loss_class(img_gen=img_gen)
+            perceptual_loss = perceptual_loss_class(img_gen)
             list_time_to_compute_vgg_loss.append(time.time()-t0)
             list_perceptual_loss.append(perceptual_loss.cpu().detach().numpy())
             loss += perceptual_loss*params.lambda_perceptual_loss
