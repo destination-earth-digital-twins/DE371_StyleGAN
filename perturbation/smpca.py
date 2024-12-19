@@ -48,6 +48,7 @@ def sm_pca(
 
     if Ens_feature is not None:
         Ens_feature = Ens_feature.to(device)
+        noise = G.make_noise()
 
     if save_perturbation and not import_perturbation :
         perturbation = np.zeros((N * per_cond, R, D))
@@ -84,6 +85,7 @@ def sm_pca(
             print(Ens_w1.shape)
 
     with torch.no_grad():
+        
         for k in range(
             N_seeds
         ):  # generating a common multiple of each conditioning sample
@@ -173,17 +175,23 @@ def sm_pca(
             features_in = None
             if Ens_feature is not None:
                 
-                sample, features_out_inv, _ = G([Ens_w1[k].unsqueeze(0).to(device)], input_is_latent=True, return_features=True)
+                print('shape w_inv',Ens_w1[k].unsqueeze(0).shape)
+                sample, features_out_inv, _ = G([(Ens_w1[k].unsqueeze(0)).to(device)], input_is_latent=True, return_features=True, noise=noise)
 
-                sample, features_out_pert, _ = G([w.to(device)], input_is_latent=True, return_features=True)
-                
+                print('shape features_out_inv',features_out_inv[feature_id].shape)
+                print('shape w_new',w.shape)
+                sample, features_out_pert, _ = G([w.to(device)], input_is_latent=True, return_features=True, noise=noise)
+                print('shape features_out_pert',features_out_pert[feature_id].shape)
+
+                print('shape features from encoder',Ens_feature[k].shape)
                 F = Ens_feature[k].unsqueeze(0).repeat(per_cond, 1, 1, 1)
+                print('shape features from encoder ready',F.shape)
                 feature_map_from_pert = features_out_pert[feature_id]
                 feature_map_from_inv = features_out_inv[feature_id].repeat(per_cond, 1, 1, 1)
-
+                
                 feature_to_insert = F + feature_map_from_pert - feature_map_from_inv
                 features_in = [None]*(feature_id)+ [feature_to_insert] + [None]*(13-(feature_id))
-                sample, _, _ = G([w.to(device)],  features_in=features_in, feature_scale=feature_scale, input_is_latent=True)
+                sample, _, _ = G([w.to(device)],  features_in=features_in, feature_scale=feature_scale, input_is_latent=True, noise=noise)
             else :
                 
                 sample, _, _ = G([w.to(device)],  input_is_latent=True)

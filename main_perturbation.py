@@ -119,7 +119,7 @@ def compute_generate_save(G, params, metrics_list, Means, Maxs):
     )
 
     online_pert_diff_plot(
-        packsample=Ens_r.numpy(), 
+        invsample=inv_ens, 
         pert_sample=gen,
         crop=[0,-1,0,-1],
         mem_idx=0 if params.N_conditioners>1 else cond_indices, 

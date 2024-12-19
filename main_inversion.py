@@ -17,11 +17,10 @@ import yaml
 import pandas as pd
 import matplotlib
 matplotlib.use('Agg')
-import perturbation.utils as utils
 from encoders.models.psp import pSp
 from inversion.hybrid_based.inversion import init_latent_restyle, init_latent_psp_e4e, init_latent_featureStyle, init_latent_inDomain
 from inversion.encoder_based.inversion import inversion_restyle, inversion_psp_e4e, inversion_featureStyle, inversion_inDomain
-from inversion.encoder_based.utils import log_images_diff
+from inversion.encoder_based.encoder_utils import log_images_diff
 from encoders.models.e4e import e4e
 from encoders.models.in_domain import inDomain
 from encoders.models.feature_style_encoder.feature_style_module import FeatureStyleModule
@@ -90,6 +89,7 @@ if __name__=="__main__" :
     parser.add_argument("--noise_ramp",type=float,default=0.75,help="duration of the noise level decay")
     parser.add_argument("--feature_optimize", action='store_true', help="to enable optimization of feature map")
     parser.add_argument("--feature_id", type=int, default=6, help="features to optimize")
+    parser.add_argument("--feature_scale", type=float, default=1, help="features scale when inserting")
     parser.add_argument("--lambda_features", type=float, default=1, help="weight of the noise regularization")
 
     # Noise optimization and loss noise parameter

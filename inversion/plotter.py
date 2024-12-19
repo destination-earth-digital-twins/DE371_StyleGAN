@@ -158,7 +158,7 @@ def online_pert_plot(
 
 
 def online_pert_diff_plot(
-          packsample, 
+          invsample, 
           pert_sample, 
           crop=[0,-1,0,-1], 
           mem_idx=0, 
@@ -173,18 +173,18 @@ def online_pert_diff_plot(
         for id, var in enumerate(var_names):
             var_id = dict_var[var]
 
-            vmin = np.min([np.min(packsample[:,var_id,crop[0]:crop[1],crop[2]:crop[3]])])
-            vmax = np.min([np.max(packsample[:,var_id,crop[0]:crop[1],crop[2]:crop[3]])])
+            vmin = np.min([np.min(invsample[:,var_id,crop[0]:crop[1],crop[2]:crop[3]])])
+            vmax = np.min([np.max(invsample[:,var_id,crop[0]:crop[1],crop[2]:crop[3]])])
 
-            ax[0][id].set_title(f"{var} real")
-            im = ax[0][id].imshow(packsample[mem_idx,var_id,crop[0]:crop[1],crop[2]:crop[3]], clim=(vmin, vmax), origin="lower", cmap=colormap_var[id])
+            ax[0][id].set_title(f"{var} inv")
+            im = ax[0][id].imshow(invsample[mem_idx,var_id,crop[0]:crop[1],crop[2]:crop[3]], clim=(vmin, vmax), origin="lower", cmap=colormap_var[id])
             fig.colorbar(im, ax=ax[0][id], shrink=0.5)
 
             ax[1][id].set_title(f"{var} perturbated")
             im = ax[1][id].imshow(pert_sample[mem_pert_idx,var_id,crop[0]:crop[1],crop[2]:crop[3]], clim=(vmin, vmax), origin="lower", cmap=colormap_var[id])
             fig.colorbar(im, ax=ax[1][id], shrink=0.5)
 
-            diff = pert_sample[mem_pert_idx,var_id,crop[0]:crop[1],crop[2]:crop[3]] - packsample[mem_idx,var_id,crop[0]:crop[1],crop[2]:crop[3]]
+            diff = pert_sample[mem_pert_idx,var_id,crop[0]:crop[1],crop[2]:crop[3]] - invsample[mem_idx,var_id,crop[0]:crop[1],crop[2]:crop[3]]
             ax[2][id].set_title(f"{var} diff")
             im = ax[2][id].imshow(diff, clim=(vmin, vmax), origin="lower", cmap="RdYlGn")
             im.set_clim(-0.1,0.1)

@@ -208,9 +208,9 @@ def optimize(Ens_r, g_ema, init_latent, device, params, features_in=None, hybrid
             features_in = [None]*(params.feature_id)+ [feature] + [None]*(13-(params.feature_id)) 
 
         if params.fixed_noise or params.noise_optimize :
-            img_gen, features_out, _ = g_ema([latent_n], input_is_latent=True, return_features=True, noise=noises, features_in=features_in, feature_scale=1)
+            img_gen, features_out, _ = g_ema([latent_n], input_is_latent=True, return_features=True, noise=noises, features_in=features_in, feature_scale=params.feature_scale)
         else :
-            img_gen, features_out, _ = g_ema([latent_n], input_is_latent=True, return_features=True, noise=None, features_in=features_in, feature_scale=1)
+            img_gen, features_out, _ = g_ema([latent_n], input_is_latent=True, return_features=True, noise=None, features_in=features_in, feature_scale=params.feature_scale)
 
         batch, channel, height, width = img_gen.shape
         # print('img_gen shape :', img_gen.shape)
