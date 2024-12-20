@@ -49,7 +49,7 @@ def interpolate(dataloader, model, generator, device, args):
             print(f"Latent linear interpolation MSE (1000x): {latent_linear_interpolation_mse * 1E3}")
             print(f"Latent NN interpolation MSE (1000x): {latent_nn_interpolation_mse * 1E3}")
 
-            relative_improvement = 100 * (phys_linear_interpolation_mse - latent_nn_interpolation_mse) / latent_nn_interpolation_mse
+            relative_improvement = 100 * (phys_linear_interpolation_mse - latent_nn_interpolation_mse) / phys_linear_interpolation_mse
             print(f"Relative NN interpolation improvement (compared to physical linear, %): {relative_improvement}\n")
 
             output_dir = args.base_dir + args.output_dir
@@ -65,8 +65,8 @@ def interpolate(dataloader, model, generator, device, args):
     print(f"Latent linear interpolation MSE (1000x): {mean_latent_linear_interpolation_mse / num_batches * 1E3}")
     print(f"Latent NN interpolation MSE (1000x): {mean_latent_nn_interpolation_mse / num_batches * 1E3}")
 
-    relative_improvement = 100 * (mean_phys_linear_interpolation_mse - mean_latent_nn_interpolation_mse) / mean_latent_nn_interpolation_mse
-    print(f"Relative NN interpolation improvement (compared to physical linear, %): {relative_improvement}\n")
+    relative_improvement = 100 * (mean_phys_linear_interpolation_mse - mean_latent_nn_interpolation_mse) / mean_phys_linear_interpolation_mse
+    print(f"Mean relative NN interpolation improvement (compared to physical linear, %): {relative_improvement}\n")
 
 def save_image(output_path, img_generated):
     if not os.path.exists(output_path):

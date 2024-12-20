@@ -64,7 +64,7 @@ def train_loop(dataloader, model, generator, loss_function, optimizer, current_e
         r_latent_nn_interpolation = generate_image_from_latent(w_interpolated, generator)
 
         # Compute loss
-        loss = loss_function(w_interpolated, w_t, 
+        loss = loss_function(w_interpolated, w_t,
                              r_latent_nn_interpolation, r_t,
                              args.latent_loss_weight,
                              args.pixel_loss_weight,

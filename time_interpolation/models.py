@@ -27,10 +27,12 @@ class LatentInterpolator(nn.Module):
 
     def forward(self, w_start, w_end, t):
         batch_size = w_start.size(0)  # Get batch size
+        t_repeats = int(batch_size / t.size(0))
 
         # Flatten latent space vectors
         w_start_flat = w_start.view(batch_size, -1)  # [batch_size, 14, 512] -> [batch_size, 7168]
         w_end_flat = w_end.view(batch_size, -1)      # [batch_size, 14, 512] -> [batch_size, 7168]
+        t = torch.repeat_interleave(t, repeats=t_repeats).view(-1, 1)
 
         # Expand `t` and concatenate inputs
         x = torch.cat([w_start_flat, w_end_flat, t], dim=1)  # Concatenate along feature dimension
@@ -66,10 +68,12 @@ class LatentInterpolatorCorrector(nn.Module):
 
     def forward(self, w_start, w_end, t):
         batch_size = w_start.size(0)  # Get batch size
+        t_repeats = int(batch_size / t.size(0))
 
         # Flatten latent space vectors
         w_start_flat = w_start.view(batch_size, -1)  # [batch_size, 14, 512] -> [batch_size, 7168]
         w_end_flat = w_end.view(batch_size, -1)      # [batch_size, 14, 512] -> [batch_size, 7168]
+        t = torch.repeat_interleave(t, repeats=t_repeats).view(-1, 1)
 
         # Expand `t` and concatenate inputs
         x = torch.cat([w_start_flat, w_end_flat, t], dim=1)  # Concatenate along feature dimension
@@ -111,10 +115,12 @@ class LatentInterpolator2(nn.Module):
 
     def forward(self, w_start, w_end, t):
         batch_size = w_start.size(0)  # Get batch size
+        t_repeats = int(batch_size / t.size(0))
 
         # Flatten latent space vectors
         w_start_flat = w_start.view(batch_size, -1)  # [batch_size, 14, 512] -> [batch_size, 7168]
         w_end_flat = w_end.view(batch_size, -1)      # [batch_size, 14, 512] -> [batch_size, 7168]
+        t = torch.repeat_interleave(t, repeats=t_repeats).view(-1, 1)
 
         # Expand `t` and concatenate inputs
         x = torch.cat([
@@ -153,10 +159,12 @@ class LatentInterpolatorCorrector2(nn.Module):
 
     def forward(self, w_start, w_end, t):
         batch_size = w_start.size(0)  # Get batch size
+        t_repeats = int(batch_size / t.size(0))
 
         # Flatten latent space vectors
         w_start_flat = w_start.view(batch_size, -1)  # [batch_size, 14, 512] -> [batch_size, 7168]
         w_end_flat = w_end.view(batch_size, -1)      # [batch_size, 14, 512] -> [batch_size, 7168]
+        t = torch.repeat_interleave(t, repeats=t_repeats).view(-1, 1)
 
         # Expand `t` and concatenate inputs
         x = torch.cat([
@@ -237,10 +245,12 @@ class DualAutoencoderInterpolator(nn.Module):
 
     def forward(self, w_start, w_end, t):
         batch_size = w_start.size(0)
+        t_repeats = int(batch_size / t.size(0))
 
-        # Flatten w_start and w_end
+        # Flatten latent space vectors
         w_start_flat = w_start.view(batch_size, -1)  # [batch_size, 14, 512] -> [batch_size, 7168]
         w_end_flat = w_end.view(batch_size, -1)      # [batch_size, 14, 512] -> [batch_size, 7168]
+        t = torch.repeat_interleave(t, repeats=t_repeats).view(-1, 1)
 
         # Pass through encoders
         h_start = self.encoder_w(w_start_flat)  # [batch_size, 7168] -> [batch_size, 256]
@@ -317,10 +327,12 @@ class DualAutoencoderInterpolatorCorrector(nn.Module):
 
     def forward(self, w_start, w_end, t):
         batch_size = w_start.size(0)
+        t_repeats = int(batch_size / t.size(0))
 
-        # Flatten w_start and w_end
+        # Flatten latent space vectors
         w_start_flat = w_start.view(batch_size, -1)  # [batch_size, 14, 512] -> [batch_size, 7168]
         w_end_flat = w_end.view(batch_size, -1)      # [batch_size, 14, 512] -> [batch_size, 7168]
+        t = torch.repeat_interleave(t, repeats=t_repeats).view(-1, 1)
 
         # Pass through encoders
         h_start = self.encoder_w(w_start_flat)  # [batch_size, 7168] -> [batch_size, 256]
@@ -363,19 +375,21 @@ class LatentVectorInterpolatorCorrector(nn.Module):
                     layers.append(nn.BatchNorm1d(out_features))
                 layers.append(nn.ReLU())
                 if args.dropout > 0:
-                    layers.append(nn.Dropout(p=args.dropout)) 
+                    layers.append(nn.Dropout(p=args.dropout))
 
         self.network = nn.Sequential(*layers)
 
     def forward(self, w_start, w_end, t):
         batch_size, num_channels, feature_dim = w_start.size()  # (batch_size, 14, 512)
+        t_repeats = int(batch_size * num_channels / t.size(0))
         
         w_start = w_start.view(batch_size * num_channels, feature_dim)  # Shape: (batch_size * 14, 512)
         w_end = w_end.view(batch_size * num_channels, feature_dim)  # Shape: (batch_size * 14, 512)
+        t = torch.repeat_interleave(t, repeats=t_repeats).view(-1, 1)
 
         # Expand `t` and concatenate inputs
         x = torch.cat([
-            w_start * (1.  - t), 
+            w_start * (1.  - t),
             w_end * t
         ], dim=1)  # Concatenate along feature dimension
 
@@ -386,7 +400,7 @@ class LatentVectorInterpolatorCorrector(nn.Module):
         correction = self.network(x)  # [batch_size, 512]
 
         # Add correction to linear interpolation
-        w_corrected = w_linear + correction 
+        w_corrected = w_linear + correction
         w_corrected = w_corrected.view(batch_size, num_channels, -1)  # Shape: (batch_size, 14, 512)
         
         return w_corrected

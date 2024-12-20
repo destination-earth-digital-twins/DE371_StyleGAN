@@ -36,7 +36,7 @@ def main():
         '--pack_dir_val', type=str, default='/project/home/p200177/DE_371/experiments_WP2/temporal_downscaling_experiments/inversion_hourly/validation/pack/'
     )
     parser.add_argument(
-        '--model_name', type=str, default='LatentInterpolator', help="Name of the model."
+        '--model_name', type=str, default='LatentInterpolatorCorrector2', help="Name of the model."
     )
     parser.add_argument(
         '--training_description', type=str, default='training', help="Description of the specific training."
@@ -60,13 +60,13 @@ def main():
         '--learning_rate', type=float, default=1e-3, help="Learning rate parameter."
     )
     parser.add_argument(
-        '--lr_decay', type=float, default=0.9, help="Learning rate decay parameter."
+        '--lr_decay', type=float, default=1.0, help="Learning rate decay parameter."
     )
     parser.add_argument(
-        '--latent_loss_weight', type=float, default=1.0, help="Weight of latent MSE loss."
+        '--latent_loss_weight', type=float, default=0.0, help="Weight of latent MSE loss."
     )
     parser.add_argument(
-        '--pixel_loss_weight', type=float, default=0.0, help="Weight of real MSE loss."
+        '--pixel_loss_weight', type=float, default=1.0, help="Weight of real MSE loss."
     )
     parser.add_argument(
         '--epochs', type=int, default=20, help="Number of training epochs."
@@ -78,7 +78,7 @@ def main():
         '--start_date', type=str, default="2020-06-15", help="Start date."
     )
     parser.add_argument(
-        '--end_date', type=str, default="2021-05-25", help="End date."
+        '--end_date', type=str, default="2021-06-14", help="End date."
     )
     # Generation settings
     parser.add_argument(
@@ -86,7 +86,7 @@ def main():
     parser.add_argument(
         '--ckpt_dir', type=str, default ='/project/home/p200177/DE_371/resources/models/trained_generator/000024.pt')
     # Perceptual Loss
-    parser.add_argument("--perceptual_loss_weight", type=float, default=1.0, help="weight of the vgg (perceptual) loss")
+    parser.add_argument("--perceptual_loss_weight", type=float, default=0.0, help="weight of the vgg (perceptual) loss")
     parser.add_argument("--resize_input", type=float, default=0.0, help="resize input for vgg loss")
     parser.add_argument("--network_type", type=str, default='vgg16', choices=['vgg16','vgg11','vgg13','vgg19','alexnet','squeezenet1_1','resnet18','resnet34','resnet50','resnet101','resnet152','set_vit_b_16'])
     parser.add_argument("--pre_trained", action='store_true')
