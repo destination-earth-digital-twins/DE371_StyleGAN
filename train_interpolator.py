@@ -131,7 +131,10 @@ def main():
         "LatentInterpolatorCorrector2": models.LatentInterpolatorCorrector2,
         "DualAutoencoderInterpolator": models.DualAutoencoderInterpolator,
         "DualAutoencoderInterpolatorCorrector": models.DualAutoencoderInterpolatorCorrector,
-        "LatentVectorInterpolatorCorrector": models.LatentVectorInterpolatorCorrector
+        "LatentVectorInterpolatorCorrector": models.LatentVectorInterpolatorCorrector,
+        "LatentConvInterpolatorCorrector": models.LatentConvInterpolatorCorrector,
+        "LatentConvInterpolator": models.LatentConvInterpolator,
+        "LatentVectorInterpolator": models.LatentVectorInterpolator
     }
 
     if dist.get_rank() == 0:

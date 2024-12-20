@@ -352,6 +352,53 @@ class DualAutoencoderInterpolatorCorrector(nn.Module):
         
         return w_corrected.view(batch_size, self.style_dims, self.latent_dims)  # [batch_size, 14, 512]
 
+class LatentVectorInterpolator(nn.Module):
+    def __init__(self, args, style_dims=14, latent_dims=512):
+        super(LatentVectorInterpolator, self).__init__()
+        self.style_dims = style_dims
+        self.latent_dims = latent_dims
+        self.num_neurons = args.num_neurons
+        self.num_layers = args.num_layers
+        self.dropout = args.dropout
+        input_dim = 2 * latent_dims  # Inputs: w_start, w_end
+
+        layers = []
+        for i in range(args.num_layers):
+            in_features = input_dim if i == 0 else self.num_neurons
+            out_features = latent_dims if i == self.num_layers - 1 else self.num_neurons
+
+            layers.append(nn.Linear(in_features, out_features))
+            if i < args.num_layers - 1:
+                if args.normalization == "Layer":
+                    layers.append(nn.LayerNorm(out_features))
+                elif args.normalization == "Batch":
+                    layers.append(nn.BatchNorm1d(out_features))
+                layers.append(nn.ReLU())
+                if args.dropout > 0:
+                    layers.append(nn.Dropout(p=args.dropout))
+
+        self.network = nn.Sequential(*layers)
+
+    def forward(self, w_start, w_end, t):
+        batch_size, num_channels, feature_dim = w_start.size()  # (batch_size, 14, 512)
+        t_repeats = int(batch_size * num_channels / t.size(0))
+        
+        w_start = w_start.view(batch_size * num_channels, feature_dim)  # Shape: (batch_size * 14, 512)
+        w_end = w_end.view(batch_size * num_channels, feature_dim)  # Shape: (batch_size * 14, 512)
+        t = torch.repeat_interleave(t, repeats=t_repeats).view(-1, 1)
+
+        # Expand `t` and concatenate inputs
+        x = torch.cat([
+            w_start * (1.  - t),
+            w_end * t
+        ], dim=1)  # Concatenate along feature dimension
+        
+        # Pass through the feedforward network
+        w_int = self.network(x)  # [batch_size, 512]
+        w_int = w_int.view(batch_size, num_channels, -1)  # Shape: (batch_size, 14, 512)
+        
+        return w_int
+
 class LatentVectorInterpolatorCorrector(nn.Module):
     def __init__(self, args, style_dims=14, latent_dims=512):
         super(LatentVectorInterpolatorCorrector, self).__init__()
@@ -402,5 +449,123 @@ class LatentVectorInterpolatorCorrector(nn.Module):
         # Add correction to linear interpolation
         w_corrected = w_linear + correction
         w_corrected = w_corrected.view(batch_size, num_channels, -1)  # Shape: (batch_size, 14, 512)
+        
+        return w_corrected
+    
+class LatentConvInterpolator(nn.Module):
+    def __init__(self, args, style_dims=14, latent_dims=512):
+        super(LatentConvInterpolator, self).__init__()
+        self.style_dims = style_dims
+        self.latent_dims = latent_dims
+        self.num_neurons = args.num_neurons
+        self.num_layers = args.num_layers
+        self.dropout = args.dropout
+
+        input_dim = 2 * latent_dims  # Inputs: w_start, w_end (concatenated along last dimension)
+
+        layers = []
+        in_channels = input_dim * style_dims  # (14 * 1024) for first layer
+        
+        for i in range(args.num_layers):
+            out_channels = latent_dims * style_dims if i == args.num_layers - 1 else args.num_neurons * style_dims
+            
+            layers.append(nn.Conv1d(
+                in_channels=in_channels, 
+                out_channels=out_channels, 
+                kernel_size=1, 
+                groups=style_dims
+            ))
+            
+            if i < args.num_layers - 1:
+                layers.append(nn.ReLU())
+                if self.dropout > 0:
+                    layers.append(nn.Dropout(p=self.dropout))
+                    
+            in_channels = out_channels  # For next layer
+        
+        self.network = nn.Sequential(*layers)
+
+    def forward(self, w_start, w_end, t):
+        batch_size, num_channels, feature_dim = w_start.size()  # (batch_size, 14, 512)
+        t_repeats = int(batch_size / t.size(0))
+        t = torch.repeat_interleave(t, repeats=t_repeats).view(-1, 1, 1)
+   
+        # ** Vectorized Processing for All Styles **
+        w_start_flat = w_start.view(batch_size, num_channels, feature_dim)  # (batch_size, 14, 512)
+        w_end_flat = w_end.view(batch_size, num_channels, feature_dim)      # (batch_size, 14, 512)
+        
+        # Concatenate inputs for all sub-networks at once
+        x_flat = torch.cat([w_start_flat * (1 - t), w_end_flat * t], dim=2)  # (batch_size, 14, 1024)
+        
+        # Reshape for Conv1d: (batch_size, style_dims * input_dim, 1)
+        x_flat = x_flat.view(batch_size, self.style_dims * x_flat.shape[2], 1)  # (batch_size, 14 * 1024, 1)
+        
+        # ** Apply the sub-network to all at once using grouped convolutions **
+        w_int = self.network(x_flat)  # Shape: (batch_size, 14 * 512, 1)
+        
+        # Reshape the correction to match the batch and style dimensions
+        w_int = w_int.view(batch_size, self.style_dims, self.latent_dims)  # (batch_size, 14, 512)
+        
+        return w_int
+    
+class LatentConvInterpolatorCorrector(nn.Module):
+    def __init__(self, args, style_dims=14, latent_dims=512):
+        super(LatentConvInterpolatorCorrector, self).__init__()
+        self.style_dims = style_dims
+        self.latent_dims = latent_dims
+        self.num_neurons = args.num_neurons
+        self.num_layers = args.num_layers
+        self.dropout = args.dropout
+
+        input_dim = 2 * latent_dims  # Inputs: w_start, w_end (concatenated along last dimension)
+
+        layers = []
+        in_channels = input_dim * style_dims  # (14 * 1024) for first layer
+        
+        for i in range(args.num_layers):
+            out_channels = latent_dims * style_dims if i == args.num_layers - 1 else args.num_neurons * style_dims
+            
+            layers.append(nn.Conv1d(
+                in_channels=in_channels, 
+                out_channels=out_channels, 
+                kernel_size=1, 
+                groups=style_dims
+            ))
+            
+            if i < args.num_layers - 1:
+                layers.append(nn.ReLU())
+                if self.dropout > 0:
+                    layers.append(nn.Dropout(p=self.dropout))
+                    
+            in_channels = out_channels  # For next layer
+        
+        self.network = nn.Sequential(*layers)
+
+    def forward(self, w_start, w_end, t):
+        batch_size, num_channels, feature_dim = w_start.size()  # (batch_size, 14, 512)
+        t_repeats = int(batch_size / t.size(0))
+        t = torch.repeat_interleave(t, repeats=t_repeats).view(-1, 1, 1)
+
+        # Compute linear interpolation
+        w_linear = w_start + t * (w_end - w_start)  # Shape: (batch_size, 14, 512)
+   
+        # ** Vectorized Processing for All Styles **
+        w_start_flat = w_start.view(batch_size, num_channels, feature_dim)  # (batch_size, 14, 512)
+        w_end_flat = w_end.view(batch_size, num_channels, feature_dim)      # (batch_size, 14, 512)
+        
+        # Concatenate inputs for all sub-networks at once
+        x_flat = torch.cat([w_start_flat * (1 - t), w_end_flat * t], dim=2)  # (batch_size, 14, 1024)
+        
+        # Reshape for Conv1d: (batch_size, style_dims * input_dim, 1)
+        x_flat = x_flat.view(batch_size, self.style_dims * x_flat.shape[2], 1)  # (batch_size, 14 * 1024, 1)
+        
+        # ** Apply the sub-network to all at once using grouped convolutions **
+        corrections = self.network(x_flat)  # Shape: (batch_size, 14 * 512, 1)
+        
+        # Reshape the correction to match the batch and style dimensions
+        corrections = corrections.view(batch_size, self.style_dims, self.latent_dims)  # (batch_size, 14, 512)
+        
+        # Add the correction to the linear interpolation
+        w_corrected = w_linear + corrections  # Shape: (batch_size, 14, 512)
         
         return w_corrected
