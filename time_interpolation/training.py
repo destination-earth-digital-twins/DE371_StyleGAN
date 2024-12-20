@@ -132,9 +132,12 @@ def test_loop(dataloader, model, generator, loss_function, current_epoch, percep
             else:
                 test_loss += loss.item()
 
+            n_members = int(w_start.size(0) / t.size(0))
+            t = torch.repeat_interleave(t, repeats=n_members)
+
             # Linear interpolation
-            r_phys_interpolated = linear_interpolation(r_start, r_end, t)
-            w_latent_linear_interpolation = linear_interpolation(w_start, w_end, t)
+            r_phys_interpolated = linear_interpolation(r_start, r_end, t.view(-1, 1, 1, 1))
+            w_latent_linear_interpolation = linear_interpolation(w_start, w_end, t.view(-1, 1, 1))
 
             # Generate latent image (ensure it's on the correct device)
             r_latent_linear_interpolation = generate_image_from_latent(
@@ -162,10 +165,10 @@ def test_loop(dataloader, model, generator, loss_function, current_epoch, percep
             print(f"Epoch {current_epoch+1} - Latent linear interpolation MSE (1000x): {mean_latent_linear_interpolation_mse * 1E3}")
             print(f"Epoch {current_epoch+1} - Latent NN interpolation MSE (1000x): {mean_latent_nn_interpolation_mse * 1E3}")
 
-            # Do not include to avoid division by zero
-            if not dataloader.dataset.include_input_leadtimes:
-                relative_improvement = 100 * (mean_phys_linear_interpolation_mse - mean_latent_nn_interpolation_mse) / mean_phys_linear_interpolation_mse
-                print(f"Epoch {current_epoch+1} - Relative NN interpolation improvement (compared to physical linear, %): {relative_improvement}\n")
+            ## Do not include to avoid division by zero
+            #if not dataloader.dataset.include_input_leadtimes:
+            relative_improvement = 100 * (mean_phys_linear_interpolation_mse - mean_latent_nn_interpolation_mse) / mean_phys_linear_interpolation_mse
+            print(f"Epoch {current_epoch+1} - Relative NN interpolation improvement (compared to physical linear, %): {relative_improvement}\n")
 
     dist.barrier()  # Ensure synchronization between all ranks before proceeding
 
