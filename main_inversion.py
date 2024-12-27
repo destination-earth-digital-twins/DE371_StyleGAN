@@ -37,16 +37,16 @@ if __name__=="__main__" :
     
     parser = argparse.ArgumentParser()
     
-    parser.add_argument('--inversion_type', default='hybrid', type=str, choices=["optimization","encoder","hybrid"], help='Type of inversion')
+    parser.add_argument('--inversion_type', default='optimization', type=str, choices=["optimization","encoder","hybrid"], help='Type of inversion')
 
     ########################### Encoder-related parameters ###########################
-    parser.add_argument('--encoder_framework_type', default='pSp', type=str, choices=["pSp", "e4e", "restyle-pSp", "restyle-e4e", "FeatureStyle", "inDomain"], help='Type of encoder')
-    parser.add_argument('--checkpoint_path', default='', type=str, help='Path to ReStyle model checkpoint')
+    parser.add_argument('--encoder_framework_type', default='FeatureStyle', type=str, choices=["pSp", "e4e", "restyle-pSp", "restyle-e4e", "FeatureStyle", "inDomain"], help='Type of encoder')
+    parser.add_argument('--checkpoint_dir', default ='/project/scratch/p200177/DE_371/angeliquebonamy/GAN_training/gan_training_new_dataset/exp_train_ep_with_Noise_Injection/models/102000.pt', type=str, help='Path to ReStyle model checkpoint')
     parser.add_argument('--dataset_type', default='arome_encode', type=str, help='Type of dataset/experiment to run')
     parser.add_argument('--encoder_type', default='ResNetBackboneEncoder', type=str, help='Which encoder to use')
     parser.add_argument('--input_nc', default=6, type=int, help='Number of input image channels to the ReStyle encoder. Should be set to 6.')
     parser.add_argument('--output_size', default=256, type=int, help='Output size of generator')
-    parser.add_argument('--n_vars', default=3, type=int, help='Number of variables as channels')
+    parser.add_argument('--n_vars', default=4, type=int, help='Number of variables as channels')
     parser.add_argument("--plot_checkpoint", action='store_true')
 
     parser.add_argument("--train_discriminator", action='store_true')
@@ -58,14 +58,14 @@ if __name__=="__main__" :
     ########################### Directories ###########################
 
     # Real Data Directory - PATH to samples of the dataset
-    parser.add_argument('--real_data_dir', type = str, default='')
+    parser.add_argument('--real_data_dir', type = str,default='/project/home/p200177/DE_371/datasets/dataset_Meteo_France_rr_u_v_t2m/data/IS_rr_debug_1_1.0_0_0_0_0_0_256_large_lt/')
     # Output Directory - PATH where the output of the inversion will be saved
-    parser.add_argument('--output_dir',type = str, default ='')
+    parser.add_argument('--output_dir',type = str, default ='./test/pack/')
     # Pack Directory - PATH where the packed ensembles will be saved
-    parser.add_argument("--pack_dir", type=str, default = '') # storing "packed" (normalized) real data
+    parser.add_argument("--pack_dir", type=str, default = './test/inv/') # storing "packed" (normalized) real data
     
     # Dataset information
-    parser.add_argument("--normalization", type=str, default="meanmax", choices=["minmax", "meanmax"])
+    parser.add_argument("--normalization", type=str, default="minmax", choices=["minmax", "meanmax"])
     parser.add_argument('--max_file', type=str, default='MaxNew_4_var.npy') # use 'MaxNew_4_var.npy' if AROME data # max_rr_log.npy
     parser.add_argument('--mean_file', type=str, default='Mean_4_var.npy') # not used if minmax normalization
     parser.add_argument('--min_file', type=str, default='min_rr_log.npy')  # not used if meanmax normalization
@@ -77,7 +77,7 @@ if __name__=="__main__" :
     parser.add_argument('--nb_timesteps', type=int, default=15)
     parser.add_argument('--timestep_period', type=int, default=3)
     parser.add_argument('--stack_sample_along_time_and_variable', action='store_true')
-    parser.add_argument('--g_channels', type=int, default=3)
+    parser.add_argument('--g_channels', type=int, default=4)
     parser.add_argument('--channel_multiplier', type=int, default=2)
     
     ############################ INVERSION PARAMETERS #################    
@@ -99,7 +99,7 @@ if __name__=="__main__" :
     parser.add_argument("--fixed_noise", action='store_true', help="Fixing the noise during optimization")
 
     # Parameter related to pixel loss 
-    parser.add_argument('--pixel_loss_type', type=str, default='mse', choices = ['mse', 'mae'])
+    parser.add_argument('--pixel_loss_type', type=str, default='amse', choices = ['mse', 'mae','amse','wamse','wmse'])
     parser.add_argument("--lambda_pixel", type=float, default=0.0, help="weight of the (mae/mse) pixel loss")
     
         
@@ -115,7 +115,7 @@ if __name__=="__main__" :
     parser.add_argument("--features_after_relu", action='store_true')
     parser.add_argument("--channel_computation", type=str, default='sol2', choices = ['sol1', 'sol2', 'sol3', 'sol4', 'sol5'], 
                     help="Either we compute layer by layer and member per member but we have to triple th einput to make it rgb or all in one (naive)")
-    parser.add_argument("--network_dir", type=str, default='', help="Insert a path")
+    parser.add_argument("--network_dir", type=str, default='/project/scratch/p200177/DE_371/resources/vgg_weights/vgg16-random.pth', help="Insert a path")
     parser.add_argument("--style_layers", type=utils.str2intlist, default=[], help="style layers to include in vgg loss computation")
     parser.add_argument("--feature_layers", type=utils.str2intlist, default=[0,1,2,3], help="feature layers to include in vgg computation")
     parser.add_argument("--alpha_feature", type=float, default=1.0, help="weight of the feature/content loss")
@@ -123,19 +123,19 @@ if __name__=="__main__" :
     parser.add_argument("--split_factor", type=int, default=2, help="splitting factor for patching")
     parser.add_argument("--multi_scale_perceptual_loss",  action='store_true')
 
-    parser.add_argument("--invstep", type=int, default=50, help="optimize iterations (default is 50 when hybrid-based and 1000 when optimization-based)")
-    parser.add_argument("--inv_checkpoints", type=utils.str2intlist, default=[10, 25, 50])
+    parser.add_argument("--invstep", type=int, default=2000, help="optimize iterations (default is 50 when hybrid-based and 1000 when optimization-based)")
+    parser.add_argument("--inv_checkpoints", type=utils.str2intlist, default=[500,1000, 1500,2000])
     
     # lambda_ms_ssim
     parser.add_argument("--lambda_ms_ssim", type=float, default=0, help="weight of the MS-SSIM loss")
     
-    parser.add_argument("--var_indices", type=utils.str2intlist, default=[1,2,3])
-    parser.add_argument("--Shape", type=tuple, default=(3,256,256), help='size of the samples')
+    parser.add_argument("--var_indices", type=utils.str2intlist, default=[0,1,2,3])
+    parser.add_argument("--Shape", type=tuple, default=(4,256,256), help='size of the samples')
     parser.add_argument("--crop_indices", type=int, nargs='+', default=[0,256,0,256])
 
     ########################## CONTROL of Data to invert ######################
-    parser.add_argument("--dates_file", type=str, default = 'Large_lt_test_labels.csv')
-    parser.add_argument("--date_start", type=str, default = "2021-07-01")
+    parser.add_argument("--dates_file", type=str, default = 'updated_file1_valid.csv')
+    parser.add_argument("--date_start", type=str, default = "2020-07-01")
     parser.add_argument("--date_stop", type=str, default = "2021-07-02")
     parser.add_argument("--leadtimes", type=utils.str2intlist, default=[3,6,9,12,15,18,21,24,27,30,33,36,39,42,45])
     
@@ -172,8 +172,8 @@ if __name__=="__main__" :
         Means = np.load(f'{params.real_data_dir}{params.mean_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
         Maxs = np.load(f'{params.real_data_dir}{params.max_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
     elif params.normalization=="minmax":
-       Mins = np.load(f'{params.real_data_dir}/stat_files/{params.min_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
-       Maxs = np.load(f'{params.real_data_dir}/stat_files/{params.max_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
+       Mins = np.load(f'{params.real_data_dir}stat_files/{params.min_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
+       Maxs = np.load(f'{params.real_data_dir}stat_files/{params.max_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
     else:
        raise ValueError(f"Unknown normalization: {params.normalization}")
 
@@ -193,7 +193,7 @@ if __name__=="__main__" :
             G = Generator(params.Shape[1], 512,n_mlp=8, nb_var=params.Shape[0])
         else :
             G = Generator(params.Shape[1], 512,n_mlp=8, nb_var=params.g_channels, channel_multiplier=params.channel_multiplier)
-        ckpt = torch.load(params.ckpt_dir, map_location='cpu')['g_ema']
+        ckpt = torch.load(params.checkpoint_dir, map_location='cpu')['g_ema']
 
         if 'module' in list(ckpt.items())[0][0]: #juglling with Pytorch versioning and different module packaging
             ckpt_adapt = OrderedDict()
@@ -311,7 +311,7 @@ if __name__=="__main__" :
                 if params.inversion_type == 'optimization':
                     inv.optimize(
                             Ens_r=Ens_r,
-                            g_ema=network.decoder,
+                            g_ema=G,
                             init_latent=latent_mean,
                             device=params.device,
                             params=params

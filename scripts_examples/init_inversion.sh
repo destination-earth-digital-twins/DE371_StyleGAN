@@ -19,7 +19,7 @@ module load Apptainer/1.2.4-GCCcore-12.3.0
 
 # Inversion with pixel loss 
 
-apptainer exec --nv /PATH/TO/apptainer_container/container.sif python3 main_inversion_precip.py \
+apptainer exec --nv /PATH/TO/apptainer_container/container.sif python3 main_inversion.py \
         --invstep=2000\
         --pixel_loss="amse"\
         --lambda_vgg=0\

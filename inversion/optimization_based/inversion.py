@@ -250,7 +250,7 @@ def optimize(Ens_r, g_ema, init_latent, device, params, features_in=None, hybrid
             ms_ssim_loss = 1 - ms_ssim_module((img_gen+1)/2, (Ens_r+1)/2)
             loss += ms_ssim_loss*params.lambda_ms_ssim
 
-        # mae/mse pixel loss
+        # mae/mse/amse/wamse pixel loss
         if params.pixel_loss_type=='mse' :
             t0 = time.time()
             pixel_loss = F.mse_loss(img_gen, Ens_r)
@@ -260,6 +260,15 @@ def optimize(Ens_r, g_ema, init_latent, device, params, features_in=None, hybrid
         elif params.pixel_loss_type=='mae':
             pixel_loss = F.l1_loss(img_gen, Ens_r)
             loss+=params.lambda_pixel*pixel_loss
+
+        elif params.pixel_loss_type=='amse':
+            pixel_loss = F.mse_loss(img_gen, Ens_r) + torch.max(torch.min(Ens_r,torch.tensor(20))-img_gen,torch.tensor(0)).mean()
+            loss+=params.lambda_pixel*pixel_loss
+
+        elif params.pixel_loss_type=='wamse':
+            pixel_loss = F.mse_loss(img_gen, Ens_r) + torch.max(torch.min(Ens_r,torch.tensor(20))-img_gen,torch.tensor(0)).mean()*torch.min(Ens_r+1,torch.tensor(20)).mean()
+            loss+=params.lambda_pixel*pixel_loss
+
 
         else:
             raise ValueError(f"unknown pixel_loss_type: {params.pixel_loss_type}")
