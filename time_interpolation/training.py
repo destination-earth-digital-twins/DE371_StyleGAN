@@ -8,7 +8,7 @@ import torch
 import torch.nn as nn
 import torch.distributed as dist
 
-def combined_loss(w_interpolated, w_t, r_interpolated, r_t,
+def combined_loss(w_interpolated, w_t, r_interpolated=None, r_t=None,
                         latent_loss_weight=1.0, pixel_loss_weight=0.0,
                         perceptual_loss_class=None, perceptual_loss_weight=0.0):
     latent_loss = 0.
@@ -61,7 +61,9 @@ def train_loop(dataloader, model, generator, loss_function, optimizer, current_e
 
         # Forward pass
         w_interpolated = model(w_start, w_end, t)
-        r_latent_nn_interpolation = generate_image_from_latent(w_interpolated, generator)
+        r_latent_nn_interpolation = None
+        if args.pixel_loss_weight > 0 or args.perceptual_loss_weight > 0:
+            r_latent_nn_interpolation = generate_image_from_latent(w_interpolated, generator)
 
         # Compute loss
         loss = loss_function(w_interpolated, w_t,
