@@ -43,11 +43,11 @@ def load_batch_from_timestamp(
         sn = np.load(f'{data_dir}{s}.npy')[var_indices,:,:].astype(np.float32)
 
         batch[i] = sn
-    print('JE SUIS LA NORMALISATION', normalization,batch.shape)
-    
-    channel_rr=batch[:,0,:,:]
-    transformed_channel_rr = np.log(1+channel_rr)
-    batch[:,0,:,:]=transformed_channel_rr
+
+    if Shape==4:    
+        channel_rr=batch[:,0,:,:]
+        transformed_channel_rr = np.log(1+channel_rr)
+        batch[:,0,:,:]=transformed_channel_rr
     # normalise samples and save in pack dir. obs! make sure normalization is done correctly (according to how model was trained)
     if normalization=="meanmax":
         batch = torch.tensor(0.95*(batch - Means) / (Maxs), dtype = torch.float32)
