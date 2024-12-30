@@ -65,13 +65,8 @@ if __name__=="__main__" :
     parser.add_argument("--pack_dir", type=str, default = '') # storing "packed" (normalized) real data
     
     # Dataset information
-<<<<<<< Updated upstream
-    parser.add_argument("--normalization", type=str, default="meanmax", choices=["minmax", "meanmax"])
-    parser.add_argument('--max_file', type=str, default='MaxNew_4_var.npy') # use 'MaxNew_4_var.npy' if AROME data # max_rr_log.npy
-=======
     parser.add_argument("--normalization", type=str, default="minmax", choices=["minmax", "meanmax"])
     parser.add_argument('--max_file', type=str, default='max_rr_log.npy') # use 'MaxNew_4_var.npy' if AROME data # max_rr_log.npy
->>>>>>> Stashed changes
     parser.add_argument('--mean_file', type=str, default='Mean_4_var.npy') # not used if minmax normalization
     parser.add_argument('--min_file', type=str, default='min_rr_log.npy')  # not used if meanmax normalization
     
@@ -294,13 +289,7 @@ if __name__=="__main__" :
                         Maxs=Maxs
                         
                     ) #, crop_indices=params.crop_indices)
-<<<<<<< Updated upstream
-=======
-                    # channel_rr=Ens_r[:,0,:,:]
-                    # transformed_channel_rr = np.log(1+channel_rr)
-                    # Ens_r[:,0,:,:]=transformed_channel_rr
-                    
->>>>>>> Stashed changes
+
                     if params.pack_dir :
                         np.save(params.pack_dir+f'Rsemble_{datename}_{lt}.npy', Ens_r.numpy().astype(np.float32))
                     
