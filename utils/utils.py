@@ -17,29 +17,16 @@ def str2intlist(li):
 
     else : 
         raise ValueError("li argument must be a string or a list, not '{}'".format(type(li)))
-
-def str2strlist(li):
-    if type(li)==list:
-        li2 = [str(p) for p in li]
-        return li2
-    
-    elif type(li)==str:
-        li2 = li[1:-1].split(',')
-        li3 = [str(p) for p in li2]
-        return li3
-
-    else : 
-        raise ValueError("li argument must be a string or a list, not '{}'".format(type(li)))
-
+                      
 
 def load_batch_from_timestamp(
         dataframe,
         date,
         lt,
         data_dir,
-        Shape=(3,256,256),
-        var_indices=[0,1,2],
-        normalization="meanmax",
+        Shape,
+        var_indices,
+        normalization,
         Means=None,
         Mins=None,
         Maxs=None
@@ -56,7 +43,10 @@ def load_batch_from_timestamp(
         sn = np.load(f'{data_dir}{s}.npy')[var_indices,:,:].astype(np.float32)
 
         batch[i] = sn
-    
+    print('JE SUIS LA NORMALISATION', normalization)
+    channel_rr=batch[:,0,:,:]
+    transformed_channel_rr = np.log(1+channel_rr)
+    batch[:,0,:,:]=transformed_channel_rr
     # normalise samples and save in pack dir. obs! make sure normalization is done correctly (according to how model was trained)
     if normalization=="meanmax":
         batch = torch.tensor(0.95*(batch - Means) / (Maxs), dtype = torch.float32)
