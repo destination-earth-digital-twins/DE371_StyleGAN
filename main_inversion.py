@@ -288,6 +288,10 @@ if __name__=="__main__" :
                         Maxs=Maxs
                         
                     ) #, crop_indices=params.crop_indices)
+                    channel_rr=Ens_r[:,0,:,:]
+                    transformed_channel_rr = np.log(1+channel_rr)
+                    Ens_r[:,0,:,:]=transformed_channel_rr
+                    
                     if params.pack_dir :
                         np.save(params.pack_dir+f'Rsemble_{datename}_{lt}.npy', Ens_r.numpy().astype(np.float32))
                     
