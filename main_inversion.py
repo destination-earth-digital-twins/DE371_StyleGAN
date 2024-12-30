@@ -66,7 +66,7 @@ if __name__=="__main__" :
     
     # Dataset information
     parser.add_argument("--normalization", type=str, default="minmax", choices=["minmax", "meanmax"])
-    parser.add_argument('--max_file', type=str, default='MaxNew_4_var.npy') # use 'MaxNew_4_var.npy' if AROME data # max_rr_log.npy
+    parser.add_argument('--max_file', type=str, default='max_rr_log.npy') # use 'MaxNew_4_var.npy' if AROME data # max_rr_log.npy
     parser.add_argument('--mean_file', type=str, default='Mean_4_var.npy') # not used if minmax normalization
     parser.add_argument('--min_file', type=str, default='min_rr_log.npy')  # not used if meanmax normalization
     
@@ -132,6 +132,7 @@ if __name__=="__main__" :
     parser.add_argument("--var_indices", type=utils.str2intlist, default=[0,1,2,3])
     parser.add_argument("--Shape", type=tuple, default=(4,256,256), help='size of the samples')
     parser.add_argument("--crop_indices", type=int, nargs='+', default=[0,256,0,256])
+    parser.add_argument("--precip", action='store_true')
 
     ########################## CONTROL of Data to invert ######################
     parser.add_argument("--dates_file", type=str, default = 'updated_file1_valid.csv')
@@ -165,9 +166,9 @@ if __name__=="__main__" :
     df_extract = df_date[(df_date['Date']>=params.date_start) & (df_date['Date']<=params.date_stop)]
 
     list_dates = df_extract['Date'].unique()
-    Means=None
-    Maxs=None
-    Mins=None
+    # Means=None
+    # Maxs=None
+    # Mins=None
     if params.normalization=="meanmax":
         Means = np.load(f'{params.real_data_dir}{params.mean_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
         Maxs = np.load(f'{params.real_data_dir}{params.max_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
@@ -275,22 +276,24 @@ if __name__=="__main__" :
                     if len(df0)==0:
                         print("# samples: 0")
                         continue
-                    Ens_r = utils.load_batch_from_timestamp(
-                        df_extract, 
-                        date_, 
-                        lt-1, 
-                        params.real_data_dir, 
-                        Shape=params.Shape, 
-                        var_indices=params.var_indices,
-                        normalization=params.normalization,
-                        Means=Means,
-                        Mins=Mins,
-                        Maxs=Maxs
+                    
+                    Ens_r = utils.load_batch_from_timestamp(df_extract, date_, lt-1, params.real_data_dir, Shape=params.Shape, var_indices=params.var_indices) #, crop_indices=params.crop_indices)
+                   
+                    if params.precip:
+                    #Log transformations for precips
+                        channel_rr=Ens_r[:,0,:,:]
+                        transformed_channel_rr = np.log(1+channel_rr)
+                        Ens_r[:,0,:,:]=transformed_channel_rr
                         
-                    ) #, crop_indices=params.crop_indices)
-                    channel_rr=Ens_r[:,0,:,:]
-                    transformed_channel_rr = np.log(1+channel_rr)
-                    Ens_r[:,0,:,:]=transformed_channel_rr
+                    # normalise samples and save in pack dir. obs! make sure normalization is done correctly (according to how model was trained)
+                    if params.normalization=="meanmax":
+                        Ens_r = torch.tensor(0.95*(Ens_r - Means) / (Maxs), dtype = torch.float32)
+                    elif params.normalization=="minmax":
+                        Ens_r = torch.tensor(-1. + 2*(Ens_r - Mins) / (Maxs-Mins), dtype = torch.float32)
+                    elif normalization=="":
+                        pass
+                    else:
+                        raise ValueError(f"Unknown normalization: {params.normalization}")
                     
                     if params.pack_dir :
                         np.save(params.pack_dir+f'Rsemble_{datename}_{lt}.npy', Ens_r.numpy().astype(np.float32))
