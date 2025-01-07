@@ -32,42 +32,6 @@ import inversion.optimization_based.inversion as inv
 import utils.utils as utils
 
 torch.manual_seed(42) #reproducibility of runs
-def denormalize(data, normalization_type, Means=None, Mins=None, Maxs=None, apply_log_transform=False):
-    """
-    Dénormalise les données en inversant les transformations de normalisation et, si nécessaire, le log-transform.
-
-    Args:
-        data (torch.Tensor): Les données normalisées.
-        normalization_type (str): Type de normalisation utilisée ("meanmax", "minmax" ou "").
-        Means (torch.Tensor, optional): Moyennes utilisées pour la normalisation (si applicable).
-        Mins (torch.Tensor, optional): Minima utilisés pour la normalisation (si applicable).
-        Maxs (torch.Tensor, optional): Maxima utilisés pour la normalisation (si applicable).
-        apply_log_transform (bool): Si True, inverse également la transformation logarithmique.
-
-    Returns:
-        torch.Tensor: Les données dénormalisées.
-    """
-    # Étape 1 : Inverser la normalisation
-    if normalization_type == "meanmax":
-        if Means is None or Maxs is None:
-            raise ValueError("Means et Maxs doivent être fournis pour dénormaliser avec 'meanmax'.")
-        denormalized_data = (data * Maxs / 0.95) + Means
-    elif normalization_type == "minmax":
-        if Mins is None or Maxs is None:
-            raise ValueError("Mins et Maxs doivent être fournis pour dénormaliser avec 'minmax'.")
-        denormalized_data = ((data + 1) * (Maxs - Mins) / 2) + Mins
-        print("MINS",Mins,Maxs,denormalized_data.shape)
-    elif normalization_type == "":
-        denormalized_data = data  # Pas de normalisation appliquée
-    else:
-        raise ValueError(f"Type de normalisation inconnu: {normalization_type}")
-
-    # Étape 2 : Inverser la transformation logarithmique, si applicable
-    if apply_log_transform:
-        denormalized_data[:,0,:,:] = torch.exp(denormalized_data[:,0,:,:]) - 1
-
-    return denormalized_data
-
 
 if __name__=="__main__" :
     
@@ -315,8 +279,12 @@ if __name__=="__main__" :
                         continue
                     
                     Ens_r = utils.load_batch_from_timestamp(df_extract, date_, lt-1, params.real_data_dir, Shape=params.Shape, var_indices=params.var_indices) #, crop_indices=params.crop_indices)
-                    np.save(params.pack_dir+f'Rsemble2_{datename}_{lt}.npy', Ens_r)
-
+                    
+                    if params.pack_dir :
+                        
+                        # np.save(params.pack_dir+f'Rsemble_{datename}_{lt}.npy', Ens_r.numpy().astype(np.float32))
+                        np.save(params.pack_dir+f'Rsemble_{datename}_{lt}.npy', Ens_r)
+                   
                     if params.precip:
                     #Log transformations for precips
                         channel_rr=Ens_r[:,0,:,:]
@@ -333,79 +301,79 @@ if __name__=="__main__" :
                     else:
                         raise ValueError(f"Unknown normalization: {params.normalization}")
                     
+
+
+                else : 
+                    Ens_r = utils.load_batch_sequence_from_date(
+                        df_extract,
+                        date_,
+                        params.real_data_dir,
+                        concatenate_variable_and_time=params.stack_sample_along_time_and_variable,
+                        dt=params.timestep_period,
+                        Shape=params.Shape,
+                        var_indices=params.var_indices,
+                        normalization=params.normalization,
+                        Means=Means,
+                        Mins=Mins,
+                        Maxs=Maxs
+                    )
                     if params.pack_dir :
-                        denorm = denormalize(Ens_r, params.normalization, Means, Mins, Maxs, apply_log_transform=True)
+                        np.save(params.pack_dir+f'Rsemble_sequence_{datename}.npy', Ens_r.numpy().astype(np.float32))
 
-                        np.save(params.pack_dir+f'Rsemble_{datename}_{lt}.npy', denorm.numpy().astype(np.float32))
+                if params.inversion_type == 'optimization':
+                    inv.optimize(
+                            Ens_r=Ens_r,
+                            g_ema=G,
+                            init_latent=latent_mean,
+                            device=params.device,
+                            params=params,
+                            Means=Means,
+                            Maxs=Maxs,
+                            Mins=Mins
+                        )
 
-                # else : 
-                #     Ens_r = utils.load_batch_sequence_from_date(
-                #         df_extract,
-                #         date_,
-                #         params.real_data_dir,
-                #         concatenate_variable_and_time=params.stack_sample_along_time_and_variable,
-                #         dt=params.timestep_period,
-                #         Shape=params.Shape,
-                #         var_indices=params.var_indices,
-                #         normalization=params.normalization,
-                #         Means=Means,
-                #         Mins=Mins,
-                #         Maxs=Maxs
-                #     )
-                #     if params.pack_dir :
-                #         np.save(params.pack_dir+f'Rsemble_sequence_{datename}.npy', Ens_r.numpy().astype(np.float32))
-
-                # if params.inversion_type == 'optimization':
-                #     inv.optimize(
-                #             Ens_r=Ens_r,
-                #             g_ema=G,
-                #             init_latent=latent_mean,
-                #             device=params.device,
-                #             params=params
-                #         )
-
-                # elif params.inversion_type == 'encoder':
-                #     if params.encoder_framework_type  in ['restyle-pSp', "restyle-e4e"]:
-                #         y_hat = inversion_restyle(params=params, network=network, Ens_r=Ens_r)
-                #     elif params.encoder_framework_type  in ['e4e', 'pSp']:
-                #         y_hat = inversion_psp_e4e(params=params, network=network, Ens_r=Ens_r)
-                #     elif params.encoder_framework_type == 'inDomain':
-                #         y_hat = inversion_inDomain(params=params, network=network, Ens_r=Ens_r)
-                #     elif params.encoder_framework_type == 'FeatureStyle':
-                #         y_hat = inversion_featureStyle(params=params, network=network, Ens_r=Ens_r)
-                #     else :
-                #         raise NotImplementedError
+                elif params.inversion_type == 'encoder':
+                    if params.encoder_framework_type  in ['restyle-pSp', "restyle-e4e"]:
+                        y_hat = inversion_restyle(params=params, network=network, Ens_r=Ens_r)
+                    elif params.encoder_framework_type  in ['e4e', 'pSp']:
+                        y_hat = inversion_psp_e4e(params=params, network=network, Ens_r=Ens_r)
+                    elif params.encoder_framework_type == 'inDomain':
+                        y_hat = inversion_inDomain(params=params, network=network, Ens_r=Ens_r)
+                    elif params.encoder_framework_type == 'FeatureStyle':
+                        y_hat = inversion_featureStyle(params=params, network=network, Ens_r=Ens_r)
+                    else :
+                        raise NotImplementedError
             
-                #     if params.plot_checkpoint:
-                #         log_images_diff(
-                #             config=params,
-                #             x=Ens_r,
-                #             y_hat=y_hat
-                #         )
+                    if params.plot_checkpoint:
+                        log_images_diff(
+                            config=params,
+                            x=Ens_r,
+                            y_hat=y_hat
+                        )
 
-                # elif params.inversion_type == 'hybrid':
-                #     init_feature=None
-                #     ################ Forwarding encoder #################
-                #     if params.encoder_framework_type  in ['restyle-pSp', "restyle-e4e"]:
-                #         init_latent = init_latent_restyle(params=params, network=network, Ens_r=Ens_r)
-                #     elif params.encoder_framework_type  in ['e4e', 'pSp']:
-                #         init_latent = init_latent_psp_e4e(params=params, network=network, Ens_r=Ens_r)
-                #     elif params.encoder_framework_type == 'inDomain':
-                #         init_latent = init_latent_inDomain(params=params, network=network, Ens_r=Ens_r)
-                #     elif params.encoder_framework_type == 'FeatureStyle':
-                #         init_latent, init_feature = init_latent_featureStyle(params=params, network=network, Ens_r=Ens_r)
-                #     else :
-                #         raise NotImplementedError
+                elif params.inversion_type == 'hybrid':
+                    init_feature=None
+                    ################ Forwarding encoder #################
+                    if params.encoder_framework_type  in ['restyle-pSp', "restyle-e4e"]:
+                        init_latent = init_latent_restyle(params=params, network=network, Ens_r=Ens_r)
+                    elif params.encoder_framework_type  in ['e4e', 'pSp']:
+                        init_latent = init_latent_psp_e4e(params=params, network=network, Ens_r=Ens_r)
+                    elif params.encoder_framework_type == 'inDomain':
+                        init_latent = init_latent_inDomain(params=params, network=network, Ens_r=Ens_r)
+                    elif params.encoder_framework_type == 'FeatureStyle':
+                        init_latent, init_feature = init_latent_featureStyle(params=params, network=network, Ens_r=Ens_r)
+                    else :
+                        raise NotImplementedError
 
-                #     inv.optimize(
-                #         Ens_r=Ens_r,
-                #         g_ema=network.decoder,
-                #         init_latent=init_latent,
-                #         device=params.device,
-                #         params=params,
-                #         features_in=init_feature,
-                #         hybrid=True
-                #     )
+                    inv.optimize(
+                        Ens_r=Ens_r,
+                        g_ema=network.decoder,
+                        init_latent=init_latent,
+                        device=params.device,
+                        params=params,
+                        features_in=init_feature,
+                        hybrid=True
+                    )
                 
 
 

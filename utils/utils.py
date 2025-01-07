@@ -18,7 +18,14 @@ def str2intlist(li):
     else : 
         raise ValueError("li argument must be a string or a list, not '{}'".format(type(li)))
 
-def load_batch_from_timestamp(dataframe, date, lt, data_dir, Shape=(4,256,256), var_indices=[0,1,2,3]):
+def load_batch_from_timestamp(
+        dataframe, 
+        date, 
+        lt, 
+        data_dir, 
+        Shape, 
+        var_indices
+    ):
 
     df0 = dataframe[(dataframe['Date']==date) & (dataframe['LeadTime']==lt)]
 
@@ -30,47 +37,6 @@ def load_batch_from_timestamp(dataframe, date, lt, data_dir, Shape=(4,256,256), 
         batch[i] = sn
     
     return batch
-
-# def load_batch_from_timestamp(
-#         dataframe,
-#         date,
-#         lt,
-#         data_dir,
-#         Shape,
-#         var_indices,
-#         normalization,
-#         Means=None,
-#         Mins=None,
-#         Maxs=None
-#         ):
-
-#     df0 = dataframe[(dataframe['Date']==date) & (dataframe['LeadTime']==lt)]
-
-#     Nb = len(df0)
-
-#     batch = np.zeros((Nb,) + tuple(Shape))
-#     # print(batch.shape)
-#     for i,s in enumerate(df0['Name']):
-#         # print(i, s)
-#         sn = np.load(f'{data_dir}{s}.npy')[var_indices,:,:].astype(np.float32)
-
-#         batch[i] = sn
-#     print(batch.shape,'SHAPE A TESTER',Shape)
-#     channel_rr=batch[:,0,:,:]
-#     transformed_channel_rr = np.log(1+channel_rr)
-#     batch[:,0,:,:]=transformed_channel_rr        
-        
-# # normalise samples and save in pack dir. obs! make sure normalization is done correctly (according to how model was trained)
-#     if normalization=="meanmax":
-#         batch = torch.tensor(0.95*(batch - Means) / (Maxs), dtype = torch.float32)
-#     elif normalization=="minmax":
-#         batch = torch.tensor(-1. + 2*(batch - Mins) / (Maxs-Mins), dtype = torch.float32)
-#     elif normalization=="":
-#         pass
-#     else :
-#         raise ValueError(f"Unknown normalization: {normalization}")
-
-#     return batch
 
 
 def load_batch_sequence_from_date(
@@ -262,3 +228,39 @@ def initsmall():
         #if python storage of members start at 0 remove '+1'
         mb[k] = ( yic[k] - 1 ) * Nlbc + loc_bc[0][0] # + 1
     return mb
+
+
+def denormalize(data, normalization_type, Means=None, Mins=None, Maxs=None, apply_log_transform=True):
+    """
+    Dénormalise les données en inversant les transformations de normalisation et, si nécessaire, le log-transform.
+
+    Args:
+        data (torch.Tensor): Les données normalisées.
+        normalization_type (str): Type de normalisation utilisée ("meanmax", "minmax" ou "").
+        Means (torch.Tensor, optional): Moyennes utilisées pour la normalisation (si applicable).
+        Mins (torch.Tensor, optional): Minima utilisés pour la normalisation (si applicable).
+        Maxs (torch.Tensor, optional): Maxima utilisés pour la normalisation (si applicable).
+        apply_log_transform (bool): Si True, inverse également la transformation logarithmique.
+
+    Returns:
+        torch.Tensor: Les données dénormalisées.
+    """
+    #Inverser la normalisation
+    if normalization_type == "meanmax":
+        if Means is None or Maxs is None:
+            raise ValueError("Means et Maxs doivent être fournis pour dénormaliser avec 'meanmax'.")
+        denormalized_data = (data * Maxs / 0.95) + Means
+    elif normalization_type == "minmax":
+        if Mins is None or Maxs is None:
+            raise ValueError("Mins et Maxs doivent être fournis pour dénormaliser avec 'minmax'.")
+        denormalized_data = ((data + 1) * (Maxs - Mins) / 2) + Mins
+    elif normalization_type == "":
+        denormalized_data = data  # Pas de normalisation appliquée
+    else:
+        raise ValueError(f"Type de normalisation inconnu: {normalization_type}")
+    print('SHAPEX',denormalized_data.shape)
+    # Inverser la transformation logarithmique
+    if apply_log_transform:
+        denormalized_data[:,0,:,:] = np.exp(denormalized_data[:,0,:,:]) - 1
+
+    return denormalized_data

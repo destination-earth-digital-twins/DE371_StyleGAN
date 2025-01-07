@@ -12,6 +12,7 @@ from inversion.perceptual_loss.perceptual_loss import PerceptualLoss
 from inversion.plotter import online_inv_plot, online_inv_plot, create_frame
 from inversion.experimental_loss.ssim import ssim, ms_ssim, SSIM, MS_SSIM
 from inversion.perceptual_loss.lpips.lpips import LPIPS
+import utils.utils as utils
 
 import time
 
@@ -85,7 +86,7 @@ def feature_noise(feature, strength):
     noise = torch.randn_like(feature) * strength
     return feature + noise
 
-def optimize(Ens_r, g_ema, init_latent, device, params, features_in=None, hybrid=False):
+def optimize(Ens_r, g_ema, init_latent, device, params,Means,Maxs,Mins, features_in=None, hybrid=False):
 
     """
 
@@ -262,7 +263,6 @@ def optimize(Ens_r, g_ema, init_latent, device, params, features_in=None, hybrid
             loss+=params.lambda_pixel*pixel_loss
 
         elif params.pixel_loss_type=='amse':
-            print('JE SUIS LZ ')
             pixel_loss = F.mse_loss(img_gen, Ens_r) + torch.max(torch.min(Ens_r,torch.tensor(20))-img_gen,torch.tensor(0)).mean()
             loss+=params.lambda_pixel*pixel_loss 
 
@@ -306,8 +306,10 @@ def optimize(Ens_r, g_ema, init_latent, device, params, features_in=None, hybrid
             if params.fixed_noise or params.noise_optimize :
                 with open(params.output_dir+'noise_{}_{}_{}.p'.format(params.date_index,params.lt_index,i+1), 'wb') as f:
                     pickle.dump({j : n.cpu().detach().numpy() for j,n in enumerate(noises)},f)
+            
+            denorm_inv = utils.denormalize(img_gen.cpu().detach().numpy(), params.normalization, Means, Mins, Maxs, apply_log_transform=True)
 
-            np.save(params.output_dir+'invertFsemble_{}_{}_{}.npy'.format(params.date_index,params.lt_index,i+1),img_gen.cpu().detach().numpy())
+            np.save(params.output_dir+'invertFsemble_{}_{}_{}.npy'.format(params.date_index,params.lt_index,i+1),denorm_inv)
             if params.feature_optimize:
                 np.save(params.output_dir+'feature_{}_{}_{}.npy'.format(params.date_index,params.lt_index,i+1),feature.cpu().detach().numpy())
             if params.plot_checkpoint :
