@@ -116,7 +116,9 @@ def main():
         "LatentInterpolatorCorrector2": models.LatentInterpolatorCorrector2,
         "DualAutoencoderInterpolator": models.DualAutoencoderInterpolator,
         "DualAutoencoderInterpolatorCorrector": models.DualAutoencoderInterpolatorCorrector,
-        "LatentVectorInterpolatorCorrector": models.LatentVectorInterpolatorCorrector
+        "LatentVectorInterpolatorCorrector": models.LatentVectorInterpolatorCorrector,
+        "LatentVectorInterpolator": models.LatentVectorInterpolator,
+        "LatentVectorInterpolatorCorrector2": models.LatentVectorInterpolatorCorrector2,
     }
 
     # Initialize model, loss function and optimizer

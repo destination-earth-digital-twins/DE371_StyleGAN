@@ -153,7 +153,7 @@ class LatentInterpolatorCorrector2(nn.Module):
                     layers.append(nn.BatchNorm1d(out_features))
                 layers.append(nn.ReLU())
                 if args.dropout > 0:
-                    layers.append(nn.Dropout(p=args.dropout)) 
+                    layers.append(nn.Dropout(p=args.dropout))
 
         self.network = nn.Sequential(*layers)
 
