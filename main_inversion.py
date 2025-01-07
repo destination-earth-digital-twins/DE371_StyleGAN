@@ -63,7 +63,8 @@ if __name__=="__main__" :
     parser.add_argument('--output_dir',type = str, default ='./test/pack/')
     # Pack Directory - PATH where the packed ensembles will be saved
     parser.add_argument("--pack_dir", type=str, default = './test/inv/') # storing "packed" (normalized) real data
-    
+    parser.add_argument('--denormalization', action='store_true',help='save denormalised inverted samples')
+
     # Dataset information
     parser.add_argument("--normalization", type=str, default="minmax", choices=["minmax", "meanmax"])
     parser.add_argument('--max_file', type=str, default='max_rr_log.npy') # use 'MaxNew_4_var.npy' if AROME data # max_rr_log.npy
