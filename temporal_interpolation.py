@@ -86,7 +86,7 @@ def main():
     parser.add_argument("--start_date", type=str, default = "2021-10-01")
     parser.add_argument("--end_date", type=str, default = "2021-10-07")
     parser.add_argument("--invstep", type=int, default=1000, help="optimize iterations")
-    parser.add_argument('--model_name', type=str, default='LatentInterpolatorCorrector', help="Name of the model.")
+    parser.add_argument('--model_name', type=str, default='LatentCodeInterpolator', help="Name of the model.")
     parser.add_argument('--model_path',type=str,
         default ='interpolation_models/2024-12-12/LatentInterpolatorCorrector-1024-3-pixel1000-2020-2021-period-epoch-20-2024-12-12T01_08.pt')
     parser.add_argument('--num_neurons', type=int, default=1024, help="Number of hidden neurons.")
@@ -110,15 +110,10 @@ def main():
 
     # Load the model checkpoint
     model_classes = {
-        "LatentInterpolator": models.LatentInterpolator,
-        "LatentInterpolatorCorrector": models.LatentInterpolatorCorrector,
-        "LatentInterpolator2" : models.LatentInterpolator2,
-        "LatentInterpolatorCorrector2": models.LatentInterpolatorCorrector2,
-        "DualAutoencoderInterpolator": models.DualAutoencoderInterpolator,
-        "DualAutoencoderInterpolatorCorrector": models.DualAutoencoderInterpolatorCorrector,
-        "LatentVectorInterpolatorCorrector": models.LatentVectorInterpolatorCorrector,
-        "LatentVectorInterpolator": models.LatentVectorInterpolator,
-        "LatentVectorInterpolatorCorrector2": models.LatentVectorInterpolatorCorrector2,
+        "LatentCodeInterpolator": models.LatentCodeInterpolator,
+        "LatentCodeInterpolatorCorrector": models.LatentCodeInterpolatorCorrector,
+        "StyleVectorInterpolator": models.StyleVectorInterpolator,
+        "StyleVectorInterpolatorCorrector": models.StyleVectorInterpolatorCorrector
     }
 
     # Initialize model, loss function and optimizer

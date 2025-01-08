@@ -36,7 +36,7 @@ def main():
         '--pack_dir_val', type=str, default='/project/home/p200177/DE_371/experiments_WP2/temporal_downscaling_experiments/inversion_hourly/validation/pack/'
     )
     parser.add_argument(
-        '--model_name', type=str, default='LatentInterpolatorCorrector2', help="Name of the model."
+        '--model_name', type=str, default='LatentCodeInterpolator', help="Name of the model."
     )
     parser.add_argument(
         '--training_description', type=str, default='training', help="Description of the specific training."
@@ -45,7 +45,7 @@ def main():
         '--num_neurons', type=int, default=512, help="Number of hidden neurons."
     )
     parser.add_argument(
-        '--num_layers', type=int, default=3, help="Number of hidden layers."
+        '--num_layers', type=int, default=4, help="Number of hidden layers."
     )
     parser.add_argument(
         '--normalization', type=str, default="Layer", help="Layer, Batch normalization or none."
@@ -54,10 +54,10 @@ def main():
         '--dropout', type=float, default=0.0, help="Dropout probability."
     )
     parser.add_argument(
-        '--weight_decay', type=float, default=1e-4, help="Weight decay parameter."
+        '--weight_decay', type=float, default=0.0, help="Weight decay parameter."
     )
     parser.add_argument(
-        '--learning_rate', type=float, default=1e-3, help="Learning rate parameter."
+        '--learning_rate', type=float, default=1e-4, help="Learning rate parameter."
     )
     parser.add_argument(
         '--lr_decay', type=float, default=1.0, help="Learning rate decay parameter."
@@ -125,15 +125,10 @@ def main():
     device = torch.device(f"{device}:{dist.get_rank()}")  # Each process gets its GPU
 
     model_classes = {
-        "LatentInterpolator": models.LatentInterpolator,
-        "LatentInterpolatorCorrector": models.LatentInterpolatorCorrector,
-        "LatentInterpolator2" : models.LatentInterpolator2,
-        "LatentInterpolatorCorrector2": models.LatentInterpolatorCorrector2,
-        "DualAutoencoderInterpolator": models.DualAutoencoderInterpolator,
-        "DualAutoencoderInterpolatorCorrector": models.DualAutoencoderInterpolatorCorrector,
-        "LatentVectorInterpolatorCorrector": models.LatentVectorInterpolatorCorrector,
-        "LatentVectorInterpolator": models.LatentVectorInterpolator,
-        "LatentVectorInterpolatorCorrector2": models.LatentVectorInterpolatorCorrector2,
+        "LatentCodeInterpolator": models.LatentCodeInterpolator,
+        "LatentCodeInterpolatorCorrector": models.LatentCodeInterpolatorCorrector,
+        "StyleVectorInterpolator": models.StyleVectorInterpolator,
+        "StyleVectorInterpolatorCorrector": models.StyleVectorInterpolatorCorrector
     }
 
     if dist.get_rank() == 0:
