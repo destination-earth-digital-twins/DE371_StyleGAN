@@ -66,6 +66,7 @@ if __name__=="__main__" :
     parser.add_argument("--pack_dir", type=str, default = '') # storing "packed" (normalized) real data
     parser.add_argument('--ckpt_dir', type = str, default ='')
  
+
     # Dataset information
     parser.add_argument("--normalization", type=str, default="minmax", choices=["minmax", "meanmax"])
     parser.add_argument('--max_file', type=str, default='max_rr_log.npy') # use 'MaxNew_4_var.npy' if AROME data # max_rr_log.npy
@@ -177,6 +178,7 @@ if __name__=="__main__" :
     elif params.normalization=="minmax":
        Mins = np.load(f'{params.real_data_dir}stat_files/{params.min_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
        Maxs = np.load(f'{params.real_data_dir}stat_files/{params.max_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
+       Means = np.load(f'{params.real_data_dir}stat_files/{params.mean_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
     else:
        raise ValueError(f"Unknown normalization: {params.normalization}")
 
@@ -279,6 +281,7 @@ if __name__=="__main__" :
                         print("# samples: 0")
                         continue
                     
+
                     Ens_r,Ens_r_norm = utils.load_batch_from_timestamp(
                         df_extract, 
                         date_, 
@@ -294,9 +297,8 @@ if __name__=="__main__" :
                         
                     ) #, crop_indices=params.crop_indices)                   
                     
-                    if params.pack_dir :
-                        np.save(params.pack_dir+f'Rsemble_{datename}_{lt}.npy', Ens_r.numpy().astype(np.float32))
-                    
+
+
                 else : 
                 # add normalization as above
                     Ens_r = utils.load_batch_sequence_from_date(
@@ -321,7 +323,10 @@ if __name__=="__main__" :
                             g_ema=G,
                             init_latent=latent_mean,
                             device=params.device,
-                            params=params
+                            params=params,
+                            Means=Means,
+                            Maxs=Maxs,
+                            Mins=Mins
                         )
 
                 elif params.inversion_type == 'encoder':

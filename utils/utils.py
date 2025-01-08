@@ -59,6 +59,7 @@ def load_batch_from_timestamp(
     else :
         raise ValueError(f"Unknown normalization: {normalization}")
 
+
     return batch, norm_batch
 
 
@@ -251,3 +252,39 @@ def initsmall():
         #if python storage of members start at 0 remove '+1'
         mb[k] = ( yic[k] - 1 ) * Nlbc + loc_bc[0][0] # + 1
     return mb
+
+
+def denormalize(data, normalization_type, Means=None, Mins=None, Maxs=None, apply_log_transform=True):
+    """
+    Denormalizes the data by inverting the normalization transforms and, if necessary, the log-transform.
+
+        Args:
+            data (torch.Tensor): The normalized data.
+            normalization_type (str): Type of normalisation used (‘meanmax’, ‘minmax’ or ‘’).
+            Means (torch.Tensor, optional): Means used for normalisation (if applicable).
+            Mins (torch.Tensor, optional): Minima used for normalisation (if applicable).
+            Maxs (torch.Tensor, optional): Maxima used for normalisation (if applicable).
+            apply_log_transform (bool): If True, also reverses the log transformation.
+
+        Returns:
+            torch.Tensor: The denormalized data.
+    """
+    #Inverser la normalisation
+    if normalization_type == "meanmax":
+        if Means is None or Maxs is None:
+            raise ValueError("Means et Maxs must be supplied to denormalise with 'meanmax'.")
+        denormalized_data = (data * Maxs / 0.95) + Means
+    elif normalization_type == "minmax":
+        if Mins is None or Maxs is None:
+            raise ValueError("Mins et Maxs must be supplied to denormalise with 'minmax'.")
+        denormalized_data = ((data + 1) * (Maxs - Mins) / 2) + Mins
+    elif normalization_type == "":
+        denormalized_data = data  
+    else:
+        raise ValueError(f"Type de normalisation inconnu: {normalization_type}")
+    # Reverse the logarithmic transformation
+    
+    if apply_log_transform:
+        denormalized_data[:,0,:,:] = np.exp(denormalized_data[:,0,:,:]) - 1
+
+    return denormalized_data
