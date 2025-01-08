@@ -18,18 +18,6 @@ def str2intlist(li):
     else : 
         raise ValueError("li argument must be a string or a list, not '{}'".format(type(li)))
 
-def str2strlist(li):
-    if type(li)==list:
-        li2 = [str(p) for p in li]
-        return li2
-    
-    elif type(li)==str:
-        li2 = li[1:-1].split(',')
-        li3 = [str(p) for p in li2]
-        return li3
-
-    else : 
-        raise ValueError("li argument must be a string or a list, not '{}'".format(type(li)))
 
 
 def load_batch_from_timestamp(
@@ -37,12 +25,13 @@ def load_batch_from_timestamp(
         date,
         lt,
         data_dir,
-        Shape=(3,256,256),
-        var_indices=[0,1,2],
-        normalization="meanmax",
+        Shape,
+        var_indices,
+        normalization,
         Means=None,
         Mins=None,
-        Maxs=None
+        Maxs=None, 
+        precipitation = True 
         ):
 
     df0 = dataframe[(dataframe['Date']==date) & (dataframe['LeadTime']==lt)]
@@ -50,24 +39,27 @@ def load_batch_from_timestamp(
     Nb = len(df0)
 
     batch = np.zeros((Nb,) + tuple(Shape))
-    # print(batch.shape)
+
     for i,s in enumerate(df0['Name']):
-        # print(i, s)
         sn = np.load(f'{data_dir}{s}.npy')[var_indices,:,:].astype(np.float32)
 
         batch[i] = sn
+    norm_batch=tensor.copy(batch)
     
-    # normalise samples and save in pack dir. obs! make sure normalization is done correctly (according to how model was trained)
+    if precipitation==True:   
+        norm_batch[:,0,:,:]=np.log(1+norm_batch[:,0,:,:])        
+    
+# normalise samples and save in pack dir. obs! make sure normalization is done correctly (according to how model was trained)
     if normalization=="meanmax":
-        batch = torch.tensor(0.95*(batch - Means) / (Maxs), dtype = torch.float32)
+        norm_batch = torch.tensor(0.95*(norm_batch - Means) / (Maxs), dtype = torch.float32)
     elif normalization=="minmax":
-        batch = torch.tensor(-1. + 2*(batch - Mins) / (Maxs-Mins), dtype = torch.float32)
+        norm_batch = torch.tensor(-1. + 2*(norm_batch - Mins) / (Maxs-Mins), dtype = torch.float32)
     elif normalization=="":
         pass
     else :
         raise ValueError(f"Unknown normalization: {normalization}")
 
-    return batch
+    return batch, norm_batch
 
 
 def load_batch_sequence_from_date(
