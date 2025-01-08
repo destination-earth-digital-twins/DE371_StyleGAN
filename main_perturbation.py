@@ -17,7 +17,7 @@ import pickle
 import pandas as pd
 from collections import OrderedDict
 from gan.model.stylegan2 import Generator
-
+from ast import literal_eval as make_tuple
 import utils.utils as utils
 import perturbation.smpca as smpca
 from shutil import copyfile
@@ -37,7 +37,7 @@ def str2list(li):
         raise ValueError("li argument must be a string or a list, not '{}'".format(type(li)))
         
 
-def compute_generate_save(G, params, metrics_list, Means, Maxs):
+def compute_generate_save(G, params, metrics_list, Means, Maxs, apply_log_transform):
 
     N_samples = params.N_samples
     if params.verbose:
@@ -112,6 +112,7 @@ def compute_generate_save(G, params, metrics_list, Means, Maxs):
                                     Means=Means,
                                     Mins=None,
                                     Maxs=Maxs,
+                                    apply_log_transform=apply_log_transform
                                     )
     inv_ens_denorm = utils.denormalize(
                                     data=inv_ens,
@@ -119,6 +120,7 @@ def compute_generate_save(G, params, metrics_list, Means, Maxs):
                                     Means=Means,
                                     Mins=None,
                                     Maxs=Maxs,
+                                    apply_log_transform=apply_log_transform
                                     )
     gen_denorm = utils.denormalize(
                                     data=gen,
@@ -126,8 +128,13 @@ def compute_generate_save(G, params, metrics_list, Means, Maxs):
                                     Means=Means,
                                     Mins=None,
                                     Maxs=Maxs,
+                                    apply_log_transform=apply_log_transform
                                     )
-    np.save(params.output_dir + f'/samples/genFsemble_{title}.npy', gen_denorm)
+    
+    if params.save_normalized_sample:
+        np.save(params.output_dir + f'/samples/genFsemble_{title}.npy', gen)
+    else:
+        np.save(params.output_dir + f'/samples/genFsemble_{title}.npy', gen_denorm)
     
 
     online_pert_plot(
@@ -191,9 +198,10 @@ if __name__=="__main__" :
     parser.add_argument('--max_file', type=str, default='') # use 'MaxNew_4_var.npy' if AROME data # max_rr_log.npy
     parser.add_argument('--mean_file', type=str, default='') # not used if minmax normalization
     parser.add_argument('--min_file', type=str, default='')  # not used if meanmax normalization
+    parser.add_argument('--save_normalized_sample', action='store_true')
 
     parser.add_argument("--var_indices", type=utils.str2intlist, default=[1,2,3])
-    parser.add_argument("--Shape", type=tuple, default=(3,256,256), help='size of the samples')
+    parser.add_argument("--Shape", type=make_tuple, default=(3,256,256), help='size of the samples')
     parser.add_argument("--N_samples", type=int, default=10, help='number of new samples') 
     parser.add_argument("--N_conditioners",type=int, default=16, help="number of 'seed' samples used for conditioning")
     parser.add_argument("--inv_step", type=int, default=2000, help='step of inversion to load w')
@@ -301,7 +309,14 @@ if __name__=="__main__" :
                 print('Launching perturbation process for the date {} with leadtime {}.'.format(datename,lt))    
                 try:
                     print('generating')
-                    metrics[(datename,lt)] = compute_generate_save(G, params, metrics_list, Means, Maxs)
+                    metrics[(datename,lt)] = compute_generate_save(
+                        G=G,
+                        params=params,
+                        metrics_list=metrics_list,
+                        Means=Means,
+                        Maxs=Maxs,
+                        apply_log_transform=True if params.Shape[0]==4 else False
+                    )
                 except FileNotFoundError as e:
                     print(f"File not found {e}")
                     pass

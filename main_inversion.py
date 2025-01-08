@@ -30,7 +30,7 @@ from collections import OrderedDict
 from gan.model.stylegan2 import Generator
 import inversion.optimization_based.inversion as inv
 import utils.utils as utils
-
+from ast import literal_eval as make_tuple
 torch.manual_seed(42) #reproducibility of runs
 
 if __name__=="__main__" :
@@ -133,8 +133,8 @@ if __name__=="__main__" :
     # lambda_ms_ssim
     parser.add_argument("--lambda_ms_ssim", type=float, default=0, help="weight of the MS-SSIM loss")
     
-    parser.add_argument("--var_indices", type=utils.str2intlist, default=[1,2,3])
-    parser.add_argument("--Shape", type=tuple, default=(3,256,256), help='size of the samples')
+    parser.add_argument("--var_indices", type=utils.str2intlist, default=[0,1,2,3])
+    parser.add_argument("--Shape", type=make_tuple, default=(4,256,256), help='size of the samples')
     parser.add_argument("--crop_indices", type=int, nargs='+', default=[0,256,0,256])
 
     ########################## CONTROL of Data to invert ######################

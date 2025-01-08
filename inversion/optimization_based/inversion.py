@@ -319,7 +319,7 @@ def optimize(Ens_r, g_ema, init_latent, device, params, Means, Maxs, Mins, featu
 
             denorm_img_gen = utils.denormalize(img_gen.cpu().detach(), params.normalization, Means, Mins, Maxs, apply_log_transform=apply_log_transform)
             if params.save_normalized_sample:
-                np.save(params.output_dir+'invertFsemble_{}_{}_{}.npy'.format(params.date_index,params.lt_index,i+1), img_gen)
+                np.save(params.output_dir+'invertFsemble_{}_{}_{}.npy'.format(params.date_index,params.lt_index,i+1), img_gen.cpu().detach().numpy())
             else :
                 np.save(params.output_dir+'invertFsemble_{}_{}_{}.npy'.format(params.date_index,params.lt_index,i+1), denorm_img_gen)
             

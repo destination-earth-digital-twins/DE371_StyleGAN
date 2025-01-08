@@ -192,7 +192,7 @@ def online_pert_diff_plot(
             diff = pert_sample[mem_pert_idx,var_id,crop[0]:crop[1],crop[2]:crop[3]] - invsample[mem_idx,var_id,crop[0]:crop[1],crop[2]:crop[3]]
             ax[2][id].set_title(f"{var} diff")
             im = ax[2][id].imshow(diff, clim=(vmin, vmax), origin="lower", cmap="RdYlGn")
-            # im.set_clim(-0.1,0.1)
+            im.set_clim(-5,5)
             fig.colorbar(im, ax=ax[2][id], shrink=0.5)
 
         fig.suptitle(figtitle)
