@@ -44,7 +44,7 @@ def load_batch_from_timestamp(
         sn = np.load(f'{data_dir}{s}.npy')[var_indices,:,:].astype(np.float32)
 
         batch[i] = sn
-    norm_batch=tensor.copy(batch)
+    norm_batch=torch.copy(batch)
     
     if precipitation==True:   
         norm_batch[:,0,:,:]=np.log(1+norm_batch[:,0,:,:])        
@@ -260,7 +260,7 @@ def denormalize(data, normalization_type, Means=None, Mins=None, Maxs=None, appl
 
         Args:
             data (torch.Tensor): The normalized data.
-            normalization_type (str): Type of normalisation used (‘meanmax’, ‘minmax’ or ‘’).
+            normalization_type (str): Type of normalisation used ('meanmax', 'minmax' or '').
             Means (torch.Tensor, optional): Means used for normalisation (if applicable).
             Mins (torch.Tensor, optional): Minima used for normalisation (if applicable).
             Maxs (torch.Tensor, optional): Maxima used for normalisation (if applicable).

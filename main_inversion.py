@@ -282,7 +282,7 @@ if __name__=="__main__" :
                         continue
                     
 
-                    Ens_r,Ens_r_norm = utils.load_batch_from_timestamp(
+                    Ens_r, Ens_r_norm = utils.load_batch_from_timestamp(
                         df_extract, 
                         date_, 
                         lt-1, 
@@ -296,11 +296,12 @@ if __name__=="__main__" :
                         precipitation=params.precip
                         
                     ) #, crop_indices=params.crop_indices)                   
-                    
+                    if params.pack_dir :
+                        np.save(params.pack_dir+f'Rsemble_sequence_{datename}.npy', Ens_r.numpy().astype(np.float32))
 
 
                 else : 
-                # add normalization as above
+                    # add normalization as above
                     Ens_r = utils.load_batch_sequence_from_date(
                         df_extract,
                         date_,
