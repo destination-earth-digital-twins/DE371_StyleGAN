@@ -41,7 +41,7 @@ if __name__=="__main__" :
 
     ########################### Encoder-related parameters ###########################
     parser.add_argument('--encoder_framework_type', default='FeatureStyle', type=str, choices=["pSp", "e4e", "restyle-pSp", "restyle-e4e", "FeatureStyle", "inDomain"], help='Type of encoder')
-    parser.add_argument('--checkpoint_dir', default ='', type=str, help='Path to ReStyle model checkpoint')
+    parser.add_argument('--encoder_checkpoint_dir', default ='', type=str, help='Path to ReStyle model checkpoint')
     parser.add_argument('--dataset_type', default='arome_encode', type=str, help='Type of dataset/experiment to run')
     parser.add_argument('--encoder_type', default='ResNetBackboneEncoder', type=str, help='Which encoder to use')
     parser.add_argument('--input_nc', default=6, type=int, help='Number of input image channels to the ReStyle encoder. Should be set to 6.')
@@ -60,7 +60,7 @@ if __name__=="__main__" :
     # Real Data Directory - PATH to samples of the dataset
     parser.add_argument('--real_data_dir', type = str,default='')
     # Output Directory - PATH where the output of the inversion will be saved
-    parser.add_argument('--output_dir',type = str, default ='/pack/')
+    parser.add_argument('--output_dir',type = str, default='')
     # Pack Directory - PATH where the packed ensembles will be saved
 
     parser.add_argument("--pack_dir", type=str, default = '') # storing "packed" (normalized) real data
@@ -117,7 +117,7 @@ if __name__=="__main__" :
     parser.add_argument("--features_after_relu", action='store_true')
     parser.add_argument("--channel_computation", type=str, default='sol2', choices = ['sol1', 'sol2', 'sol3', 'sol4', 'sol5'], 
                     help="Either we compute layer by layer and member per member but we have to triple th einput to make it rgb or all in one (naive)")
-    parser.add_argument("--network_dir", type=str, default='vgg16-random.pth', help="Insert a path")
+    parser.add_argument("--network_dir", type=str, default='', help="Insert a path")
     parser.add_argument("--style_layers", type=utils.str2intlist, default=[], help="style layers to include in vgg loss computation")
     parser.add_argument("--feature_layers", type=utils.str2intlist, default=[0,1,2,3], help="feature layers to include in vgg computation")
     parser.add_argument("--alpha_feature", type=float, default=1.0, help="weight of the feature/content loss")
@@ -137,7 +137,7 @@ if __name__=="__main__" :
     parser.add_argument("--precip", action='store_true')
 
     ########################## CONTROL of Data to invert ######################
-    parser.add_argument("--dates_file", type=str;help='csv file')
+    parser.add_argument("--dates_file", type=str,help='csv file')
     parser.add_argument("--date_start", type=str, default = "2020-07-01")
     parser.add_argument("--date_stop", type=str, default = "2021-07-02")
     parser.add_argument("--leadtimes", type=utils.str2intlist, default=[3,6,9,12,15,18,21,24,27,30,33,36,39,42,45])
@@ -168,9 +168,9 @@ if __name__=="__main__" :
     df_extract = df_date[(df_date['Date']>=params.date_start) & (df_date['Date']<=params.date_stop)]
 
     list_dates = df_extract['Date'].unique()
-    # Means=None
-    # Maxs=None
-    # Mins=None
+    Means=None
+    Maxs=None
+    Mins=None
     if params.normalization=="meanmax":
         Means = np.load(f'{params.real_data_dir}{params.mean_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
         Maxs = np.load(f'{params.real_data_dir}{params.max_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
@@ -196,7 +196,7 @@ if __name__=="__main__" :
             G = Generator(params.Shape[1], 512,n_mlp=8, nb_var=params.Shape[0])
         else :
             G = Generator(params.Shape[1], 512,n_mlp=8, nb_var=params.g_channels, channel_multiplier=params.channel_multiplier)
-        ckpt = torch.load(params.checkpoint_dir, map_location='cpu')['g_ema']
+        ckpt = torch.load(params.ckpt_dir, map_location='cpu')['g_ema']
 
         if 'module' in list(ckpt.items())[0][0]: #juglling with Pytorch versioning and different module packaging
             ckpt_adapt = OrderedDict()
@@ -279,7 +279,7 @@ if __name__=="__main__" :
                         print("# samples: 0")
                         continue
                     
-                    Ens_r = utils.load_batch_from_timestamp(
+                    Ens_r,Ens_r_norm = utils.load_batch_from_timestamp(
                         df_extract, 
                         date_, 
                         lt-1, 
@@ -298,6 +298,7 @@ if __name__=="__main__" :
                         np.save(params.pack_dir+f'Rsemble_{datename}_{lt}.npy', Ens_r.numpy().astype(np.float32))
                     
                 else : 
+                # add normalization as above
                     Ens_r = utils.load_batch_sequence_from_date(
                         df_extract,
                         date_,
@@ -316,7 +317,7 @@ if __name__=="__main__" :
 
                 if params.inversion_type == 'optimization':
                     inv.optimize(
-                            Ens_r=Ens_r,
+                            Ens_r=Ens_r_norm,
                             g_ema=G,
                             init_latent=latent_mean,
                             device=params.device,
@@ -325,13 +326,13 @@ if __name__=="__main__" :
 
                 elif params.inversion_type == 'encoder':
                     if params.encoder_framework_type  in ['restyle-pSp', "restyle-e4e"]:
-                        y_hat = inversion_restyle(params=params, network=network, Ens_r=Ens_r)
+                        y_hat = inversion_restyle(params=params, network=network, Ens_r=Ens_r_norm)
                     elif params.encoder_framework_type  in ['e4e', 'pSp']:
-                        y_hat = inversion_psp_e4e(params=params, network=network, Ens_r=Ens_r)
+                        y_hat = inversion_psp_e4e(params=params, network=network, Ens_r=Ens_r_norm)
                     elif params.encoder_framework_type == 'inDomain':
-                        y_hat = inversion_inDomain(params=params, network=network, Ens_r=Ens_r)
+                        y_hat = inversion_inDomain(params=params, network=network, Ens_r=Ens_r_norm)
                     elif params.encoder_framework_type == 'FeatureStyle':
-                        y_hat = inversion_featureStyle(params=params, network=network, Ens_r=Ens_r)
+                        y_hat = inversion_featureStyle(params=params, network=network, Ens_r=Ens_r_norm)
                     else :
                         raise NotImplementedError
             
@@ -346,18 +347,18 @@ if __name__=="__main__" :
                     init_feature=None
                     ################ Forwarding encoder #################
                     if params.encoder_framework_type  in ['restyle-pSp', "restyle-e4e"]:
-                        init_latent = init_latent_restyle(params=params, network=network, Ens_r=Ens_r)
+                        init_latent = init_latent_restyle(params=params, network=network, Ens_r=Ens_r_norm)
                     elif params.encoder_framework_type  in ['e4e', 'pSp']:
-                        init_latent = init_latent_psp_e4e(params=params, network=network, Ens_r=Ens_r)
+                        init_latent = init_latent_psp_e4e(params=params, network=network, Ens_r=Ens_r_norm)
                     elif params.encoder_framework_type == 'inDomain':
-                        init_latent = init_latent_inDomain(params=params, network=network, Ens_r=Ens_r)
+                        init_latent = init_latent_inDomain(params=params, network=network, Ens_r=Ens_r_norm)
                     elif params.encoder_framework_type == 'FeatureStyle':
-                        init_latent, init_feature = init_latent_featureStyle(params=params, network=network, Ens_r=Ens_r)
+                        init_latent, init_feature = init_latent_featureStyle(params=params, network=network, Ens_r=Ens_r_norm)
                     else :
                         raise NotImplementedError
 
                     inv.optimize(
-                        Ens_r=Ens_r,
+                        Ens_r=Ens_r_norm,
                         g_ema=network.decoder,
                         init_latent=init_latent,
                         device=params.device,

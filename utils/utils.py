@@ -39,27 +39,27 @@ def load_batch_from_timestamp(
     Nb = len(df0)
 
     batch = np.zeros((Nb,) + tuple(Shape))
+
     for i,s in enumerate(df0['Name']):
         sn = np.load(f'{data_dir}{s}.npy')[var_indices,:,:].astype(np.float32)
 
         batch[i] = sn
-        
+    norm_batch=tensor.copy(batch)
+    
     if precipitation==True:   
-        channel_rr=batch[:,0,:,:]
-        transformed_channel_rr = np.log(1+channel_rr)
-        batch[:,0,:,:]=transformed_channel_rr        
+        norm_batch[:,0,:,:]=np.log(1+norm_batch[:,0,:,:])        
     
 # normalise samples and save in pack dir. obs! make sure normalization is done correctly (according to how model was trained)
     if normalization=="meanmax":
-        batch = torch.tensor(0.95*(batch - Means) / (Maxs), dtype = torch.float32)
+        norm_batch = torch.tensor(0.95*(norm_batch - Means) / (Maxs), dtype = torch.float32)
     elif normalization=="minmax":
-        batch = torch.tensor(-1. + 2*(batch - Mins) / (Maxs-Mins), dtype = torch.float32)
+        norm_batch = torch.tensor(-1. + 2*(norm_batch - Mins) / (Maxs-Mins), dtype = torch.float32)
     elif normalization=="":
         pass
     else :
         raise ValueError(f"Unknown normalization: {normalization}")
 
-    return batch
+    return batch, norm_batch
 
 
 def load_batch_sequence_from_date(
