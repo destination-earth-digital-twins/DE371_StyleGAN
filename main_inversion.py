@@ -63,7 +63,8 @@ if __name__=="__main__" :
     parser.add_argument('--output_dir',type = str, default ='')
     # Pack Directory - PATH where the packed ensembles will be saved
     parser.add_argument("--pack_dir", type=str, default = '') # storing "packed" (normalized) real data
-    
+    parser.add_argument('--ckpt_dir', type = str, default ='')
+
     # Dataset information
     parser.add_argument("--normalization", type=str, default="meanmax", choices=["minmax", "meanmax"])
     parser.add_argument('--max_file', type=str, default='MaxNew_4_var.npy') # use 'MaxNew_4_var.npy' if AROME data # max_rr_log.npy
@@ -209,7 +210,7 @@ if __name__=="__main__" :
 
         ################### producing latent mean #######
         if not os.path.exists(f'{params.output_dir}latent_mean.npy'):
-            latent_z = torch.empty(10000, 512).normal_().to(params.device)
+            latent_z = torch.empty(1e5, 512).normal_().to(params.device)
             with torch.no_grad():
                 w = G.style(latent_z)
             latent_mean = w.mean(dim=0).detach().cpu()
@@ -311,7 +312,7 @@ if __name__=="__main__" :
                 if params.inversion_type == 'optimization':
                     inv.optimize(
                             Ens_r=Ens_r,
-                            g_ema=network.decoder,
+                            g_ema=G,
                             init_latent=latent_mean,
                             device=params.device,
                             params=params
