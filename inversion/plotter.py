@@ -29,8 +29,10 @@ def online_inv_plot(
           figname="inv.png",
           var_names=['u','v','t2m'],
           dict_var={'u': 0, 'v': 1, 't2m': 2},
+          clim_var={'u': [-5,5], 'v': [-5,5], 't2m': [-5,5]},
           colormap_var=['viridis','viridis','coolwarm'],
-          savefig=True
+          savefig=True,
+          denorm=True
           ):
         
         fig, ax = plt.subplots(figsize=(15,5*len(var_names)), nrows=3, ncols=len(var_names))
@@ -54,7 +56,10 @@ def online_inv_plot(
             
             diff = packsample[mem_idx,var_id,crop[0]:crop[1],crop[2]:crop[3]] - invsample[mem_idx,var_id,crop[0]:crop[1],crop[2]:crop[3]]
             im = ax[2][id].imshow(diff, origin="lower", cmap="RdYlGn")
-            # im.set_clim(-0.1,0.1)
+            if denorm:
+                im.set_clim(clim_var[var][0],clim_var[var][1])
+            else :
+                im.set_clim(-0.1,0.1)
             ax[2][id].set_title("diff")
             fig.colorbar(im, ax=ax[2][id], shrink=0.5)
 

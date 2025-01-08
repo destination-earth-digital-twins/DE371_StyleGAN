@@ -327,7 +327,7 @@ def optimize(Ens_r, g_ema, init_latent, device, params, Means, Maxs, Mins, featu
                 print(f"--plotting checkpoint {i+1}: {figname}")
                 figtitle = f"{params.date_index}_{params.lt_index}_step_{i+1}"
                 denorm_Ens_r = utils.denormalize(Ens_r.cpu(), params.normalization, Means, Mins, Maxs, apply_log_transform=apply_log_transform)
-                online_inv_plot(denorm_Ens_r.cpu().detach().numpy(), denorm_img_gen.cpu().detach().numpy(), figtitle=figtitle, figname=figname)
+                online_inv_plot(Ens_r.cpu().detach().numpy(), img_gen.cpu().detach().numpy(), figtitle=figtitle, figname=figname, denorm=False)
 
         # gif
     #     if params.plot_gif and i%100==0:

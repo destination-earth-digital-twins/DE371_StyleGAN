@@ -56,7 +56,7 @@ def load_batch_from_timestamp(
                         Maxs=Maxs,
                         apply_log_transform=apply_log_transform
                         )
-
+    
 
     return batch, norm_batch
 
