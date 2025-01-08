@@ -272,7 +272,6 @@ def optimize(Ens_r, g_ema, init_latent, device, params, features_in=None, hybrid
             loss+=params.lambda_pixel*pixel_loss
 
         elif params.pixel_loss_type=='amse':
-            print('JE SUIS LZ ')
             pixel_loss = F.mse_loss(img_gen, Ens_r) + torch.max(torch.min(Ens_r,torch.tensor(20))-img_gen,torch.tensor(0)).mean()
             loss+=params.lambda_pixel*pixel_loss 
 
@@ -303,8 +302,7 @@ def optimize(Ens_r, g_ema, init_latent, device, params, features_in=None, hybrid
         if params.lambda_pixel>0:
             display += f" || pixel_loss: {pixel_loss.item():.6f}"
 
-        # Maybe useless ? --> 
-        # display += f" || mae_loss (test only): {F.l1_loss(img_gen, Ens_r).item():.6f}" 
+        display += f" || mae_loss (test only): {F.l1_loss(img_gen, Ens_r).item():.6f}" 
         pbar.set_description((display))
         
         if (i + 1) % 100 == 0 or i==params.invstep-1:

@@ -18,59 +18,48 @@ def str2intlist(li):
     else : 
         raise ValueError("li argument must be a string or a list, not '{}'".format(type(li)))
 
-def load_batch_from_timestamp(dataframe, date, lt, data_dir, Shape=(4,256,256), var_indices=[0,1,2,3]):
+
+
+def load_batch_from_timestamp(
+        dataframe,
+        date,
+        lt,
+        data_dir,
+        Shape,
+        var_indices,
+        normalization,
+        Means=None,
+        Mins=None,
+        Maxs=None, 
+        precipitation = True 
+        ):
 
     df0 = dataframe[(dataframe['Date']==date) & (dataframe['LeadTime']==lt)]
 
     Nb = len(df0)
+
     batch = np.zeros((Nb,) + tuple(Shape))
     for i,s in enumerate(df0['Name']):
         sn = np.load(f'{data_dir}{s}.npy')[var_indices,:,:].astype(np.float32)
 
         batch[i] = sn
-    
-    return batch
-
-# def load_batch_from_timestamp(
-#         dataframe,
-#         date,
-#         lt,
-#         data_dir,
-#         Shape,
-#         var_indices,
-#         normalization,
-#         Means=None,
-#         Mins=None,
-#         Maxs=None
-#         ):
-
-#     df0 = dataframe[(dataframe['Date']==date) & (dataframe['LeadTime']==lt)]
-
-#     Nb = len(df0)
-
-#     batch = np.zeros((Nb,) + tuple(Shape))
-#     # print(batch.shape)
-#     for i,s in enumerate(df0['Name']):
-#         # print(i, s)
-#         sn = np.load(f'{data_dir}{s}.npy')[var_indices,:,:].astype(np.float32)
-
-#         batch[i] = sn
-#     print(batch.shape,'SHAPE A TESTER',Shape)
-#     channel_rr=batch[:,0,:,:]
-#     transformed_channel_rr = np.log(1+channel_rr)
-#     batch[:,0,:,:]=transformed_channel_rr        
         
-# # normalise samples and save in pack dir. obs! make sure normalization is done correctly (according to how model was trained)
-#     if normalization=="meanmax":
-#         batch = torch.tensor(0.95*(batch - Means) / (Maxs), dtype = torch.float32)
-#     elif normalization=="minmax":
-#         batch = torch.tensor(-1. + 2*(batch - Mins) / (Maxs-Mins), dtype = torch.float32)
-#     elif normalization=="":
-#         pass
-#     else :
-#         raise ValueError(f"Unknown normalization: {normalization}")
+    if precipitation==True:   
+        channel_rr=batch[:,0,:,:]
+        transformed_channel_rr = np.log(1+channel_rr)
+        batch[:,0,:,:]=transformed_channel_rr        
+    
+# normalise samples and save in pack dir. obs! make sure normalization is done correctly (according to how model was trained)
+    if normalization=="meanmax":
+        batch = torch.tensor(0.95*(batch - Means) / (Maxs), dtype = torch.float32)
+    elif normalization=="minmax":
+        batch = torch.tensor(-1. + 2*(batch - Mins) / (Maxs-Mins), dtype = torch.float32)
+    elif normalization=="":
+        pass
+    else :
+        raise ValueError(f"Unknown normalization: {normalization}")
 
-#     return batch
+    return batch
 
 
 def load_batch_sequence_from_date(
