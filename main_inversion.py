@@ -30,7 +30,7 @@ from collections import OrderedDict
 from gan.model.stylegan2 import Generator
 import inversion.optimization_based.inversion as inv
 import utils.utils as utils
-
+from ast import literal_eval as make_tuple
 torch.manual_seed(42) #reproducibility of runs
 
 if __name__=="__main__" :
@@ -46,7 +46,7 @@ if __name__=="__main__" :
     parser.add_argument('--encoder_type', default='ResNetBackboneEncoder', type=str, help='Which encoder to use')
     parser.add_argument('--input_nc', default=6, type=int, help='Number of input image channels to the ReStyle encoder. Should be set to 6.')
     parser.add_argument('--output_size', default=256, type=int, help='Output size of generator')
-    parser.add_argument('--n_vars', default=4, type=int, help='Number of variables as channels')
+    parser.add_argument('--n_vars', default=3, type=int, help='Number of variables as channels')
     parser.add_argument("--plot_checkpoint", action='store_true')
 
     parser.add_argument("--train_discriminator", action='store_true')
@@ -72,7 +72,8 @@ if __name__=="__main__" :
     parser.add_argument('--max_file', type=str, default='max_rr_log.npy') # use 'MaxNew_4_var.npy' if AROME data # max_rr_log.npy
     parser.add_argument('--mean_file', type=str, default='mean_rr_log.npy') # not used if minmax normalization
     parser.add_argument('--min_file', type=str, default='min_rr_log.npy')  # not used if meanmax normalization
-    
+    parser.add_argument('--save_normalized_sample', action='store_true')
+
     parser.add_argument('--device', type=str, default='cuda')
 
     ############################ SEQUENCE PARAMETERS #################    
@@ -132,10 +133,9 @@ if __name__=="__main__" :
     # lambda_ms_ssim
     parser.add_argument("--lambda_ms_ssim", type=float, default=0, help="weight of the MS-SSIM loss")
     
-    parser.add_argument("--var_indices", type=utils.str2intlist, default=[1,2,3])
-    parser.add_argument("--Shape", type=tuple, default=(3,256,256), help='size of the samples')
+    parser.add_argument("--var_indices", type=utils.str2intlist, default=[0,1,2,3])
+    parser.add_argument("--Shape", type=make_tuple, default=(4,256,256), help='size of the samples')
     parser.add_argument("--crop_indices", type=int, nargs='+', default=[0,256,0,256])
-    parser.add_argument("--precip", action='store_true')
 
     ########################## CONTROL of Data to invert ######################
     parser.add_argument("--dates_file", type=str, help='csv file')
@@ -257,17 +257,17 @@ if __name__=="__main__" :
                     print(params.pack_dir+f'Rsemble_{datename}_{lt}.npy' + ' Pack do not Exist')
                     already_exist.append(False)
 
-            if os.path.isfile(params.output_dir+'w_{}_{}.npy'.format(params.date_index,lt)):
-                print(params.output_dir+'w_{}_{}.npy'.format(params.date_index,lt) + ' already Exist')
+            if os.path.isfile(params.output_dir+'w_{}_{}_{}.npy'.format(params.date_index,lt, params.invstep)):
+                print(params.output_dir+'w_{}_{}_{}.npy'.format(params.date_index,lt, params.invstep) + ' already Exist')
                 already_exist.append(True)
             else :
-                print(params.output_dir+'w_{}_{}.npy'.format(params.date_index,lt) + ' do not Exist')
+                print(params.output_dir+'w_{}_{}_{}.npy'.format(params.date_index,lt, params.invstep) + ' do not Exist')
                 already_exist.append(False)
-            if os.path.isfile(params.output_dir+'invertFsemble_{}_{}.npy'.format(params.date_index,lt)):
-                print(params.output_dir+'invertFsemble_{}_{}.npy'.format(params.date_index,lt) +' already Exist')
+            if os.path.isfile(params.output_dir+'invertFsemble_{}_{}_{}.npy'.format(params.date_index,lt, params.invstep)):
+                print(params.output_dir+'invertFsemble_{}_{}_{}.npy'.format(params.date_index,lt, params.invstep) +' already Exist')
                 already_exist.append(True)
             else :
-                print(params.output_dir+'invertFsemble_{}_{}.npy'.format(params.date_index,lt) + ' do not Exist')
+                print(params.output_dir+'invertFsemble_{}_{}_{}.npy'.format(params.date_index,lt, params.invstep) + ' do not Exist')
                 already_exist.append(False)
 
             if np.all(already_exist) :
@@ -281,7 +281,6 @@ if __name__=="__main__" :
                         print("# samples: 0")
                         continue
                     
-
                     Ens_r, Ens_r_norm = utils.load_batch_from_timestamp(
                         df_extract, 
                         date_, 
@@ -293,11 +292,14 @@ if __name__=="__main__" :
                         Means=Means,
                         Mins=Mins,
                         Maxs=Maxs,
-                        precipitation=params.precip
+                        apply_log_transform=True if params.Shape[0]==4 else False
                         
                     ) #, crop_indices=params.crop_indices)                   
                     if params.pack_dir :
-                        np.save(params.pack_dir+f'Rsemble_sequence_{datename}.npy', Ens_r.numpy().astype(np.float32))
+                        if params.save_normalized_sample:
+                            np.save(params.pack_dir+f'Rsemble_{datename}_{lt}.npy', Ens_r_norm.numpy().astype(np.float32))
+                        else :    
+                            np.save(params.pack_dir+f'Rsemble_{datename}_{lt}.npy', Ens_r.numpy().astype(np.float32))
 
 
                 else : 
@@ -313,7 +315,8 @@ if __name__=="__main__" :
                         normalization=params.normalization,
                         Means=Means,
                         Mins=Mins,
-                        Maxs=Maxs
+                        Maxs=Maxs,
+                        apply_log_transform=True if params.Shape[0]==4 else False
                     )
                     if params.pack_dir :
                         np.save(params.pack_dir+f'Rsemble_sequence_{datename}.npy', Ens_r.numpy().astype(np.float32))
@@ -327,7 +330,8 @@ if __name__=="__main__" :
                             params=params,
                             Means=Means,
                             Maxs=Maxs,
-                            Mins=Mins
+                            Mins=Mins,
+                            apply_log_transform=True if params.Shape[0]==4 else False
                         )
 
                 elif params.inversion_type == 'encoder':
@@ -373,7 +377,8 @@ if __name__=="__main__" :
                         hybrid=True,
                         Means=Means,
                         Maxs=Maxs,
-                        Mins=Mins
+                        Mins=Mins,
+                        apply_log_transform=True if params.Shape[0]==4 else False
                     )
                 
 
