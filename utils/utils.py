@@ -232,34 +232,34 @@ def initsmall():
 
 def denormalize(data, normalization_type, Means=None, Mins=None, Maxs=None, apply_log_transform=True):
     """
-    Dénormalise les données en inversant les transformations de normalisation et, si nécessaire, le log-transform.
+    Denormalizes the data by inverting the normalization transforms and, if necessary, the log-transform.
 
-    Args:
-        data (torch.Tensor): Les données normalisées.
-        normalization_type (str): Type de normalisation utilisée ("meanmax", "minmax" ou "").
-        Means (torch.Tensor, optional): Moyennes utilisées pour la normalisation (si applicable).
-        Mins (torch.Tensor, optional): Minima utilisés pour la normalisation (si applicable).
-        Maxs (torch.Tensor, optional): Maxima utilisés pour la normalisation (si applicable).
-        apply_log_transform (bool): Si True, inverse également la transformation logarithmique.
+        Args:
+            data (torch.Tensor): The normalized data.
+            normalization_type (str): Type of normalisation used (‘meanmax’, ‘minmax’ or ‘’).
+            Means (torch.Tensor, optional): Means used for normalisation (if applicable).
+            Mins (torch.Tensor, optional): Minima used for normalisation (if applicable).
+            Maxs (torch.Tensor, optional): Maxima used for normalisation (if applicable).
+            apply_log_transform (bool): If True, also reverses the log transformation.
 
-    Returns:
-        torch.Tensor: Les données dénormalisées.
+        Returns:
+            torch.Tensor: The denormalized data.
     """
     #Inverser la normalisation
     if normalization_type == "meanmax":
         if Means is None or Maxs is None:
-            raise ValueError("Means et Maxs doivent être fournis pour dénormaliser avec 'meanmax'.")
+            raise ValueError("Means et Maxs must be supplied to denormalise with 'meanmax'.")
         denormalized_data = (data * Maxs / 0.95) + Means
     elif normalization_type == "minmax":
         if Mins is None or Maxs is None:
-            raise ValueError("Mins et Maxs doivent être fournis pour dénormaliser avec 'minmax'.")
+            raise ValueError("Mins et Maxs must be supplied to denormalise with 'minmax'.")
         denormalized_data = ((data + 1) * (Maxs - Mins) / 2) + Mins
     elif normalization_type == "":
-        denormalized_data = data  # Pas de normalisation appliquée
+        denormalized_data = data  
     else:
         raise ValueError(f"Type de normalisation inconnu: {normalization_type}")
-    print('SHAPEX',denormalized_data.shape)
-    # Inverser la transformation logarithmique
+    # Reverse the logarithmic transformation
+    
     if apply_log_transform:
         denormalized_data[:,0,:,:] = np.exp(denormalized_data[:,0,:,:]) - 1
 
