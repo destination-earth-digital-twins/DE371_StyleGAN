@@ -62,7 +62,8 @@ if __name__=="__main__" :
     # Output Directory - PATH where the output of the inversion will be saved
     parser.add_argument('--output_dir',type = str, default ='./test/pack/')
     # Pack Directory - PATH where the packed ensembles will be saved
-    parser.add_argument("--pack_dir", type=str, default = './test/inv/') # storing "packed" (normalized) real data
+    parser.add_argument("--pack_dir", type=str, default = '') # storing "packed" (normalized) real data
+    parser.add_argument('--ckpt_dir', type = str, default ='')
     
     # Dataset information
     parser.add_argument("--normalization", type=str, default="minmax", choices=["minmax", "meanmax"])
@@ -210,7 +211,7 @@ if __name__=="__main__" :
 
         ################### producing latent mean #######
         if not os.path.exists(f'{params.output_dir}latent_mean.npy'):
-            latent_z = torch.empty(10000, 512).normal_().to(params.device)
+            latent_z = torch.empty(1e5, 512).normal_().to(params.device)
             with torch.no_grad():
                 w = G.style(latent_z)
             latent_mean = w.mean(dim=0).detach().cpu()

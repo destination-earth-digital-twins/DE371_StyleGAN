@@ -128,6 +128,14 @@ def optimize(Ens_r, g_ema, init_latent, device, params, features_in=None, hybrid
         latent_in.requires_grad = True
         
     if params.feature_optimize : 
+        
+        latent_z = torch.empty(10000, 512).normal_().to(params.device)
+        with torch.no_grad():
+            w = g_ema.style(latent_z)
+        latent_mean = w.mean(dim=0).clone().unsqueeze(0).repeat(Ens_r.shape[0], 1).unsqueeze(1).repeat(1, g_ema.n_latent, 1)
+        _, features_mean, _ = g_ema([latent_mean], input_is_latent=True, return_features=True)
+        feature_mean = features_mean[params.feature_id].detach().clone().to(device)
+
         if features_in is None :
             _, features, _ = g_ema([latent_in], input_is_latent=True, return_features=True)
             feature = features[params.feature_id].detach().clone().to(device)
@@ -221,7 +229,9 @@ def optimize(Ens_r, g_ema, init_latent, device, params, features_in=None, hybrid
             noise_loss = 0
         
         if params.feature_optimize : 
-            feature_loss = F.mse_loss(features_in[params.feature_id], features_out[params.feature_id])
+            # feature_loss = F.mse_loss(feature, features_out[params.feature_id])
+            
+            feature_loss = torch.sum((feature-feature_mean).norm(2, dim=(1, 2, 3))) / feature.shape[0]
             loss += feature_loss*params.lambda_features
         else :
             feature_loss=0

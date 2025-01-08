@@ -83,6 +83,7 @@ def compute_generate_save(G, params, metrics_list, Means, Maxs):
         save_perturbation=params.save_perturbation,
         path_perturbation=params.path_perturbation,
         Ens_feature=Ens_feature,
+        feature_id=params.feature_id,
         feature_scale=params.feature_scale
     )
 
@@ -170,7 +171,8 @@ if __name__=="__main__" :
     # See https://arxiv.org/pdf/2202.02183 for more info on Feature insertion
     parser.add_argument('--feature_insertion', action="store_true", help='Whether to insert the predicted features into the generator.')
     parser.add_argument('--feature_scale', type=float, default=1, help='Scale of inserted features')
-
+    parser.add_argument('--feature_id', type=int, default=6, choices=[0,1,2,3,4,5,6,7,8,9,10,11,12,13], help='id of feature to insert')
+    
     # Dataset information
     parser.add_argument("--normalization", type=str, default="meanmax", choices=["minmax", "meanmax"])
     parser.add_argument('--max_file', type=str, default='MaxNew_4_var.npy') # use 'MaxNew_4_var.npy' if AROME data # max_rr_log.npy
