@@ -132,13 +132,13 @@ if __name__=="__main__" :
     # lambda_ms_ssim
     parser.add_argument("--lambda_ms_ssim", type=float, default=0, help="weight of the MS-SSIM loss")
     
-    parser.add_argument("--var_indices", type=utils.str2intlist, default=[0,1,2,3])
-    parser.add_argument("--Shape", type=tuple, default=(4,256,256), help='size of the samples')
+    parser.add_argument("--var_indices", type=utils.str2intlist, default=[1,2,3])
+    parser.add_argument("--Shape", type=tuple, default=(3,256,256), help='size of the samples')
     parser.add_argument("--crop_indices", type=int, nargs='+', default=[0,256,0,256])
     parser.add_argument("--precip", action='store_true')
 
     ########################## CONTROL of Data to invert ######################
-    parser.add_argument("--dates_file", type=str,help='csv file')
+    parser.add_argument("--dates_file", type=str, help='csv file')
     parser.add_argument("--date_start", type=str, default = "2020-07-01")
     parser.add_argument("--date_stop", type=str, default = "2021-07-02")
     parser.add_argument("--leadtimes", type=utils.str2intlist, default=[3,6,9,12,15,18,21,24,27,30,33,36,39,42,45])
@@ -370,7 +370,10 @@ if __name__=="__main__" :
                         device=params.device,
                         params=params,
                         features_in=init_feature,
-                        hybrid=True
+                        hybrid=True,
+                        Means=Means,
+                        Maxs=Maxs,
+                        Mins=Mins
                     )
                 
 

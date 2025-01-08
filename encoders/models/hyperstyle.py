@@ -42,9 +42,9 @@ class HyperStyle(nn.Module):
         return networks[self.config.encoder_type]
 
     def load_weights(self):
-        if self.config.checkpoint_path is not None:
-            print(f'Loading HyperStyle from checkpoint: {self.config.checkpoint_path}')
-            ckpt = torch.load(self.config.checkpoint_path, map_location='cpu')
+        if self.config.encoder_checkpoint_dir is not None:
+            print(f'Loading HyperStyle from checkpoint: {self.config.encoder_checkpoint_dir}')
+            ckpt = torch.load(self.config.encoder_checkpoint_dir, map_location='cpu')
             self.hypernet.load_state_dict(self.__get_keys(ckpt, 'hypernet'), strict=True)
             self.decoder.load_state_dict(self.__get_keys(ckpt, 'decoder'), strict=True)
             self.__load_latent_avg(ckpt)
@@ -150,7 +150,7 @@ class HyperStyle(nn.Module):
     def __get_pretrained_w_encoder(self):
         print("Loading pretrained W encoder...")
         config_w_encoder = vars(copy.deepcopy(self.config))
-        config_w_encoder['checkpoint_path'] = self.config.w_encoder_checkpoint_path
+        config_w_encoder['encoder_checkpoint_dir'] = self.config.w_encoder_encoder_checkpoint_dir
         config_w_encoder['encoder_type'] = self.config.w_encoder_type
         config_w_encoder['input_nc'] = 3
         config_w_encoder = Namespace(**config_w_encoder)

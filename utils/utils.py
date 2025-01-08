@@ -44,10 +44,11 @@ def load_batch_from_timestamp(
         sn = np.load(f'{data_dir}{s}.npy')[var_indices,:,:].astype(np.float32)
 
         batch[i] = sn
-    norm_batch=torch.copy(batch)
+    batch=torch.tensor(batch, dtype = torch.float32)
+    norm_batch=torch.tensor(np.copy(batch), dtype = torch.float32)
     
     if precipitation==True:   
-        norm_batch[:,0,:,:]=np.log(1+norm_batch[:,0,:,:])        
+        norm_batch[:,0,:,:]=torch.log(1+norm_batch[:,0,:,:])        
     
 # normalise samples and save in pack dir. obs! make sure normalization is done correctly (according to how model was trained)
     if normalization=="meanmax":

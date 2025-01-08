@@ -11,7 +11,7 @@ class TestOptions:
         # arguments for inference script
         self.parser.add_argument('--exp_dir', type=str,
                                  help='Path to experiment output directory', default = '/scratch/mrmn/brochetc/GAN_2D/psp4arome_expe/logs/')
-        self.parser.add_argument('--checkpoint_path', default='/scratch/mrmn/brochetc/GAN_2D/psp4arome_expe/checkpoints/iteration_50000.pt', type=str,
+        self.parser.add_argument('--encoder_checkpoint_dir', default='/scratch/mrmn/brochetc/GAN_2D/psp4arome_expe/checkpoints/iteration_50000.pt', type=str,
                                  help='Path to ReStyle model checkpoint')
         self.parser.add_argument('--data_path', type=str, default='/scratch/mrmn/brochetc/GAN_2D/datasets_full_indexing/IS_1_1.0_0_0_0_0_0_256_done',
                                  help='Path to directory of images to evaluate')
@@ -29,9 +29,9 @@ class TestOptions:
                                  help='Number of forward passes per batch during training.')
 
         # arguments for encoder bootstrapping
-        self.parser.add_argument('--model_1_checkpoint_path', default=None, type=str,
+        self.parser.add_argument('--model_1_encoder_checkpoint_dir', default=None, type=str,
                                  help='Path to encoder used to initialize encoder bootstrapping inference.')
-        self.parser.add_argument('--model_2_checkpoint_path', default=None, type=str,
+        self.parser.add_argument('--model_2_encoder_checkpoint_dir', default=None, type=str,
                                  help='Path to encoder used to iteratively translate images following '
                                       'model 1\'s initialization.')
 

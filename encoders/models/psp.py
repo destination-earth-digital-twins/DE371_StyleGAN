@@ -45,9 +45,9 @@ class pSp(nn.Module):
         return encoder
 
     def load_weights(self):
-        if self.config.checkpoint_path is not None:
-            print(f'Loading ReStyle pSp from checkpoint: {self.config.checkpoint_path}')
-            ckpt = torch.load(self.config.checkpoint_path, map_location='cpu')
+        if self.config.encoder_checkpoint_dir is not None:
+            print(f'Loading ReStyle pSp from checkpoint: {self.config.encoder_checkpoint_dir}')
+            ckpt = torch.load(self.config.encoder_checkpoint_dir, map_location='cpu')
             self.encoder.load_state_dict(self.__get_keys(ckpt, 'encoder'), strict=False)
             self.decoder.load_state_dict(self.__get_keys(ckpt, 'decoder'), strict=True)
             self.__load_latent_avg(ckpt)
