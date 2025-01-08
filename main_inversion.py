@@ -135,7 +135,6 @@ if __name__=="__main__" :
     parser.add_argument("--var_indices", type=utils.str2intlist, default=[1,2,3])
     parser.add_argument("--Shape", type=tuple, default=(3,256,256), help='size of the samples')
     parser.add_argument("--crop_indices", type=int, nargs='+', default=[0,256,0,256])
-    parser.add_argument("--precip", action='store_true')
 
     ########################## CONTROL of Data to invert ######################
     parser.add_argument("--dates_file", type=str, help='csv file')
@@ -281,7 +280,6 @@ if __name__=="__main__" :
                         print("# samples: 0")
                         continue
                     
-
                     Ens_r, Ens_r_norm = utils.load_batch_from_timestamp(
                         df_extract, 
                         date_, 
@@ -293,11 +291,11 @@ if __name__=="__main__" :
                         Means=Means,
                         Mins=Mins,
                         Maxs=Maxs,
-                        precipitation=params.precip
+                        apply_log_transform=True if params.Shape[0]==4 else False
                         
                     ) #, crop_indices=params.crop_indices)                   
                     if params.pack_dir :
-                        np.save(params.pack_dir+f'Rsemble_sequence_{datename}.npy', Ens_r.numpy().astype(np.float32))
+                        np.save(params.pack_dir+f'Rsemble_{datename}.npy', Ens_r.numpy().astype(np.float32))
 
 
                 else : 
@@ -313,7 +311,8 @@ if __name__=="__main__" :
                         normalization=params.normalization,
                         Means=Means,
                         Mins=Mins,
-                        Maxs=Maxs
+                        Maxs=Maxs,
+                        apply_log_transform=True if params.Shape[0]==4 else False
                     )
                     if params.pack_dir :
                         np.save(params.pack_dir+f'Rsemble_sequence_{datename}.npy', Ens_r.numpy().astype(np.float32))
@@ -327,7 +326,8 @@ if __name__=="__main__" :
                             params=params,
                             Means=Means,
                             Maxs=Maxs,
-                            Mins=Mins
+                            Mins=Mins,
+                            apply_log_transform=True if params.Shape[0]==4 else False
                         )
 
                 elif params.inversion_type == 'encoder':
@@ -373,7 +373,8 @@ if __name__=="__main__" :
                         hybrid=True,
                         Means=Means,
                         Maxs=Maxs,
-                        Mins=Mins
+                        Mins=Mins,
+                        apply_log_transform=True if params.Shape[0]==4 else False
                     )
                 
 

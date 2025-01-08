@@ -54,7 +54,7 @@ def online_inv_plot(
             
             diff = packsample[mem_idx,var_id,crop[0]:crop[1],crop[2]:crop[3]] - invsample[mem_idx,var_id,crop[0]:crop[1],crop[2]:crop[3]]
             im = ax[2][id].imshow(diff, origin="lower", cmap="RdYlGn")
-            im.set_clim(-0.1,0.1)
+            # im.set_clim(-0.1,0.1)
             ax[2][id].set_title("diff")
             fig.colorbar(im, ax=ax[2][id], shrink=0.5)
 
@@ -100,7 +100,7 @@ def online_inv_temporal_plot(
                 
                 diff = packsample[mem_idx,id+nb_var*t,crop[0]:crop[1],crop[2]:crop[3]] - invsample[mem_idx,id+nb_var*t,crop[0]:crop[1],crop[2]:crop[3]]
                 im=ax[2][t].imshow(diff, origin="lower", cmap="RdYlGn")
-                im.set_clim(-0.1,0.1)
+                # im.set_clim(-0.1,0.1)
                 ax[2][t].set_title("diff")
                 if t == nb_timesteps-1:
                     fig.colorbar(im, ax=ax[2][t], shrink=0.5)
@@ -187,7 +187,7 @@ def online_pert_diff_plot(
             diff = pert_sample[mem_pert_idx,var_id,crop[0]:crop[1],crop[2]:crop[3]] - invsample[mem_idx,var_id,crop[0]:crop[1],crop[2]:crop[3]]
             ax[2][id].set_title(f"{var} diff")
             im = ax[2][id].imshow(diff, clim=(vmin, vmax), origin="lower", cmap="RdYlGn")
-            im.set_clim(-0.1,0.1)
+            # im.set_clim(-0.1,0.1)
             fig.colorbar(im, ax=ax[2][id], shrink=0.5)
 
         fig.suptitle(figtitle)

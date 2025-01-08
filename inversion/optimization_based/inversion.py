@@ -86,7 +86,7 @@ def feature_noise(feature, strength):
     noise = torch.randn_like(feature) * strength
     return feature + noise
 
-def optimize(Ens_r, g_ema, init_latent, device, params, Means, Maxs, Mins, features_in=None, hybrid=False, denormalization=True):
+def optimize(Ens_r, g_ema, init_latent, device, params, Means, Maxs, Mins, features_in=None, hybrid=False, apply_log_transform=False):
 
     """
 
@@ -316,11 +316,9 @@ def optimize(Ens_r, g_ema, init_latent, device, params, Means, Maxs, Mins, featu
                 with open(params.output_dir+'noise_{}_{}_{}.p'.format(params.date_index,params.lt_index,i+1), 'wb') as f:
                     pickle.dump({j : n.cpu().detach().numpy() for j,n in enumerate(noises)},f)
             
-            if denormalization:
-                denorm_inv = utils.denormalize(img_gen.cpu().detach().numpy(), params.normalization, Means, Mins, Maxs, apply_log_transform=True)
-                np.save(params.output_dir+'invertFsemble_{}_{}_{}.npy'.format(params.date_index,params.lt_index,i+1), denorm_inv)
-            else:
-                np.save(params.output_dir+'invertFsemble_{}_{}_{}.npy'.format(params.date_index,params.lt_index,i+1), img_gen.cpu().detach().numpy())
+
+            denorm_img_gen = utils.denormalize(img_gen.cpu().detach(), params.normalization, Means, Mins, Maxs, apply_log_transform=apply_log_transform)
+            np.save(params.output_dir+'invertFsemble_{}_{}_{}.npy'.format(params.date_index,params.lt_index,i+1), denorm_img_gen)
             
             if params.feature_optimize:
                 np.save(params.output_dir+'feature_{}_{}_{}.npy'.format(params.date_index,params.lt_index,i+1),feature.cpu().detach().numpy())
@@ -328,7 +326,8 @@ def optimize(Ens_r, g_ema, init_latent, device, params, Means, Maxs, Mins, featu
                 figname = params.output_dir + f"{params.date_index}_{params.lt_index}_step_{i+1}.png"
                 print(f"--plotting checkpoint {i+1}: {figname}")
                 figtitle = f"{params.date_index}_{params.lt_index}_step_{i+1}"
-                online_inv_plot(Ens_r.cpu().detach().numpy(), img_gen.cpu().detach().numpy(), figtitle=figtitle, figname=figname)
+                denorm_Ens_r = utils.denormalize(Ens_r.cpu(), params.normalization, Means, Mins, Maxs, apply_log_transform=apply_log_transform)
+                online_inv_plot(denorm_Ens_r.cpu().detach().numpy(), denorm_img_gen.cpu().detach().numpy(), figtitle=figtitle, figname=figname)
 
         # gif
     #     if params.plot_gif and i%100==0:
