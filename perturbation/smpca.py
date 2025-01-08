@@ -37,7 +37,11 @@ def sm_pca(
     path_perturbation='',
     Ens_feature=None,
     feature_id=6,
-    feature_scale=1
+    feature_scale=1,
+    temporal_consistency=False,
+    w_pert_former=None,
+    rho=0.1,
+    dt=1
 ):
 
     N, R, D = Ens_w.shape
@@ -114,29 +118,32 @@ def sm_pca(
                         print('Specify a path for the perturbation')
                         raise FileNotFoundError
                 else:
-                    if (R - n_styles_pert) > 0:
-                        z = torch.empty((per_cond, 512)).normal_().to(device)
-                        with torch.no_grad():
-                            w_nopca = G.style(z)
-                        if n_styles_pert > 0:
-                            w_pert = torch.cat(
-                                [
-                                    new_w,
+                    if not temporal_consistency :
+                        if (R - n_styles_pert) > 0:
+                            z = torch.empty((per_cond, 512)).normal_().to(device)
+                            with torch.no_grad():
+                                w_nopca = G.style(z)
+                            if n_styles_pert > 0:
+                                w_pert = torch.cat(
+                                    [
+                                        new_w,
+                                        (w_nopca - w_nopca.mean(dim=0))
+                                        .unsqueeze(1)
+                                        .repeat(1, (R - n_styles_pert), 1),
+                                    ],
+                                    dim=1,
+                                )
+                            else:
+                                w_pert = (
                                     (w_nopca - w_nopca.mean(dim=0))
                                     .unsqueeze(1)
-                                    .repeat(1, (R - n_styles_pert), 1),
-                                ],
-                                dim=1,
-                            )
+                                    .repeat(1, (R - n_styles_pert), 1)
+                                )
                         else:
-                            w_pert = (
-                                (w_nopca - w_nopca.mean(dim=0))
-                                .unsqueeze(1)
-                                .repeat(1, (R - n_styles_pert), 1)
-                            )
-                    else:
-                        w_pert = new_w
-
+                            w_pert = new_w
+                    else :
+                        w_pert = w_pert_former[k]*torch.exp(-rho*dt) + torch.sqrt(1-torch.exp(-2*rho*dt))*torch.normal(0,1)
+                        
                 w_new = w_start + betas.view(1, 14, 1) * w_pert
 
             elif sample_rule == "extrapolation":
@@ -200,6 +207,7 @@ def sm_pca(
             w_final[k * per_cond : (k + 1) * per_cond] = w.detach().cpu().numpy()
             if save_perturbation and not import_perturbation:
                 perturbation[k * per_cond : (k + 1) * per_cond] = (betas.view(1,14,1) * w_pert).detach().cpu().numpy()
+                # TODO : Check that we can remove the betas param
 
     if save_perturbation and not import_perturbation :
         return Ens_final[:N_samples], (w_final, perturbation)

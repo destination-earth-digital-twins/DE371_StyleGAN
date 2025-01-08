@@ -84,7 +84,11 @@ def compute_generate_save(G, params, metrics_list, Means, Maxs):
         path_perturbation=params.path_perturbation,
         Ens_feature=Ens_feature,
         feature_id=params.feature_id,
-        feature_scale=params.feature_scale
+        feature_scale=params.feature_scale,
+        temporal_consistency=False, #TODO : Add this to config
+        w_pert_former=None, #TODO : Add this to config
+        rho=0.1, #TODO : Add this to config
+        dt=1 #TODO : Add this to config
     )
 
     if params.verbose:
