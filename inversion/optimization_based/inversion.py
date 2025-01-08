@@ -230,9 +230,9 @@ def optimize(Ens_r, g_ema, init_latent, device, params, Means, Maxs, Mins, featu
             noise_loss = 0
         
         if params.feature_optimize : 
-            # feature_loss = F.mse_loss(feature, features_out[params.feature_id])
+            feature_loss = F.mse_loss(feature, features_out[params.feature_id])
             
-            feature_loss = torch.sum((feature-feature_mean).norm(2, dim=(1, 2, 3))) / feature.shape[0]
+            # feature_loss = torch.sum((feature-feature_mean).norm(2, dim=(1, 2, 3))) / feature.shape[0]
             loss += feature_loss*params.lambda_features
         else :
             feature_loss=0
@@ -318,7 +318,10 @@ def optimize(Ens_r, g_ema, init_latent, device, params, Means, Maxs, Mins, featu
             
 
             denorm_img_gen = utils.denormalize(img_gen.cpu().detach(), params.normalization, Means, Mins, Maxs, apply_log_transform=apply_log_transform)
-            np.save(params.output_dir+'invertFsemble_{}_{}_{}.npy'.format(params.date_index,params.lt_index,i+1), denorm_img_gen)
+            if params.save_normalized_sample:
+                np.save(params.output_dir+'invertFsemble_{}_{}_{}.npy'.format(params.date_index,params.lt_index,i+1), img_gen)
+            else :
+                np.save(params.output_dir+'invertFsemble_{}_{}_{}.npy'.format(params.date_index,params.lt_index,i+1), denorm_img_gen)
             
             if params.feature_optimize:
                 np.save(params.output_dir+'feature_{}_{}_{}.npy'.format(params.date_index,params.lt_index,i+1),feature.cpu().detach().numpy())
@@ -327,7 +330,7 @@ def optimize(Ens_r, g_ema, init_latent, device, params, Means, Maxs, Mins, featu
                 print(f"--plotting checkpoint {i+1}: {figname}")
                 figtitle = f"{params.date_index}_{params.lt_index}_step_{i+1}"
                 denorm_Ens_r = utils.denormalize(Ens_r.cpu(), params.normalization, Means, Mins, Maxs, apply_log_transform=apply_log_transform)
-                online_inv_plot(Ens_r.cpu().detach().numpy(), img_gen.cpu().detach().numpy(), figtitle=figtitle, figname=figname, denorm=False)
+                online_inv_plot(denorm_Ens_r.cpu().detach().numpy(), denorm_img_gen.cpu().detach().numpy(), figtitle=figtitle, figname=figname)
 
         # gif
     #     if params.plot_gif and i%100==0:

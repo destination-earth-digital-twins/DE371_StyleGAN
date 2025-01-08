@@ -46,7 +46,7 @@ if __name__=="__main__" :
     parser.add_argument('--encoder_type', default='ResNetBackboneEncoder', type=str, help='Which encoder to use')
     parser.add_argument('--input_nc', default=6, type=int, help='Number of input image channels to the ReStyle encoder. Should be set to 6.')
     parser.add_argument('--output_size', default=256, type=int, help='Output size of generator')
-    parser.add_argument('--n_vars', default=4, type=int, help='Number of variables as channels')
+    parser.add_argument('--n_vars', default=3, type=int, help='Number of variables as channels')
     parser.add_argument("--plot_checkpoint", action='store_true')
 
     parser.add_argument("--train_discriminator", action='store_true')
@@ -72,7 +72,8 @@ if __name__=="__main__" :
     parser.add_argument('--max_file', type=str, default='max_rr_log.npy') # use 'MaxNew_4_var.npy' if AROME data # max_rr_log.npy
     parser.add_argument('--mean_file', type=str, default='mean_rr_log.npy') # not used if minmax normalization
     parser.add_argument('--min_file', type=str, default='min_rr_log.npy')  # not used if meanmax normalization
-    
+    parser.add_argument('--save_normalized_sample', action='store_true')
+
     parser.add_argument('--device', type=str, default='cuda')
 
     ############################ SEQUENCE PARAMETERS #################    
@@ -256,17 +257,17 @@ if __name__=="__main__" :
                     print(params.pack_dir+f'Rsemble_{datename}_{lt}.npy' + ' Pack do not Exist')
                     already_exist.append(False)
 
-            if os.path.isfile(params.output_dir+'w_{}_{}.npy'.format(params.date_index,lt)):
-                print(params.output_dir+'w_{}_{}.npy'.format(params.date_index,lt) + ' already Exist')
+            if os.path.isfile(params.output_dir+'w_{}_{}_{}.npy'.format(params.date_index,lt, params.invstep)):
+                print(params.output_dir+'w_{}_{}_{}.npy'.format(params.date_index,lt, params.invstep) + ' already Exist')
                 already_exist.append(True)
             else :
-                print(params.output_dir+'w_{}_{}.npy'.format(params.date_index,lt) + ' do not Exist')
+                print(params.output_dir+'w_{}_{}_{}.npy'.format(params.date_index,lt, params.invstep) + ' do not Exist')
                 already_exist.append(False)
-            if os.path.isfile(params.output_dir+'invertFsemble_{}_{}.npy'.format(params.date_index,lt)):
-                print(params.output_dir+'invertFsemble_{}_{}.npy'.format(params.date_index,lt) +' already Exist')
+            if os.path.isfile(params.output_dir+'invertFsemble_{}_{}_{}.npy'.format(params.date_index,lt, params.invstep)):
+                print(params.output_dir+'invertFsemble_{}_{}_{}.npy'.format(params.date_index,lt, params.invstep) +' already Exist')
                 already_exist.append(True)
             else :
-                print(params.output_dir+'invertFsemble_{}_{}.npy'.format(params.date_index,lt) + ' do not Exist')
+                print(params.output_dir+'invertFsemble_{}_{}_{}.npy'.format(params.date_index,lt, params.invstep) + ' do not Exist')
                 already_exist.append(False)
 
             if np.all(already_exist) :
@@ -295,7 +296,10 @@ if __name__=="__main__" :
                         
                     ) #, crop_indices=params.crop_indices)                   
                     if params.pack_dir :
-                        np.save(params.pack_dir+f'Rsemble_{datename}.npy', Ens_r.numpy().astype(np.float32))
+                        if params.save_normalized_sample:
+                            np.save(params.pack_dir+f'Rsemble_{datename}_{lt}.npy', Ens_r_norm.numpy().astype(np.float32))
+                        else :    
+                            np.save(params.pack_dir+f'Rsemble_{datename}_{lt}.npy', Ens_r.numpy().astype(np.float32))
 
 
                 else : 
