@@ -3,8 +3,7 @@ import numpy as np
 import random
 import torch
 import os
-import copy
-#random.seed(0)
+from copy import copy,deepcopy#random.seed(0)
 
 def str2intlist(li):
     if type(li)==list:
@@ -271,7 +270,7 @@ def normalize(data, normalization_type, Means=None, Mins=None, Maxs=None, apply_
             torch.Tensor: The denormalized data.
     """
     
-    normalized_data = copy.copy(data)
+    normalized_data = deepcopy(data)
 
     if apply_log_transform:
         normalized_data[:,0,:,:]=torch.log(1+normalized_data[:,0,:,:])   
@@ -305,6 +304,8 @@ def denormalize(data, normalization_type, Means=None, Mins=None, Maxs=None, appl
         Returns:
             torch.Tensor: The denormalized data.
     """
+    denormalized_data = deepcopy(data)
+
     #Inverser la normalisation
     if normalization_type == "meanmax":
         if Means is None or Maxs is None:
