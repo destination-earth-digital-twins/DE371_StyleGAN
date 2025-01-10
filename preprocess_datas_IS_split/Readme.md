@@ -1,6 +1,12 @@
-A compléter pour expliquer comment entrainer gan sur meluxina, comment faire importance sampling, parler des observations, et comment inverser et générer ou plots des samples du GAN 
+# Pre-processing, importance sampling and csv file
+
+Add observation handling.
 Avant d'entrainer un dataset contenant des précipitations, il est important d'utiliser l'échnatillonnage préférentiel (EP) --> importance sampling. 
 Comme résumé ci-dessous, cela nous permet d'éviter une sur représentation des samples sans précipitations. 
+
+## Importance samling (IS) : 
+
+IS allows us to avoid over-representing samples without precipitations.
 
 L'importance sampling qu'est ce que c'est :  L’idée est de hiérarchiser
 les données utilisées en leur conférant une "importance" au regard de leur contribution, par exemple, à

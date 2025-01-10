@@ -9,7 +9,7 @@ DEFAULT_PARAM = [5, 0.001, 500]
 #### ARGPARSE ####
 parser = ArgumentParser()
 
-parser.add_argument("--directory", type=str, default='/data_for_importance_sampling/',help="Data directory from which data is loaded")
+parser.add_argument("--directory", type=str, default='./data_for_importance_sampling/',help="Data directory from which data is loaded")
 parser.add_argument("--save", type=str, default='saved',help="Data directory where the data is saved")
 parser.add_argument("--l_c", type=float, nargs="*", help="The initial points for fsolve. MUST BE CLOSE TO THE ROOT")
 parser.add_argument("-r", "--refresh", type=int, default=10, help="Frequence at which progress is shown")
