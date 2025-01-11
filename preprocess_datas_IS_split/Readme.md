@@ -7,12 +7,10 @@ Comme résumé ci-dessous, cela nous permet d'éviter une sur représentation de
 ## Importance samling (IS) : 
 
 IS allows us to avoid over-representing samples without precipitations.
+We do this by giving an "importance" based on their contribution --> the most important datas are selected with a higher probability and then, used for the network training.
+To resume, it removes  samples with little or no precipitation to encourage the network to focus on learning how to reproduce precipitation patterns.
 
-L'importance sampling qu'est ce que c'est :  L’idée est de hiérarchiser
-les données utilisées en leur conférant une "importance" au regard de leur contribution, par exemple, à
-la variance totale du jeu de données. Les données les plus importantes sont sélectionnées avec une plus
-grande probabilité et utilisées a posteriori pour l’entraînement du réseau. En résumé, cela sert à supprimer les samples qui 
-contiennt peu ou pas de précipitations pour forcer le réseau à apprendre à reproduire les précipitations. 
+
 
 Pour se faire il faut faire un pré-processing du dataset, pour rassembler nos samples en Gigafile (batchs):
                         " pre_pro_for_is.py"
