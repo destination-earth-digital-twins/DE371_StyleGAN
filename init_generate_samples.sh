@@ -18,7 +18,6 @@ module load Apptainer/1.2.4-GCCcore-12.3.0
 
 
 
-apptainer exec --nv /project/scratch/p200177/DE_371/resources/apptainer_container/container.sif python3 /home/users/u101957/DE371_StyleGAN/gan/generation_scripts/generate.py \
-                    --generate\
+apptainer exec --nv /project/home/p200177/DE_371/resources/apptainer_container/container.sif python3 /home/users/u101957/DE371_StyleGAN/valid_train_test.py \
                     
 
