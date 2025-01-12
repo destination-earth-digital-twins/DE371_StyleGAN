@@ -4,6 +4,7 @@ from time import perf_counter
 import numpy as np
 import pandas as pd
 from scipy.optimize import fsolve
+import glob
 try:
     from called.utile import make_save_dir, print_progress, print_progress_bar
 except ModuleNotFoundError:
@@ -89,7 +90,6 @@ def importance_sampling(parameters, dirs, gridshape, variable, param):
     """
     if param.verbose >= 1: print(f"Importance sampling...")
     csv_dir, data_dir, save_dir = dirs
-    # print(csv_dir)
     create_dirs(save_dir, param)
     
     dataframe = pd.read_csv(f"{csv_dir}labels.csv")
@@ -113,8 +113,25 @@ def importance_sampling(parameters, dirs, gridshape, variable, param):
     if param.verbose >= 1: print(f"Importance sampling for parameters {parameters} DONE.")
 
 
-if __name__ == "__main__":
-    try:
-        compute_c(5, 0.001, 500)
-    except RuntimeError as error:
-        print(f"{repr(error)}")
+def bootstrap(IS_csv_folder):
+    """ takes n csv files and return one csv without duplicated
+    Args:
+    IS_csv_folder : dir where csv files with importance sampling are saved
+    """
+    # List to stock dataframes 
+    dataframes = []
+    # Load csv 
+    for file in glob.glob(f"{IS_csv_folder}/*.csv"):
+        df = pd.read_csv(file)
+        dataframes.append(df)
+
+    # Combine all dataframes
+    df_combined = pd.concat(dataframes, ignore_index=True)
+
+    # Remove duplicated based on the Name column 
+    df_unique = df_combined.drop_duplicates(subset=['Name'])
+
+    #Save the final Dataframe 
+    df_unique.to_csv(f'{IS_csv_folder}/IS_boostrap_rr_cumul_correct.csv', index=False)
+
+    print("The final CSV file without duplicates has been created successfully.")    

@@ -14,13 +14,14 @@ def merge_into_gigafiles(data_dir, datatype, args):
         datatype (str): "splitted" or "cropped"
         args (argparse.Namespace): args of the program
     """
+    
     s_datatype = {"splitted", "cropped"}
     d_datatype_max_file_loaded = {"splitted": 1000, "cropped": 8000}
     if datatype not in s_datatype:
         raise ValueError(
             "Datatype must be in " + str(s_datatype) + " you gave '" + datatype + "'."
         )
-    dataframe = pd.read_csv(f"{data_dir}/Large_lt_labels.csv")
+    dataframe = pd.read_csv(f"{data_dir}/")
 
     index_string = "_".join([str(index) for index in args.crop_indexes])
     if datatype == "cropped":
