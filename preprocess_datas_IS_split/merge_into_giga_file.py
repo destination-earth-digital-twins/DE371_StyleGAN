@@ -6,7 +6,7 @@ import pandas as pd
 from time import perf_counter
 import numpy as np 
 
-def merge_into_gigafiles(data_dir, datatype, args):
+def merge_into_gigafiles(datatype, params):
     """Merge the numerous little files in gigafiles to load patches at once and accelerate data computation like importance sampling or cropping
 
     Args:
@@ -21,20 +21,20 @@ def merge_into_gigafiles(data_dir, datatype, args):
         raise ValueError(
             "Datatype must be in " + str(s_datatype) + " you gave '" + datatype + "'."
         )
-    dataframe = pd.read_csv(f"{data_dir}/")
+    dataframe = pd.read_csv(f"{params.main_path}/{params.data_directory}/{params.origin_csv}")
 
-    index_string = "_".join([str(index) for index in args.crop_indexes])
+    index_string = "_".join([str(index) for index in params.crop_indexes])
     if datatype == "cropped":
-        data_dir = f"{data_dir}{datatype}_{index_string}"
+        data_dir = f"{params.main_path}/{params.data_directory}{datatype}_{index_string}"
     else:
-        data_dir = f"{data_dir}"
-    save_dir = f"{data_dir}_giga/"
+        data_dir = f"{params.main_path}/{params.data_directory}"
+    save_dir = f"{params.main_path}{params.giga_directory}/"
     data_dir += f"/"
-    make_save_dir(save_dir, args)
+    make_save_dir(save_dir, params)
     with open(f"{save_dir}labels.csv", "w", encoding="utf8") as file:
         file.write("Name,Date,Leadtime,Member,Gigafile,Localindex\n")
     handle_patch(
-        dataframe, data_dir, save_dir, d_datatype_max_file_loaded[datatype], args
+        dataframe, data_dir, save_dir, d_datatype_max_file_loaded[datatype], params
     )
 
 
@@ -56,7 +56,7 @@ def handle_patch(dataframe, data_dir, save_dir, max_files_loaded, args):
         if args.verbose >= 2:
             print(f"Patch {patch}/{n_patch}")
         giga = load(dataframe, data_dir, save_dir, begin, end, patch, args)
-        np.save(f"{save_dir}{patch}.npy", giga)
+        np.save(f"{save_dir}/{patch}.npy", giga)
         del giga
         begin = end
         files_processed = patch * max_files_loaded

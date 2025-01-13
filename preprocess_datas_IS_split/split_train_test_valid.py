@@ -1,66 +1,76 @@
 import pandas as pd
 
 
-  "This file allows you to split the dataset into train/test/validation. It takes a csv with dates. 
-  "It returns --> the training set in the defined interval, the same for the test set and takes one week per month for the validation set.”
+def split_csv_with_validation_first(params,train_start_date,test_end_date,test_start_date):
+  """This function split the original csv file in valid/train/split dataframe
+  """
   
-  def split_csv_with_validation_first(input_file, train_file, test_file, valid_file, train_start_date, train_end_date, test_start_date, test_end_date):
-    # Lire le fichier CSV
-    df = pd.read_csv(input_file)
-    
-    # Convertir la colonne 'DATE' en format datetime
-    
-    df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
-    print(df['Date'])
-    # Supprimer les lignes avec des dates invalides
-    # df0 = df.dropna(subset=['Date'])
-    
-    # df_extract = df0[
-    #         (df0['Date'] >= train_start_date) & (df0['Date'] < train_end_date)]
-    # print(df_extract)
-    
-    # Extraire une semaine par mois pour le jeu de validation
-    validation_data = df.groupby(df['Date'].dt.to_period("M")).apply(
-        lambda x: x[x['Date'].dt.isocalendar().week == x['Date'].dt.isocalendar().week.iloc[0]]
-    ).reset_index(drop=True)
-    validation_data['Date'] = validation_data['Date'].dt.strftime('%Y-%m-%dT%H:%M:%SZ')
-    
-    # # Créer un ensemble de dates utilisées pour le jeu de validation pour éviter les doublons
+  df = pd.read_csv(params.output_csv)
+  df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
 
-    validation_dates = set(validation_data['Date'])
+    # Extract one week per month for validation 
+  validation_data = df.groupby(df['Date'].dt.to_period("M")).apply(
+      lambda x: x[x['Date'].dt.isocalendar().week == x['Date'].dt.isocalendar().week.iloc[0]]
+  ).reset_index(drop=True)
+  validation_data['Date'] = validation_data['Date'].dt.strftime('%Y-%m-%dT%H:%M:%SZ')
+  validation_dates = set(validation_data['Date'])
     
-    # # Filtrer les données restantes en excluant les dates utilisées pour la validation
+    #filter validation csv and test and train
 
-    remaining_data = df[~df['Date'].isin(validation_dates)]
+  remaining_data = df[~df['Date'].isin(validation_dates)]
+  remaining_data['Date'] = remaining_data['Date'].dt.strftime('%Y-%m-%dT%H:%M:%SZ')
 
-    remaining_data['Date'] = remaining_data['Date'].dt.strftime('%Y-%m-%dT%H:%M:%SZ')
-
+  train_data = remaining_data[(remaining_data['Date'] >= train_start_date) & (remaining_data['Date'] <= train_end_date)]
+  test_data = remaining_data[(remaining_data['Date'] >= test_start_date) & (remaining_data['Date'] <= test_end_date)]
     
+  # Sauvegarder les résultats dans trois fichiers CSV distincts
+  train_data.to_csv(f"{params.load_directory}/IS_bootstrap_no_duplicate_rr_cumul_correct_train.csv", index=False)
+  test_data.to_csv(f"{params.load_directory}/IS_bootstrap_no_duplicate_rr_cumul_correct_test.csv", index=False)
+  validation_data.to_csv(f"{params.load_directory}/IS_bootstrap_no_duplicate_rr_cumul_correct_valid.csv", index=False)
     
-    # Filtrer les données pour le train et le test en fonction des intervalles de dates
-    train_data = remaining_data[(remaining_data['Date'] >= train_start_date) & (remaining_data['Date'] <= train_end_date)]
-    test_data = remaining_data[(remaining_data['Date'] >= test_start_date) & (remaining_data['Date'] <= test_end_date)]
-    
-    # Sauvegarder les résultats dans trois fichiers CSV distincts
-    train_data.to_csv(train_file, index=False)
-    test_data.to_csv(test_file, index=False)
-    validation_data.to_csv(valid_file, index=False)
-    
-    print(f"Validation data saved to {valid_file} with {len(validation_data)} records.")
-    print(f"Train data saved to {train_file} with {len(train_data)} records.")
-    print(f"Test data saved to {test_file} with {len(test_data)} records.")
+  print(f"Validation data saved to {valid_file} with {len(validation_data)} records.")
+  print(f"Train data saved to {train_file} with {len(train_data)} records.")
+  print(f"Test data saved to {test_file} with {len(test_data)} records.")
+  
+def More_than(n,params):
+  
+  IS= pd.read_csv(f"{params.main_path}{params.giga_directory}{params.output_csv}")
+  print(f"{params.main_path}{params.giga_directory}{params.output_csv}")
+  labels = pd.read_csv(f"{params.main_path}/{params.giga_directory}/labels.csv")
+  # Group data by leadtime and date 
+  grouped_data = IS.groupby(['Date', 'LeadTime'])
 
-# Exemple d'utilisation
-input_file = "/home/users/u101957/DE371_StyleGAN/importance_sampling/IS_boostrap_no_duplicate_rr_cumul_correct.csv"           # Nom du fichier CSV d'entrée
-train_file = "IS_boostrap_no_duplicate_rr_cumul_correct_train.csv"     # Nom du fichier CSV de sortie pour le train
-test_file = "IS_boostrap_no_duplicate_rr_cumul_correct_test.csv"       # Nom du fichier CSV de sortie pour le test
-valid_file = "IS_boostrap_no_duplicate_rr_cumul_correct_valid.csv"     # Nom du fichier CSV de sortie pour la validation
+  # Create a new column Morethan n members
+  IS['MoreMembers'] = False
+  for (date, leadtime), group in grouped_data:
+      member_count = len(group['Member'].tolist())
+      print(member_count,n,member_count>n)
+      # If the number of members is greater than n, enter True for the corresponding lines.
+      if member_count > n:
+          print(n)
+          IS.loc[(IS['Date'] == date) & (IS['LeadTime'] == leadtime), 'MoreMembers'] = True
+  print(IS[IS['MoreMembers']==False])
+  filtered_df = IS[IS['MoreMembers'] == True].copy()
+  print(IS[IS['MoreMembers'] == True].copy())
+  final_df = pd.DataFrame()
+  print(filtered_df)
+  grouped = filtered_df.groupby(['Date', 'LeadTime'])
+  print(grouped)
+  for (date, leadtime), group in grouped:
+      print(group)
+      current_members = group['Member'].tolist()
+      num_current_members = len(current_members)      
+      if num_current_members < 16:
+          additional_rows = labels[(labels['Date'] == date) & (labels['LeadTime'] == leadtime)]
+          additional_rows = additional_rows[~additional_rows['Member'].isin(current_members)]
+          num_needed = 16 - num_current_members
+          additional_rows = additional_rows.head(num_needed)
+          group = pd.concat([group, additional_rows])
 
-# Définir les intervalles de dates pour le train et le test
-train_start_date = "2020-06-15"
-train_end_date = "2021-06-01"
-test_start_date = "2021-06-01"
-test_end_date = "2021-11-12"
+      # Ajouter le groupe au DataFrame final
+      final_df = pd.concat([final_df, group])
 
-# Appel de la fonction
-split_csv_with_validation_first(input_file, train_file, test_file, valid_file, train_start_date, train_end_date, test_start_date, test_end_date)
+  # Réinitialiser les index du DataFrame final
+  final_df.reset_index(drop=True, inplace=True)
+  # final_df.to_csv(f"{params.load_directory}/IS_bootstrap_no_duplicate_rr_cumul_correct_16_members.csv")
+  final_df.to_csv(f"./IS_bootstrap_no_duplicate_rr_cumul_correct_16_members.csv")

@@ -12,12 +12,3 @@ To resume, it removes  samples with little or no precipitation to encourage the 
 
 
 
-Pour se faire il faut faire un pré-processing du dataset, pour rassembler nos samples en Gigafile (batchs):
-                        " pre_pro_for_is.py"
-Ensuite il faut utiliser le fichier : " called/process_is.py " afin d'appliquer l'EP. 
-
-Nous allons reproduire n fois ce processus, c'est ce qu'on appelle le bootstrap, pour obtenir plusieurs fichihers csv résultants de différents EP. 
-
-Ensuite, nous allons assembler ces différents csv pour agrandir notre train set: " bootrstaps.py"
-
-Enfin on divise le dataset en train/test/valid set. 
