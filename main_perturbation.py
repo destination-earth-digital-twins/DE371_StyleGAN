@@ -37,12 +37,13 @@ def str2list(li):
         raise ValueError("li argument must be a string or a list, not '{}'".format(type(li)))
         
 
-def compute_generate_save(G, params, metrics_list, Means, Maxs, apply_log_transform):
+def compute_generate_save(G, params, metrics_list, Means, Mins, Maxs, apply_log_transform):
 
     N_samples = params.N_samples
     if params.verbose:
         print(datename, lt)
         print(params.date_index, params.lt_index)
+
     Ens_r = torch.tensor(np.load(params.pack_dir+f'Rsemble_{datename}_{lt}.npy'), dtype = torch.float32)
     w_ens = torch.tensor(np.load(params.data_dir + f'w_{params.date_index}_{params.lt_index}_{params.inv_step}.npy').astype(np.float32))
     inv_ens=np.load(params.data_dir + f'invertFsemble_{params.date_index}_{params.lt_index}_{params.inv_step}.npy').astype(np.float32)
@@ -106,27 +107,28 @@ def compute_generate_save(G, params, metrics_list, Means, Maxs, apply_log_transf
     if params.save_perturbation and not params.import_perturbation :
         np.save(params.output_dir + f'/samples/perturbation_{title}.npy', w_new[1])
 
-    Ens_r_denorm = utils.denormalize(
-                                    data=Ens_r,
-                                    normalization_type=params.normalization,
-                                    Means=Means,
-                                    Mins=None,
-                                    Maxs=Maxs,
-                                    apply_log_transform=apply_log_transform
-                                    )
-    inv_ens_denorm = utils.denormalize(
-                                    data=inv_ens,
-                                    normalization_type=params.normalization,
-                                    Means=Means,
-                                    Mins=None,
-                                    Maxs=Maxs,
-                                    apply_log_transform=apply_log_transform
-                                    )
+    if params.import_normalized_data:
+        Ens_r_denorm = utils.denormalize(
+                                        data=Ens_r,
+                                        normalization_type=params.normalization,
+                                        Means=Means,
+                                        Mins=Mins,
+                                        Maxs=Maxs,
+                                        apply_log_transform=apply_log_transform
+                                        )
+        inv_ens_denorm = utils.denormalize(
+                                        data=inv_ens,
+                                        normalization_type=params.normalization,
+                                        Means=Means,
+                                        Mins=Mins,
+                                        Maxs=Maxs,
+                                        apply_log_transform=apply_log_transform
+                                        )
     gen_denorm = utils.denormalize(
                                     data=gen,
                                     normalization_type=params.normalization,
                                     Means=Means,
-                                    Mins=None,
+                                    Mins=Mins,
                                     Maxs=Maxs,
                                     apply_log_transform=apply_log_transform
                                     )
@@ -182,6 +184,8 @@ if __name__=="__main__" :
     # Output Directory - PATH where the output of the inversion will be saved
     parser.add_argument('--output_dir',type = str, default ='')
     parser.add_argument('--path_root_readme',type = str, default ='')
+    parser.add_argument("--import_normalized_data", action="store_true",
+                        help='Flag to remark that imported data are normalized. If True, data will be denormalized !')
 
     # Generator network information
     parser.add_argument('--add_name',type = str, default='')
@@ -194,7 +198,7 @@ if __name__=="__main__" :
     parser.add_argument('--feature_id', type=int, default=6, choices=[0,1,2,3,4,5,6,7,8,9,10,11,12,13], help='id of feature to insert')
     
     # Dataset information
-    parser.add_argument("--normalization", type=str, default="meanmax", choices=["minmax", "meanmax"])
+    parser.add_argument("--normalization", type=str, default="meanmax", choices=["minmax", "meanmax", ""])
     parser.add_argument('--max_file', type=str, default='') # use 'MaxNew_4_var.npy' if AROME data # max_rr_log.npy
     parser.add_argument('--mean_file', type=str, default='') # not used if minmax normalization
     parser.add_argument('--min_file', type=str, default='')  # not used if meanmax normalization
@@ -249,9 +253,20 @@ if __name__=="__main__" :
     liste_dates = df_extract['Date'].unique()
     
     ################## carrying scaling info to pass it whenever needed
-    Means = np.load(f'{params.real_data_dir}{params.mean_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
-    Maxs = np.load(f'{params.real_data_dir}{params.max_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
-    scale = (1/0.95)
+    Means=None
+    Maxs=None
+    Mins=None
+    if params.normalization=="meanmax":
+        Means = np.load(f'{params.real_data_dir}{params.mean_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
+        Maxs = np.load(f'{params.real_data_dir}{params.max_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
+    elif params.normalization=="minmax":
+       Mins = np.load(f'{params.real_data_dir}stat_files/{params.min_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
+       Maxs = np.load(f'{params.real_data_dir}stat_files/{params.max_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
+       Means = np.load(f'{params.real_data_dir}stat_files/{params.mean_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
+    elif params.normalization=="":
+        pass
+    else:
+       raise ValueError(f"Unknown normalization: {params.normalization}")
     
     ############################################################
     if not os.path.exists(params.output_dir + 'samples/'):
@@ -314,6 +329,7 @@ if __name__=="__main__" :
                         params=params,
                         metrics_list=metrics_list,
                         Means=Means,
+                        Mins=Mins,
                         Maxs=Maxs,
                         apply_log_transform=True if params.Shape[0]==4 else False
                     )
