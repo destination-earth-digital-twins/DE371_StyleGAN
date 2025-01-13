@@ -156,7 +156,7 @@ def main():
         leadtimes=np.arange(1, 46, 1),
         dt=6,
         fmt='npy',
-        include_input_leadtimes=True)
+        include_input_leadtimes=False)
 
     if dist.get_rank() == 0:
         print(f"Number of training examples: {len(training_dataset)}")

@@ -20,14 +20,14 @@ module load Apptainer/1.2.4-GCCcore-12.3.0
 apptainer exec --nv /project/home/p200177/DE_371/resources/apptainer_container/container.sif python3 temporal_interpolation.py \
     --device='cuda:0' \
     --num_workers=16 \
-    --model_name='LatentInterpolatorCorrector2' \
-    --model_path='interpolation/2025-01-08/model-1/LatentInterpolatorCorrector2-1024-3-pixel1000-epoch-20-2024-12-30T15_19.pt' \
-    --num_layers=3 \
+    --model_name='LatentCodeInterpolatorCorrector' \
+    --model_path='interpolation_models/2025-01-11/LatentCodeInterpolatorCorrector-1024-4-pixel1000-norm-epoch-10-2025-01-11T02_20.pt' \
+    --num_layers=4 \
     --num_neurons=1024 \
     --normalization="Layer" \
     --dropout=0.0 \
     --base_dir='/project/home/p200177/DE_371/experiments_WP2/temporal_downscaling_experiments/' \
-    --output_dir='interpolation/2025-01-08/model-1/' \
+    --output_dir='interpolation/2025-01-13/' \
     --inv_dir='inversion_october/inversion/' \
     --pack_dir='inversion_october/pack/' \
     --start_date=2021-10-01 \
