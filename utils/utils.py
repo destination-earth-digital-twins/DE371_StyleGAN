@@ -283,7 +283,10 @@ def normalize(data, normalization_type, Means=None, Mins=None, Maxs=None, apply_
         if Mins is None or Maxs is None:
             raise ValueError("Mins et Maxs must be supplied to denormalise with 'minmax'.")
         normalized_data = torch.tensor(-1. + 2*(normalized_data - Mins) / (Maxs-Mins), dtype = torch.float32)
+    elif normalization_type == "":
+        normalized_data = data 
     else:
+        
         raise ValueError(f"Type de normalisation inconnu: {normalization_type}")
       
 
