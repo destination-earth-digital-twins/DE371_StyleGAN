@@ -214,7 +214,7 @@ if __name__=="__main__" :
 
         ################### producing latent mean #######
         if not os.path.exists(f'{params.output_dir}latent_mean.npy'):
-            latent_z = torch.empty(1e5, 512).normal_().to(params.device)
+            latent_z = torch.empty(10000, 512).normal_().to(params.device)
             with torch.no_grad():
                 w = G.style(latent_z)
             latent_mean = w.mean(dim=0).detach().cpu()
@@ -295,7 +295,7 @@ if __name__=="__main__" :
                         apply_log_transform=True if params.Shape[0]==4 else False
                         
                     ) #, crop_indices=params.crop_indices)                   
-                    if params.pack_dir :
+                    if params.pack_dir != "" :
                         if params.save_normalized_sample:
                             np.save(params.pack_dir+f'Rsemble_{datename}_{lt}.npy', Ens_r_norm.numpy().astype(np.float32))
                         else :    

@@ -110,13 +110,8 @@ def sm_pca(
                     alphas.view(1, 14, 1) * Ens_w1.mean(dim=0)
                     + (1.0 - alphas).view(1, 14, 1) * Ens_w1[k]
                 )
-                if import_perturbation :
-                    if path_perturbation :
-                        w_pert = np.load(path_perturbation)[k * per_cond : (k + 1) * per_cond]
-                        w_pert = torch.from_numpy(w_pert).to(device)
-                    else :
-                        print('Specify a path for the perturbation')
-                        raise FileNotFoundError
+                if import_perturbation and path_perturbation is not None:
+                    w_pert = torch.tensor(np.load(path_perturbation)[k * per_cond : (k + 1) * per_cond].astype(np.float32)).to(device)
                 else:
                     if not temporal_consistency :
                         if (R - n_styles_pert) > 0:
@@ -142,8 +137,9 @@ def sm_pca(
                         else:
                             w_pert = new_w
                     else :
+                        raise NotImplementedError
                         w_pert = w_pert_former[k]*torch.exp(-rho*dt) + torch.sqrt(1-torch.exp(-2*rho*dt))*torch.normal(0,1)
-                        
+      
                 w_new = w_start + betas.view(1, 14, 1) * w_pert
 
             elif sample_rule == "extrapolation":
@@ -206,8 +202,7 @@ def sm_pca(
             Ens_final[k * per_cond : (k + 1) * per_cond] = sample.detach().cpu().numpy()
             w_final[k * per_cond : (k + 1) * per_cond] = w.detach().cpu().numpy()
             if save_perturbation and not import_perturbation:
-                perturbation[k * per_cond : (k + 1) * per_cond] = (betas.view(1,14,1) * w_pert).detach().cpu().numpy()
-                # TODO : Check that we can remove the betas param
+                perturbation[k * per_cond : (k + 1) * per_cond] = (w_pert).detach().cpu().numpy()
 
     if save_perturbation and not import_perturbation :
         return Ens_final[:N_samples], (w_final, perturbation)
