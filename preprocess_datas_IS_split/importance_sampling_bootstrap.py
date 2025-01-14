@@ -82,39 +82,6 @@ def sample_from_instance(save_dir, p_importance, row, param):
             with open(f"{save_dir_instance}{param.output_csv}", "a", encoding="utf8") as file:
                 file.write(f"{row['Name']},{row['Date']},{row['LeadTime']},{row['Member']},{row['Gigafile']},{row['Localindex']},{p_importance}\n")
 
-# def importance_sampling(parameters, dirs, gridshape, variable, param):
-#     """Compute importance sampling with parameters parameters
-
-#     Args:
-#         parameters (tuple[float]): Parameters of importance sampling (s_rr, q_min, m, c)
-#         dirs (str): Directories with which data interact (csv_dir, data_dir, save_dir)
-#         param (argparse.Namespace): args of the program
-#     """
-#     if param.verbose >= 1: print(f"Importance sampling...")
-#     csv_dir, data_dir, save_dir = dirs
-#     create_dirs(save_dir, param)
-#     print("HEHOOOOO",f"{csv_dir}labels.csv")
-
-#     dataframe = pd.read_csv(f"{csv_dir}labels.csv")
-#     print(f"{csv_dir}labels.csv")
-#     s_gigafile = {gigafile  for gigafile in os.scandir(data_dir) if gigafile.name != "labels.csv"}
-#     n_gigafile = len(s_gigafile)
-#     start_time = perf_counter()
-#     for idx_gigafile, gigafile in enumerate(s_gigafile):
-#         if param.verbose >= 2:
-#             print(f"Loading patch {gigafile.name} ({idx_gigafile + 1}/{n_gigafile})...")
-#             if (idx_gigafile + 1) % ((n_gigafile // param.refresh) + 1) == 0:
-#                 print_progress(idx_gigafile, n_gigafile, start_time)
-#         l_grid = np.load(f"{gigafile.path}")    
-#         dataframe_gigafile = dataframe.groupby("Gigafile").get_group(int(gigafile.name[:-4]))
-#         for idx_grid, grid in enumerate(l_grid):
-#             if param.progress_bar: print_progress_bar(idx_grid, len(l_grid))
-#             p_importance = importance(grid, parameters, gridshape, variable, param)
-#             sample_from_instance(save_dir, p_importance, dataframe_gigafile.iloc[idx_grid], param)
-#         del l_grid
-#     if param.verbose >= 2: print(f"All gigafiles processed.")
-#     if param.verbose >= 1: print(f"Importance sampling for parameters {parameters} DONE.")
-
 def importance_sampling(parameters, dirs, gridshape, variable, param):
     """Compute importance sampling with parameters parameters
 
@@ -129,7 +96,6 @@ def importance_sampling(parameters, dirs, gridshape, variable, param):
     
     # Load the dataframe
     dataframe = pd.read_csv(f"{csv_dir}labels.csv")
-    # s_gigafile = {gigafile for gigafile in os.scandir(data_dir) if gigafile.name != "labels.csv"}
     s_gigafile = {gigafile for gigafile in os.scandir(data_dir) if not gigafile.name.endswith('.csv')and not gigafile.is_dir()}
 
     n_gigafile = len(s_gigafile)
@@ -137,9 +103,7 @@ def importance_sampling(parameters, dirs, gridshape, variable, param):
 
     # Create a list to store rows that satisfy the condition
     selected_samples = []
-    print("LA")
     for idx_gigafile, gigafile in enumerate(s_gigafile):
-        print(gigafile.name)
         if param.verbose >= 2:
             print(f"Loading patch {gigafile.name} ({idx_gigafile + 1}/{n_gigafile})...")
             if (idx_gigafile + 1) % ((n_gigafile // param.refresh) + 1) == 0:
@@ -173,7 +137,7 @@ def importance_sampling(parameters, dirs, gridshape, variable, param):
     selected_dataframe = pd.DataFrame(selected_samples)
 
     # Save the new dataframe to a CSV file
-    selected_dataframe.to_csv(f"./selected_samples3.csv", index=False)
+    selected_dataframe.to_csv(f'{csv_dir}/IS_rr_cumul_correct.csv', index=False)
 
     if param.verbose >= 2:
         print(f"All gigafiles processed.")

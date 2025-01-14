@@ -17,7 +17,7 @@ if __name__ == "__main__":
     parser.add_argument("-c", "--crop", action="store_true", help="Crop while processing all")
     parser.add_argument("--crop_indexes",type=int,nargs="*",default=[120, 376, 540, 796],help="Crop index. If not specified, take the values : [120, 376, 540, 796] (SE_indexes). If no crop is wanted, pass 0 as an argument. Ex: --crop_indexes 120 376 540 796 for SE_indexes; --crop_indexes 0 for no crop",)
     parser.add_argument("--l_c", type=float, nargs="*", help="The initial points for fsolve. MUST BE CLOSE TO THE ROOT")
-    parser.add_argument("-v", "--verbose", action="count", default=0, help="Increase verbosity")
+    parser.add_argument("-v", "--verbose", action="count", default=0, help="verbose parameter to control the level of detail in program output (higher is more detailed).")
     parser.add_argument("--default_param", type=float, default = [5, 0.001, 500], help=f"Importance sampling parameters.")
     parser.add_argument("-b", "--progress_bar", action="store_true", help="Print the progress bar")
     parser.add_argument("-o", "--rough", action="store_true", help="If used, importance sampling is done with a rough ladder filter.")
@@ -32,14 +32,8 @@ if __name__ == "__main__":
     parser.add_argument("--old_param", type=str)
     parser.add_argument("--n_bootstrap", type=int, default=1, help="number boostrap")
     parser.add_argument("--bootstrap", action = "store_true", help="apply boostrap or not")
+    parser.add_argument('--method_type', default='split_dataset', type=str, choices=["importance_sampling","merge_into_giga_file", "complete_members","split_dataset"], help='Type of methods we want to apply ')
 
-    # parser.add_argument("--save_directory",type=str,default="/data_for_importance_sampling/",help="Directory where data will be saved: 'pre_proc_' + save_directory",
-    # )
-    # )
- 
-    # parser.add_argument("-r","--refresh",type=int,default=5,help="Frequence at which progress is shown",
-
-    parser.add_argument('--method_type', default='importance_sampling', type=str, choices=["importance_sampling","merge_into_giga_file", "split_dataset", "complete_members"], help='Type of methods we want to apply ')
 
 
     params= parser.parse_args()
@@ -70,30 +64,27 @@ if __name__ == "__main__":
         DATA_giga_DIR = f"{params.main_path}{params.giga_directory}"
         SAVE_DIR= f"{params.main_path}{params.giga_directory}"
         DIRS = (CSV_DIR, DATA_giga_DIR, SAVE_DIR)
-        print("JE PASSE PAR LA ")
 
-        if not params.bootstrap:
-            print('NOK')
-            importance_sampling(PARAMETERS, DIRS, GRIDSHAPE, VARIABLE, params)
-        else:
-            for number_csv in range(params.bootstrap):
-                params.output_csv=f"IS_labels_{number_csv}.csv"
-                importance_sampling(PARAMETERS, DIRS, GRIDSHAPE, VARIABLE, params)
+        # if not params.bootstrap:
+        #     importance_sampling(PARAMETERS, DIRS, GRIDSHAPE, VARIABLE, params)
+        # else:
+        #     for number_csv in range(params.bootstrap):
+        #         params.output_csv=f"IS_labels_{number_csv}.csv"
+        #         importance_sampling(PARAMETERS, DIRS, GRIDSHAPE, VARIABLE, params)
 
         print(f"DONE")
 
     #BOOTSTRAP:
     if params.bootstrap:
         #where the IS csv are stored
-        save_dir_instance = f"{SAVE_DIR}INST1/"
-        bootstrap(save_dir_instance)
+        bootstrap(CSV_DIR)
 
     # ADD missing dates
     if params.method_type=="complete_members":
-        More_than(16,params)
+        More_than(8,params)
 
     # SPLIT 
-    if params.split:
+    if params.method_type=="split_dataset":
         
         train_start_date="2020-06-15"
         train_end_date="2021-06-01"   
