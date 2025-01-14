@@ -130,7 +130,7 @@ def importance_sampling(parameters, dirs, gridshape, variable, param):
     # Load the dataframe
     dataframe = pd.read_csv(f"{csv_dir}labels.csv")
     # s_gigafile = {gigafile for gigafile in os.scandir(data_dir) if gigafile.name != "labels.csv"}
-    s_gigafile = {gigafile for gigafile in os.scandir(data_dir) if not gigafile.name.endswith('.csv')}
+    s_gigafile = {gigafile for gigafile in os.scandir(data_dir) if not gigafile.name.endswith('.csv')and not gigafile.is_dir()}
 
     n_gigafile = len(s_gigafile)
     start_time = perf_counter()
@@ -173,7 +173,7 @@ def importance_sampling(parameters, dirs, gridshape, variable, param):
     selected_dataframe = pd.DataFrame(selected_samples)
 
     # Save the new dataframe to a CSV file
-    selected_dataframe.to_csv(f"./selected_samples.csv", index=False)
+    selected_dataframe.to_csv(f"./selected_samples3.csv", index=False)
 
     if param.verbose >= 2:
         print(f"All gigafiles processed.")
