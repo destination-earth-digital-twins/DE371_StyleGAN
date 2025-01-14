@@ -3,7 +3,7 @@ import numpy as np
 import random
 import torch
 import os
-#random.seed(0)
+from copy import copy,deepcopy#random.seed(0)
 
 def str2intlist(li):
     if type(li)==list:
@@ -31,7 +31,7 @@ def load_batch_from_timestamp(
         Means=None,
         Mins=None,
         Maxs=None, 
-        precipitation = True 
+        apply_log_transform = False 
         ):
 
     df0 = dataframe[(dataframe['Date']==date) & (dataframe['LeadTime']==lt)]
@@ -44,22 +44,18 @@ def load_batch_from_timestamp(
         sn = np.load(f'{data_dir}{s}.npy')[var_indices,:,:].astype(np.float32)
 
         batch[i] = sn
-    batch=torch.tensor(batch, dtype = torch.float32)
-    norm_batch=torch.tensor(np.copy(batch), dtype = torch.float32)
     
-    if precipitation==True:   
-        norm_batch[:,0,:,:]=torch.log(1+norm_batch[:,0,:,:])        
+    # normalise samples and save in pack dir. obs! make sure normalization is done correctly (according to how model was trained)
+    batch = torch.tensor(batch, dtype=torch.float32)
+    norm_batch = normalize(
+                        data=batch,
+                        normalization_type=normalization,
+                        Means=Means,
+                        Mins=Mins,
+                        Maxs=Maxs,
+                        apply_log_transform=apply_log_transform
+                        )
     
-# normalise samples and save in pack dir. obs! make sure normalization is done correctly (according to how model was trained)
-    if normalization=="meanmax":
-        norm_batch = torch.tensor(0.95*(norm_batch - Means) / (Maxs), dtype = torch.float32)
-    elif normalization=="minmax":
-        norm_batch = torch.tensor(-1. + 2*(norm_batch - Mins) / (Maxs-Mins), dtype = torch.float32)
-    elif normalization=="":
-        pass
-    else :
-        raise ValueError(f"Unknown normalization: {normalization}")
-
 
     return batch, norm_batch
 
@@ -75,7 +71,8 @@ def load_batch_sequence_from_date(
         normalization="meanmax",
         Means=None,
         Mins=None,
-        Maxs=None
+        Maxs=None,
+        apply_log_transform=False
     ):
     r''' 
 
@@ -94,13 +91,15 @@ def load_batch_sequence_from_date(
             if i%dt == 0:
                 sn = np.load(f'{data_dir}{s}.npy')[var_indices,:,:].astype(np.float32)
                 # normalization
-                if normalization=="meanmax" and (Means is not None and Maxs is not None):
-                    sn = np.array(0.95*(sn - Means) / (Maxs), dtype = np.float32)
-                elif normalization=="minmax" and (Mins is not None and Maxs is not None):
-                    sn = np.array(-1. + 2*(sn - Mins) / (Maxs-Mins), dtype = torch.float32)
-                else:
-                    raise ValueError(f"Unknown normalization: {normalization}")
-                sample[i//dt] = sn
+                sn_norm = normalize(
+                                data=sn,
+                                normalization_type=normalization,
+                                Means=Means,
+                                Mins=Mins,
+                                Maxs=Maxs,
+                                apply_log_transform=apply_log_transform
+                        )
+                sample[i//dt] = sn_norm
         if concatenate_variable_and_time :
             lt, var, x, y = np.shape(sample)
             sample = sample.reshape((lt*var,x,y))
@@ -255,6 +254,44 @@ def initsmall():
     return mb
 
 
+def normalize(data, normalization_type, Means=None, Mins=None, Maxs=None, apply_log_transform=True):
+    """
+    Normalizes the data and if necessary does the log-transform.
+
+        Args:
+            data (torch.Tensor): The normalized data.
+            normalization_type (str): Type of normalisation used ('meanmax', 'minmax' or '').
+            Means (torch.Tensor, optional): Means used for normalisation (if applicable).
+            Mins (torch.Tensor, optional): Minima used for normalisation (if applicable).
+            Maxs (torch.Tensor, optional): Maxima used for normalisation (if applicable).
+            apply_log_transform (bool): If True, also reverses the log transformation.
+
+        Returns:
+            torch.Tensor: The denormalized data.
+    """
+    
+    normalized_data = deepcopy(data)
+
+    if apply_log_transform:
+        normalized_data[:,0,:,:]=torch.log(1+normalized_data[:,0,:,:])   
+
+    if normalization_type == "meanmax":
+        if Means is None or Maxs is None:
+            raise ValueError("Means et Maxs must be supplied to denormalise with 'meanmax'.")
+        normalized_data = torch.tensor(0.95*(normalized_data - Means) / (Maxs), dtype = torch.float32)
+    elif normalization_type == "minmax":
+        if Mins is None or Maxs is None:
+            raise ValueError("Mins et Maxs must be supplied to denormalise with 'minmax'.")
+        normalized_data = torch.tensor(-1. + 2*(normalized_data - Mins) / (Maxs-Mins), dtype = torch.float32)
+    elif normalization_type == "":
+        normalized_data = data 
+    else:
+        
+        raise ValueError(f"Type de normalisation inconnu: {normalization_type}")
+      
+
+    return normalized_data
+
 def denormalize(data, normalization_type, Means=None, Mins=None, Maxs=None, apply_log_transform=True):
     """
     Denormalizes the data by inverting the normalization transforms and, if necessary, the log-transform.
@@ -270,6 +307,8 @@ def denormalize(data, normalization_type, Means=None, Mins=None, Maxs=None, appl
         Returns:
             torch.Tensor: The denormalized data.
     """
+    denormalized_data = deepcopy(data)
+
     #Inverser la normalisation
     if normalization_type == "meanmax":
         if Means is None or Maxs is None:
@@ -286,6 +325,6 @@ def denormalize(data, normalization_type, Means=None, Mins=None, Maxs=None, appl
     # Reverse the logarithmic transformation
     
     if apply_log_transform:
-        denormalized_data[:,0,:,:] = np.exp(denormalized_data[:,0,:,:]) - 1
+        denormalized_data[:,0,:,:] = torch.exp(denormalized_data[:,0,:,:]) - 1
 
     return denormalized_data
