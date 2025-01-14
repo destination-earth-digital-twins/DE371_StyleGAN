@@ -5,8 +5,7 @@ def split_csv_with_validation_first(params,train_start_date,test_end_date,test_s
   """This function split the original csv file in valid/train/split dataframe
   """
   
-  # df = pd.read_csv(params.output_csv)
-  df=pd.read_csv('/home/users/u101957/DE371_StyleGAN/preprocess_datas_IS_split/INST1/IS_bootstrap_no_duplicate_rr_cumul_correct_16_members.csv')
+  df = pd.read_csv(params.output_csv)
   df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
 
     # Extract one week per month for validation 
@@ -24,17 +23,14 @@ def split_csv_with_validation_first(params,train_start_date,test_end_date,test_s
   train_data = remaining_data[(remaining_data['Date'] >= train_start_date) & (remaining_data['Date'] <= test_start_date)]
   test_data = remaining_data[(remaining_data['Date'] >= test_start_date) & (remaining_data['Date'] <= test_end_date)]
     
-  # Sauvegarder les résultats dans trois fichiers CSV distincts
-  # train_data.to_csv(f"{params.main_path}{params.data_directory}/IS_bootstrap_no_duplicate_rr_cumul_correct_train.csv", index=False)
-  # test_data.to_csv(f"{params.main_path}{params.data_directory}/IS_bootstrap_no_duplicate_rr_cumul_correct_test.csv", index=False)
-  # validation_data.to_csv(f"{params.main_path}{params.data_directory}/IS_bootstrap_no_duplicate_rr_cumul_correct_valid.csv", index=False)
-  train_data.to_csv(f"./INST1/IS_bootstrap_no_duplicate_rr_cumul_correct_train.csv", index=False)
-  test_data.to_csv(f"./INST1/IS_bootstrap_no_duplicate_rr_cumul_correct_test.csv", index=False)
-  validation_data.to_csv(f"./INST1/IS_bootstrap_no_duplicate_rr_cumul_correct_valid.csv", index=False)
-    
-  # print(f"Validation data saved to {f"{params.main_path}{params.data_directory}/IS_bootstrap_no_duplicate_rr_cumul_correct_valid.csv"}")
-  # print(f"Train data saved  {f"{params.main_path}{params.data_directory}/IS_bootstrap_no_duplicate_rr_cumul_correct_train.csv"}")
-  # print(f"Test data saved {f"{params.main_path}{params.data_directory}/IS_bootstrap_no_duplicate_rr_cumul_correct_test.csv"}")
+  # Save results
+  train_data.to_csv(f"{params.main_path}{params.data_directory}/IS_bootstrap_no_duplicate_rr_cumul_correct_train.csv", index=False)
+  test_data.to_csv(f"{params.main_path}{params.data_directory}/IS_bootstrap_no_duplicate_rr_cumul_correct_test.csv", index=False)
+  validation_data.to_csv(f"{params.main_path}{params.data_directory}/IS_bootstrap_no_duplicate_rr_cumul_correct_valid.csv", index=False)
+
+  print(f"Validation data saved to {f"{params.main_path}{params.data_directory}/IS_bootstrap_no_duplicate_rr_cumul_correct_valid.csv"}")
+  print(f"Train data saved  {f"{params.main_path}{params.data_directory}/IS_bootstrap_no_duplicate_rr_cumul_correct_train.csv"}")
+  print(f"Test data saved {f"{params.main_path}{params.data_directory}/IS_bootstrap_no_duplicate_rr_cumul_correct_test.csv"}")
   
 def More_than(n,params):
   
