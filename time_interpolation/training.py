@@ -120,7 +120,7 @@ def test_loop(dataloader, model, generator, loss_function, current_epoch, percep
             w_start, w_end, t_frac, t_encodings, w_t, r_start, r_end, r_t = batch
 
             # Ensure that model's output is on the correct device
-            w_interpolated = model(w_start, w_end, t_frac).to(rank)
+            w_interpolated = model(w_start, w_end, t_frac, t_encodings).to(rank)
             r_latent_nn_interpolation = generate_image_from_latent(w_interpolated, generator).to(rank)
 
             # Loss calculation (no need to move tensors again, they're already on the right device)
