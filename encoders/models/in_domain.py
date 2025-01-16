@@ -8,7 +8,7 @@ from torch import nn
 from gan.model.stylegan2 import Generator, Discriminator
 from encoders.configs.paths_config import model_paths
 from encoders.models.encoders import fpn_encoders, restyle_psp_encoders
-from encoders.utils.model_utils import RESNET_MAPPING
+from encoders.utils_encoder.model_utils import RESNET_MAPPING
 from collections import OrderedDict
 
 class inDomain(nn.Module):

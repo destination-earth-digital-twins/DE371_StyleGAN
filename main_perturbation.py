@@ -67,7 +67,7 @@ def compute_generate_save(G, params, metrics_list, Means, Mins, Maxs, apply_log_
 
     path_perturbation=None
     if params.import_perturbation:
-        title_fixed_perturbation = f'{params.date_index}_3_{params.inv_step}_{params.N_conditioners}'
+        title_fixed_perturbation = f'{params.date_index}_1_{params.inv_step}_{params.N_conditioners}'
         path_perturbation = params.dir_perturbation + f'/samples/perturbation_{title_fixed_perturbation}.npy'
         print(f'Importing perturbation from perturbation_{title_fixed_perturbation}')
         

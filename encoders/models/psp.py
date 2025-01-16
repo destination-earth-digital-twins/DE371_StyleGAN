@@ -9,7 +9,7 @@ from gan.model.stylegan2 import Generator
 from encoders.configs.paths_config import model_paths
 from encoders.models.encoders import fpn_encoders, restyle_psp_encoders
 from encoders.models.w_encoder import WEncoder
-from encoders.utils.model_utils import RESNET_MAPPING
+from encoders.utils_encoder.model_utils import RESNET_MAPPING
 from collections import OrderedDict
 
 class pSp(nn.Module):
