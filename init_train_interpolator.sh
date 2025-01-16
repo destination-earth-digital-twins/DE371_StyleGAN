@@ -22,19 +22,19 @@ module load Apptainer/1.2.4-GCCcore-12.3.0
 
 apptainer exec --nv /project/home/p200177/DE_371/resources/apptainer_container/container.sif torchrun --nproc_per_node=4 --master_port=29500 train_interpolator.py \
         --model_name='LatentCodeInterpolatorCorrector' \
-        --training_description='1024-4-pixel1000-norm' \
+        --training_description='1024-4-perc100-lr5e-3' \
         --num_workers=16 \
         --weight_decay=0.0 \
-        --learning_rate=1e-4 \
-        --lr_decay=0.95 \
+        --learning_rate=5e-3 \
+        --lr_decay=1.0 \
         --latent_loss_weight=0.0 \
-        --pixel_loss_weight=1000.0 \
-        --perceptual_loss_weight=0.0 \
+        --pixel_loss_weight=0.0 \
+        --perceptual_loss_weight=100.0 \
         --num_neurons=1024 \
         --normalization="Layer" \
         --dropout=0.0 \
-        --epochs=20 \
-        --batch_size=4 \
+        --epochs=10 \
+        --batch_size=2 \
         --start_date=2020-06-15 \
         --end_date=2021-06-14 \
-        --num_layers=4 > training-6.log 2>&1
+        --num_layers=4 > training-13.log 2>&1

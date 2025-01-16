@@ -20,15 +20,65 @@ module load Apptainer/1.2.4-GCCcore-12.3.0
 apptainer exec --nv /project/home/p200177/DE_371/resources/apptainer_container/container.sif python3 temporal_interpolation.py \
     --device='cuda:0' \
     --num_workers=16 \
-    --model_name='LatentCodeInterpolatorCorrector' \
-    --model_path='interpolation_models/2025-01-11/LatentCodeInterpolatorCorrector-1024-4-pixel1000-norm-epoch-10-2025-01-11T02_20.pt' \
+    --model_name='StyleVectorInterpolatorCorrector' \
+    --model_path='interpolation_models/StyleVectorInterpolatorCorrector-1024-4-pixel1000-epoch-5-2025-01-13T16_43.pt' \
     --num_layers=4 \
     --num_neurons=1024 \
     --normalization="Layer" \
     --dropout=0.0 \
     --base_dir='/project/home/p200177/DE_371/experiments_WP2/temporal_downscaling_experiments/' \
-    --output_dir='interpolation/2025-01-13/' \
+    --output_dir='interpolation/2025-01-14/training-1/' \
     --inv_dir='inversion_october/inversion/' \
     --pack_dir='inversion_october/pack/' \
     --start_date=2021-10-01 \
-    --end_date=2021-11-01 > interpolation-1.log 2>&1
+    --end_date=2021-11-01 > interpolation-1.log 2>&1 &
+
+apptainer exec --nv /project/home/p200177/DE_371/resources/apptainer_container/container.sif python3 temporal_interpolation.py \
+    --device='cuda:1' \
+    --num_workers=16 \
+    --model_name='StyleVectorInterpolatorCorrector' \
+    --model_path='interpolation_models/StyleVectorInterpolatorCorrector-1024-4-pixel500-perc50-epoch-5-2025-01-13T20_53.pt' \
+    --num_layers=4 \
+    --num_neurons=1024 \
+    --normalization="Layer" \
+    --dropout=0.0 \
+    --base_dir='/project/home/p200177/DE_371/experiments_WP2/temporal_downscaling_experiments/' \
+    --output_dir='interpolation/2025-01-14/training-4/' \
+    --inv_dir='inversion_october/inversion/' \
+    --pack_dir='inversion_october/pack/' \
+    --start_date=2021-10-01 \
+    --end_date=2021-11-01 > interpolation-2.log 2>&1 &
+
+apptainer exec --nv /project/home/p200177/DE_371/resources/apptainer_container/container.sif python3 temporal_interpolation.py \
+    --device='cuda:2' \
+    --num_workers=16 \
+    --model_name='LatentCodeInterpolatorCorrector' \
+    --model_path='interpolation_models/LatentCodeInterpolatorCorrector-1024-4-pixel500-perc50-epoch-10-2025-01-14T05_24.pt' \
+    --num_layers=4 \
+    --num_neurons=1024 \
+    --normalization="Layer" \
+    --dropout=0.0 \
+    --base_dir='/project/home/p200177/DE_371/experiments_WP2/temporal_downscaling_experiments/' \
+    --output_dir='interpolation/2025-01-14/training-5/' \
+    --inv_dir='inversion_october/inversion/' \
+    --pack_dir='inversion_october/pack/' \
+    --start_date=2021-10-01 \
+    --end_date=2021-11-01 > interpolation-3.log 2>&1 &
+
+apptainer exec --nv /project/home/p200177/DE_371/resources/apptainer_container/container.sif python3 temporal_interpolation.py \
+    --device='cuda:3' \
+    --num_workers=16 \
+    --model_name='LatentCodeInterpolatorCorrector' \
+    --model_path='interpolation_models/LatentCodeInterpolatorCorrector-1024-4-perc100-epoch-5-2025-01-14T04_18.pt' \
+    --num_layers=4 \
+    --num_neurons=1024 \
+    --normalization="Layer" \
+    --dropout=0.0 \
+    --base_dir='/project/home/p200177/DE_371/experiments_WP2/temporal_downscaling_experiments/' \
+    --output_dir='interpolation/2025-01-14/training-10/' \
+    --inv_dir='inversion_october/inversion/' \
+    --pack_dir='inversion_october/pack/' \
+    --start_date=2021-10-01 \
+    --end_date=2021-11-01 > interpolation-4.log 2>&1 &
+
+wait

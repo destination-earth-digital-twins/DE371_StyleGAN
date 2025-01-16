@@ -80,6 +80,15 @@ def main():
     parser.add_argument(
         '--end_date', type=str, default="2021-06-14", help="End date."
     )
+    parser.add_argument(
+        '--start_leadtime', type=int, default=1, help="Start leadtime."
+    )
+    parser.add_argument(
+        '--end_leadtime', type=int, default=45, help="End leadtime."
+    )
+    parser.add_argument(
+        '--leadtime_step', type=int, default=1, help="Leadtime step."
+    )
     # Generation settings
     parser.add_argument(
         '--shape', type=tuple, default=(3,256,256), help='Size of the samples.')
@@ -118,6 +127,9 @@ def main():
     batch_size = args.batch_size
     start_date = args.start_date
     end_date = args.end_date
+    start_leadtime = args.start_leadtime
+    end_leadtime = args.end_leadtime
+    leadtime_step = args.leadtime_step
 
     # Set up DDP
     world_size=int(os.environ['WORLD_SIZE'])
@@ -137,13 +149,14 @@ def main():
         print(f"Using {num_workers} workers per device...")
         print(f"Model name: {model_name}")
         print(f"Loading latent space vectors from {start_date} to {end_date}...")
+        print(f"Using leadtimes {np.arange(start_leadtime, end_leadtime, leadtime_step)}")
 
     training_dataset = InterpolatorDataset(
         start_date=start_date,
         end_date=end_date,
         latent_basepath=f"{inv_dir}w",
         real_basepath=f"{pack_dir}Rsemble",
-        leadtimes=np.arange(1, 46, 1),
+        leadtimes=np.arange(start_leadtime, end_leadtime, leadtime_step),
         dt=6,
         fmt='npy',
         include_input_leadtimes=True)
@@ -153,7 +166,7 @@ def main():
         end_date=end_date,
         latent_basepath=f"{inv_dir_val}w",
         real_basepath=f"{pack_dir_val}Rsemble",
-        leadtimes=np.arange(1, 46, 1),
+        leadtimes=np.arange(start_leadtime, end_leadtime, leadtime_step),
         dt=6,
         fmt='npy',
         include_input_leadtimes=False)
