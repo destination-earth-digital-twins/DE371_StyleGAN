@@ -4,6 +4,18 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset
 
+def get_time_encoding(t, period):
+    t_norm = t % period / period
+    return (
+        torch.sin(2 * torch.pi * t_norm),
+        torch.cos(2 * torch.pi * t_norm)
+    )
+
+def get_day_of_year(date_str):
+    date = datetime.strptime(date_str, "%Y-%m-%d")
+    day_of_year = date.timetuple().tm_yday
+    return day_of_year
+
 class InterpolatorDataset(Dataset):
     def __init__(self, start_date, end_date, latent_basepath, real_basepath,
                  leadtimes=np.arange(1, 46, 1), invstep=1000, dt=6, fmt='npy', include_input_leadtimes=False):
@@ -106,8 +118,18 @@ class InterpolatorDataset(Dataset):
 
             assert len(w_start) == len(w_t) == len(w_end) == len(r_start) == len(r_t) == len(r_end)
 
-            t = torch.tensor((int_leadtime - start_leadtime) / self.dt, dtype=torch.float32)
-            return w_start, w_end, t, w_t, r_start, r_end, r_t
+            t_frac = torch.tensor((int_leadtime - start_leadtime) / self.dt, dtype=torch.float32)
+            t_start_encoding = get_time_encoding(torch.tensor(start_leadtime), 24)
+            t_end_encoding = get_time_encoding(torch.tensor(end_leadtime), 24)
+            t_int_encoding = get_time_encoding(torch.tensor(int_leadtime), 24)
+            day_encoding = get_time_encoding(torch.tensor(get_day_of_year(date)), 366)
+            t_encodings = torch.tensor([
+                *t_start_encoding, *t_end_encoding, *t_int_encoding, *day_encoding
+            ])
+            assert t_encodings.max() <= 1
+            assert t_encodings.min() >= -1
+            
+            return w_start, w_end, t_frac, t_encodings, w_t, r_start, r_end, r_t
 
         except Exception as e:
             print(f"Error creating batch for {date} ({start_leadtime}, {end_leadtime}, {int_leadtime}): {e}")

@@ -2,11 +2,13 @@ import torch
 import torch.nn as nn
 
 class LatentCodeInterpolator(nn.Module):
-    def __init__(self, args, style_dims=14, latent_dims=512):
+    def __init__(self, args, style_dims=14, latent_dims=512, time_frac_dims=1, time_encoding_dims=8):
         super(LatentCodeInterpolator, self).__init__()
         self.style_dims = style_dims
         self.latent_dims = latent_dims
-        input_dim = 2 * latent_dims * style_dims
+        self.time_frac_dims = time_frac_dims
+        self.time_encoding_dims = time_encoding_dims
+        input_dim = 2 * latent_dims * style_dims + time_frac_dims + time_encoding_dims
 
         layers = []
         for i in range(args.num_layers):
@@ -17,52 +19,55 @@ class LatentCodeInterpolator(nn.Module):
             if i < args.num_layers - 1:
                 if args.normalization == "Layer":
                     layers.append(nn.LayerNorm(out_features))
-                elif args.normalization == "Batch":
-                    layers.append(nn.BatchNorm1d(out_features))
                 layers.append(nn.ReLU())
                 if args.dropout > 0:
                     layers.append(nn.Dropout(p=args.dropout))
 
         self.network = nn.Sequential(*layers)
 
-    def forward(self, w_start, w_end, t):
+    def forward(self, w_start, w_end, t_frac, t_encodings):
         batch_size = w_start.size(0)
-        t_repeats = int(batch_size / t.size(0))
-
+        t_repeats = int(batch_size / t_frac.size(0)) # Gives the number of ensemble members
+        
         # Flatten latent space vectors
         w_start_flat = w_start.view(batch_size, -1)  # [batch_size, 14, 512] -> [batch_size, 7168]
         w_end_flat = w_end.view(batch_size, -1)      # [batch_size, 14, 512] -> [batch_size, 7168]
-        t = torch.repeat_interleave(t, repeats=t_repeats).view(-1, 1)
+        t_frac = torch.repeat_interleave(t_frac, repeats=t_repeats, dim=0).view(-1, self.time_frac_dims)
+        t_encodings = torch.repeat_interleave(t_encodings, repeats=t_repeats, dim=0).view(-1, self.time_encoding_dims)
 
         # Expand `t` and concatenate inputs
         x = torch.cat([
-            w_start_flat * (1.  - t),
-            w_end_flat * t
+            w_start_flat,
+            w_end_flat,
+            t_frac,
+            t_encodings
         ], dim=1)  # Concatenate along feature dimension
-
         # Pass through the feedforward network
         w_predicted = self.network(x)  # [batch_size, 7168]
 
         return w_predicted.view(batch_size, self.style_dims, self.latent_dims)  # [batch_size, 14, 512]
 
 class LatentCodeInterpolatorCorrector(LatentCodeInterpolator):
-    def forward(self, w_start, w_end, t):
+    def forward(self, w_start, w_end, t_frac, t_encodings):
         batch_size = w_start.size(0)
-        t_repeats = int(batch_size / t.size(0))
+        t_repeats = int(batch_size / t_frac.size(0)) # Gives the number of ensemble members
 
         # Flatten latent space vectors
         w_start_flat = w_start.view(batch_size, -1)  # [batch_size, 14, 512] -> [batch_size, 7168]
         w_end_flat = w_end.view(batch_size, -1)      # [batch_size, 14, 512] -> [batch_size, 7168]
-        t = torch.repeat_interleave(t, repeats=t_repeats).view(-1, 1)
+        t_frac = torch.repeat_interleave(t_frac, repeats=t_repeats, dim=0).view(-1, self.time_frac_dims)
+        t_encodings = torch.repeat_interleave(t_encodings, repeats=t_repeats, dim=0).view(-1, self.time_encoding_dims)
 
         # Expand `t` and concatenate inputs
         x = torch.cat([
-            w_start_flat * (1.  - t),
-            w_end_flat * t
+            w_start_flat,
+            w_end_flat,
+            t_frac,
+            t_encodings
         ], dim=1)  # Concatenate along feature dimension
 
         # Compute linear interpolation
-        w_linear_flat = w_start_flat + t * (w_end_flat - w_start_flat)  # [batch_size, 7168]
+        w_linear_flat = w_start_flat + t_frac * (w_end_flat - w_start_flat)  # [batch_size, 7168]
         
         # Pass through the feedforward network
         correction = self.network(x)  # [batch_size, 7168]

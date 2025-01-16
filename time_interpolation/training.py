@@ -18,7 +18,7 @@ def combined_loss(w_interpolated, w_t, r_interpolated=None, r_t=None,
     if latent_loss_weight > 0:
         latent_loss = nn.MSELoss()(w_interpolated, w_t)
     if pixel_loss_weight > 0:
-        image_pixel_loss = nn.MSELoss()(r_interpolated, r_t)
+        image_pixel_loss = nn.L1Loss()(r_interpolated, r_t)
     if perceptual_loss_weight > 0:
         image_perceptual_loss = perceptual_loss_class(
             img_gen=r_interpolated, input_img=r_t)
@@ -54,13 +54,16 @@ def train_loop(dataloader, model, generator, loss_function, optimizer, current_e
         progress_bar = dataloader
 
     for batch in progress_bar:
-        batch = [x.to(rank).view(-1, *x.shape[2:]) for x in batch]
-        w_start, w_end, t, w_t, r_start, r_end, r_t = batch
+        batch = [
+            x.to(rank).view(-1, *x.shape[2:]) if x.dim() > 2 else x.to(rank) 
+            for x in batch
+        ]
+        w_start, w_end, t_frac, t_encodings, w_t, r_start, r_end, r_t = batch
 
         optimizer.zero_grad()
 
         # Forward pass
-        w_interpolated = model(w_start, w_end, t)
+        w_interpolated = model(w_start, w_end, t_frac, t_encodings)
         r_latent_nn_interpolation = None
         if args.pixel_loss_weight > 0 or args.perceptual_loss_weight > 0:
             r_latent_nn_interpolation = generate_image_from_latent(w_interpolated, generator)
@@ -110,11 +113,14 @@ def test_loop(dataloader, model, generator, loss_function, current_epoch, percep
             progress_bar = dataloader
 
         for batch in progress_bar:
-            batch = [x.to(rank).view(-1, *x.shape[2:]) for x in batch]
-            w_start, w_end, t, w_t, r_start, r_end, r_t = batch
+            batch = [
+                x.to(rank).view(-1, *x.shape[2:]) if x.dim() > 2 else x.to(rank) 
+                for x in batch
+            ]
+            w_start, w_end, t_frac, t_encodings, w_t, r_start, r_end, r_t = batch
 
             # Ensure that model's output is on the correct device
-            w_interpolated = model(w_start, w_end, t).to(rank)
+            w_interpolated = model(w_start, w_end, t_frac).to(rank)
             r_latent_nn_interpolation = generate_image_from_latent(w_interpolated, generator).to(rank)
 
             # Loss calculation (no need to move tensors again, they're already on the right device)
@@ -134,12 +140,12 @@ def test_loop(dataloader, model, generator, loss_function, current_epoch, percep
             else:
                 test_loss += loss.item()
 
-            n_members = int(w_start.size(0) / t.size(0))
-            t = torch.repeat_interleave(t, repeats=n_members)
+            n_members = int(w_start.size(0) / t_frac.size(0))
+            t_frac = torch.repeat_interleave(t_frac, repeats=n_members)
 
             # Linear interpolation
-            r_phys_interpolated = linear_interpolation(r_start, r_end, t.view(-1, 1, 1, 1))
-            w_latent_linear_interpolation = linear_interpolation(w_start, w_end, t.view(-1, 1, 1))
+            r_phys_interpolated = linear_interpolation(r_start, r_end, t_frac.view(-1, 1, 1, 1))
+            w_latent_linear_interpolation = linear_interpolation(w_start, w_end, t_frac.view(-1, 1, 1))
 
             # Generate latent image (ensure it's on the correct device)
             r_latent_linear_interpolation = generate_image_from_latent(
