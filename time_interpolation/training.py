@@ -114,7 +114,7 @@ def test_loop(dataloader, model, generator, loss_function, current_epoch, percep
 
         for batch in progress_bar:
             batch = [
-                x.to(rank).view(-1, *x.shape[2:]) if x.dim() > 2 else x.to(rank) 
+                x.to(rank).view(-1, *x.shape[2:]) if x.dim() > 2 else x.to(rank)
                 for x in batch
             ]
             w_start, w_end, t_frac, t_encodings, w_t, r_start, r_end, r_t = batch

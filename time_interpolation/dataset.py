@@ -11,10 +11,16 @@ def get_time_encoding(t, period):
         torch.cos(2 * torch.pi * t_norm)
     )
 
-def get_day_of_year(date_str):
+def get_day_of_year(date_str, lead_time, start_hour=21):
     date = datetime.strptime(date_str, "%Y-%m-%d")
-    day_of_year = date.timetuple().tm_yday
-    return day_of_year
+    total_hours = start_hour + lead_time
+    additional_days = total_hours // 24
+    remaining_hours = total_hours % 24
+    if remaining_hours >= 24:
+        additional_days += 1
+    adjusted_date = date + timedelta(days=additional_days)
+
+    return adjusted_date.timetuple().tm_yday
 
 class InterpolatorDataset(Dataset):
     def __init__(self, start_date, end_date, latent_basepath, real_basepath,
@@ -122,9 +128,12 @@ class InterpolatorDataset(Dataset):
             t_start_encoding = get_time_encoding(torch.tensor(start_leadtime), 24)
             t_end_encoding = get_time_encoding(torch.tensor(end_leadtime), 24)
             t_int_encoding = get_time_encoding(torch.tensor(int_leadtime), 24)
-            day_encoding = get_time_encoding(torch.tensor(get_day_of_year(date)), 366)
+            day_start_encoding = get_time_encoding(torch.tensor(get_day_of_year(date, start_leadtime)), 366)
+            day_end_encoding = get_time_encoding(torch.tensor(get_day_of_year(date, end_leadtime)), 366)
+            day_int_encoding = get_time_encoding(torch.tensor(get_day_of_year(date, int_leadtime)), 366)
             t_encodings = torch.tensor([
-                *t_start_encoding, *t_end_encoding, *t_int_encoding, *day_encoding
+                *t_start_encoding, *t_end_encoding, *t_int_encoding,
+                *day_start_encoding, *day_end_encoding, *day_int_encoding
             ])
             assert t_encodings.max() <= 1
             assert t_encodings.min() >= -1
