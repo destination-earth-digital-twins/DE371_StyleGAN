@@ -140,7 +140,9 @@ def main():
         "LatentCodeInterpolator": models.LatentCodeInterpolator,
         "LatentCodeInterpolatorCorrector": models.LatentCodeInterpolatorCorrector,
         "StyleVectorInterpolator": models.StyleVectorInterpolator,
-        "StyleVectorInterpolatorCorrector": models.StyleVectorInterpolatorCorrector
+        "StyleVectorInterpolatorCorrector": models.StyleVectorInterpolatorCorrector,
+        "StyleVectorInterpolatorExtended": models.StyleVectorInterpolatorExtended,
+        "StyleVectorInterpolatorCorrectorExtended": models.StyleVectorInterpolatorCorrectorExtended
     }
 
     if dist.get_rank() == 0:

@@ -21,7 +21,7 @@ export APPTAINER_BINDPATH="/project/home/p200177/DE_371/:/project/home/p200177/D
 module load Apptainer/1.2.4-GCCcore-12.3.0
 
 apptainer exec --nv /project/home/p200177/DE_371/resources/apptainer_container/container.sif torchrun --nproc_per_node=4 --master_port=29500 train_interpolator.py \
-        --model_name='StyleVectorInterpolator' \
+        --model_name='StyleVectorInterpolatorCorrectorExtended' \
         --training_description='512-4-perc100' \
         --num_workers=16 \
         --weight_decay=0.0 \
@@ -37,4 +37,4 @@ apptainer exec --nv /project/home/p200177/DE_371/resources/apptainer_container/c
         --batch_size=2 \
         --start_date=2020-06-15 \
         --end_date=2021-06-14 \
-        --num_layers=4 > training-3.log 2>&1
+        --num_layers=4 > training-5.log 2>&1
