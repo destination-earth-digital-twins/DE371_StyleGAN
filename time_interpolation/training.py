@@ -10,15 +10,20 @@ import torch.distributed as dist
 
 def combined_loss(w_interpolated, w_t, r_interpolated=None, r_t=None,
                         latent_loss_weight=1.0, pixel_loss_weight=0.0,
-                        perceptual_loss_class=None, perceptual_loss_weight=0.0):
+                        perceptual_loss_class=None, perceptual_loss_weight=0.0, mae_loss=False):
     latent_loss = 0.
     image_pixel_loss = 0.
     image_perceptual_loss = 0.
 
+    if mae_loss:
+        pixel_loss_function = nn.L1Loss()
+    else:
+        pixel_loss_function = nn.MSELoss()
+
     if latent_loss_weight > 0:
-        latent_loss = nn.MSELoss()(w_interpolated, w_t)
+        latent_loss = pixel_loss_function(w_interpolated, w_t)
     if pixel_loss_weight > 0:
-        image_pixel_loss = nn.L1Loss()(r_interpolated, r_t)
+        image_pixel_loss = pixel_loss_function(r_interpolated, r_t)
     if perceptual_loss_weight > 0:
         image_perceptual_loss = perceptual_loss_class(
             img_gen=r_interpolated, input_img=r_t)
@@ -74,7 +79,8 @@ def train_loop(dataloader, model, generator, loss_function, optimizer, current_e
                              args.latent_loss_weight,
                              args.pixel_loss_weight,
                              perceptual_loss_class,
-                             args.perceptual_loss_weight)
+                             args.perceptual_loss_weight,
+                             args.mae_loss)
 
         loss.backward()
         optimizer.step()
@@ -129,7 +135,8 @@ def test_loop(dataloader, model, generator, loss_function, current_epoch, percep
                                  args.latent_loss_weight,
                                  args.pixel_loss_weight,
                                  perceptual_loss_class,
-                                 args.perceptual_loss_weight)
+                                 args.perceptual_loss_weight,
+                                 args.mae_loss)
 
             loss_tensor = torch.tensor(loss.item(), device=rank)
             dist.reduce(loss_tensor, dst=0, op=dist.ReduceOp.SUM)

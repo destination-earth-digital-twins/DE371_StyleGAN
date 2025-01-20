@@ -69,6 +69,9 @@ def main():
         '--pixel_loss_weight', type=float, default=1.0, help="Weight of real MSE loss."
     )
     parser.add_argument(
+        "--mae_loss",  action='store_true', help="Use MAE loss instead of MSE loss."
+    )
+    parser.add_argument(
         '--epochs', type=int, default=20, help="Number of training epochs."
     )
     parser.add_argument(
@@ -152,6 +155,8 @@ def main():
         print(f"Model name: {model_name}")
         print(f"Loading latent space vectors from {start_date} to {end_date}...")
         print(f"Using leadtimes {np.arange(start_leadtime, end_leadtime, leadtime_step)}")
+        if args.mae_loss:
+            print("Using MAE pixel loss...")
 
     training_dataset = InterpolatorDataset(
         start_date=start_date,
