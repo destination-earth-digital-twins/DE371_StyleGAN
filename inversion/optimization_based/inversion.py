@@ -9,11 +9,11 @@ import numpy as np
 import pickle
 from tqdm import tqdm
 from inversion.perceptual_loss.perceptual_loss import PerceptualLoss
-from inversion.plotter import online_inv_plot, online_inv_plot, create_frame
+from inversion.plotter import online_inv_plot, online_inv_plot, create_frame, latent_evolution_plot
 from inversion.experimental_loss.ssim import ssim, ms_ssim, SSIM, MS_SSIM
 from inversion.perceptual_loss.lpips.lpips import LPIPS
 import utils.utils as utils
-
+from copy import deepcopy
 import time
 
 def noise_regularize(noises):
@@ -200,6 +200,12 @@ def optimize(Ens_r, g_ema, init_latent, device, params, Means, Maxs, Mins, featu
     list_time_to_compute_mse_loss=[]
     features_in = None
 
+    if params.plot_loss_evolution:
+        latent_in_old = deepcopy(latent_in)
+        latent_evolution=[]
+        perceptual_loss_evolution=[]
+        mae_loss_evolution=[]
+
     for i in pbar:
         loss = 0
         t = i / params.invstep
@@ -288,6 +294,12 @@ def optimize(Ens_r, g_ema, init_latent, device, params, Means, Maxs, Mins, featu
         loss.backward()
         optimizer.step()
 
+        if params.plot_loss_evolution:
+            latent_evolution.append(F.mse_loss(latent_in.cpu().detach(), latent_in_old.cpu().detach()).numpy())
+            perceptual_loss_evolution.append(perceptual_loss.cpu().detach().numpy())
+            mae_loss_evolution.append(F.l1_loss(img_gen, Ens_r).item())
+            latent_in_old=deepcopy(latent_in)
+        
         if params.fixed_noise or params.noise_optimize :
             noise_normalize_(noises)
 
@@ -309,6 +321,10 @@ def optimize(Ens_r, g_ema, init_latent, device, params, Means, Maxs, Mins, featu
         if (i + 1) % 100 == 0 or i==params.invstep-1:
             latent_path.append(latent_in.detach().clone())
         
+        denorm_img_gen = utils.denormalize(img_gen.cpu().detach(), params.normalization, Means, Mins, Maxs, apply_log_transform=apply_log_transform)
+        denorm_Ens_r = utils.denormalize(Ens_r.cpu(), params.normalization, Means, Mins, Maxs, apply_log_transform=apply_log_transform)
+        
+
         if i+1 in params.inv_checkpoints:
             print(f"--saving checkpoint {i+1}:", params.output_dir+'w_{}_{}_{}.npy'.format(params.date_index,params.lt_index,i+1))
             np.save(params.output_dir+'w_{}_{}_{}.npy'.format(params.date_index,params.lt_index,i+1),latent_in.cpu().detach().numpy())
@@ -317,7 +333,6 @@ def optimize(Ens_r, g_ema, init_latent, device, params, Means, Maxs, Mins, featu
                     pickle.dump({j : n.cpu().detach().numpy() for j,n in enumerate(noises)},f)
             
 
-            denorm_img_gen = utils.denormalize(img_gen.cpu().detach(), params.normalization, Means, Mins, Maxs, apply_log_transform=apply_log_transform)
             if params.save_normalized_sample:
                 np.save(params.output_dir+'invertFsemble_{}_{}_{}.npy'.format(params.date_index,params.lt_index,i+1), img_gen.cpu().detach().numpy())
             else :
@@ -329,15 +344,25 @@ def optimize(Ens_r, g_ema, init_latent, device, params, Means, Maxs, Mins, featu
                 figname = params.output_dir + f"{params.date_index}_{params.lt_index}_step_{i+1}.png"
                 print(f"--plotting checkpoint {i+1}: {figname}")
                 figtitle = f"{params.date_index}_{params.lt_index}_step_{i+1}"
-                denorm_Ens_r = utils.denormalize(Ens_r.cpu(), params.normalization, Means, Mins, Maxs, apply_log_transform=apply_log_transform)
                 online_inv_plot(denorm_Ens_r.cpu().detach().numpy(), denorm_img_gen.cpu().detach().numpy(), figtitle=figtitle, figname=figname)
-
-        # gif
-    #     if params.plot_gif and i%100==0:
+    if params.plot_loss_evolution:
+        latent_evolution_plot(latent_evolution=latent_evolution,
+                            perceptual_loss_evolution=perceptual_loss_evolution,
+                            mae_loss_evolution=mae_loss_evolution,
+                            figtitle=f"Latent evolution during optimization for {params.date_index}_{params.lt_index}",
+                            figname = params.output_dir + f"metric_evolution_{params.date_index}_{params.lt_index}.png")
+        np.save(params.output_dir+'latent_evolution_{}_{}.npy'.format(params.date_index,params.lt_index),latent_evolution)
+        np.save(params.output_dir+'perceptual_loss_evolution_{}_{}.npy'.format(params.date_index,params.lt_index),perceptual_loss_evolution)
+    #     # gif
+    #     if params.plot_gif  :
     #         if i==0 :
     #             frames = []
-    #         fig = online_inv_plot(Ens_r.cpu().detach().numpy(), img_gen.cpu().detach().numpy(), figtitle=figtitle, figname=figname, savefig=False)
+    #         figname = params.output_dir + f"{params.date_index}_{params.lt_index}_step_{i}.png"
+    #         figtitle = f"{params.date_index}_{params.lt_index}_step_{i+1}"
+    #         fig = online_inv_plot(denorm_Ens_r.cpu().detach().numpy(), denorm_img_gen.cpu().detach().numpy(), figtitle=figtitle, figname=figname, savefig=False)
     #         frames.append(create_frame(fig))
+
+        
     # if params.plot_gif:
     #     # Just for the love of GIFs
     #     frame_one = frames[0]
@@ -346,6 +371,6 @@ def optimize(Ens_r, g_ema, init_latent, device, params, Means, Maxs, Mins, featu
     #         format="GIF",
     #         append_images=frames,
     #         save_all=True,
-    #         duration=20*params.invstep,
+    #         duration=params.invstep*20,
     #         loop=0,
     #     )

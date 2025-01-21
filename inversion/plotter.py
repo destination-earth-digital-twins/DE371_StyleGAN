@@ -203,3 +203,30 @@ def online_pert_diff_plot(
             print(f"unable to save figure: {figname}")
         plt.close()
         return
+
+
+def latent_evolution_plot(
+          latent_evolution,
+          perceptual_loss_evolution,
+          mae_loss_evolution,
+          figtitle,
+          figname
+          ):
+
+        fig, ax = plt.subplots(nrows=3)
+        ax[0].plot(np.arange(len(latent_evolution)), latent_evolution)
+        ax[0].set_title('Latent change per iteration')
+        ax[1].plot(np.arange(len(perceptual_loss_evolution)), perceptual_loss_evolution)
+        ax[1].set_title('Perceptual Loss per iteration')
+        ax[2].plot(np.arange(len(mae_loss_evolution)), mae_loss_evolution)
+        ax[2].set_title('MAE Loss per iteration')
+        for a in ax :
+             a.grid()
+        fig.suptitle(figtitle)
+        fig.tight_layout()
+        try:
+            fig.savefig(figname, dpi=100)
+        except Exception:
+            print(f"unable to save figure: {figname}")
+        plt.close()
+        return
