@@ -24,9 +24,9 @@ def split_csv_with_validation_first(params,train_start_date,test_end_date,test_s
   test_data = remaining_data[(remaining_data['Date'] >= test_start_date) & (remaining_data['Date'] <= test_end_date)]
     
   # Save results
-  train_data.to_csv(f"{params.main_path}{params.data_directory}/IS_bootstrap_no_duplicate_rr_cumul_correct_train.csv", index=False)
-  test_data.to_csv(f"{params.main_path}{params.data_directory}/IS_bootstrap_no_duplicate_rr_cumul_correct_test.csv", index=False)
-  validation_data.to_csv(f"{params.main_path}{params.data_directory}/IS_bootstrap_no_duplicate_rr_cumul_correct_valid.csv", index=False)
+  train_data.to_csv(f"{params.main_path}{params.giga_directory}INST1/IS_bootstrap_no_duplicate_rr_cumul_correct_train.csv", index=False)
+  test_data.to_csv(f"{params.main_path}{params.giga_directory}INST1/IS_bootstrap_no_duplicate_rr_cumul_correct_test.csv", index=False)
+  validation_data.to_csv(f"{params.main_path}{params.giga_directory}INST1/IS_bootstrap_no_duplicate_rr_cumul_correct_valid.csv", index=False)
 
   print(f"Validation data saved to {f"{params.main_path}{params.data_directory}/IS_bootstrap_no_duplicate_rr_cumul_correct_valid.csv"}")
   print(f"Train data saved  {f"{params.main_path}{params.data_directory}/IS_bootstrap_no_duplicate_rr_cumul_correct_train.csv"}")
@@ -34,7 +34,7 @@ def split_csv_with_validation_first(params,train_start_date,test_end_date,test_s
   
 def More_than(n,params):
   
-  IS= pd.read_csv(f"{params.main_path}{params.giga_directory}{params.output_csv}")
+  IS= pd.read_csv(f"{params.main_path}{params.giga_directory}INST1/{params.output_csv}")
   labels = pd.read_csv(f"{params.main_path}/{params.giga_directory}/labels.csv")
   # Group data by leadtime and date 
   grouped_data = IS.groupby(['Date', 'LeadTime'])
@@ -62,4 +62,4 @@ def More_than(n,params):
       final_df = pd.concat([final_df, group])
 
   final_df.reset_index(drop=True, inplace=True)
-  final_df.to_csv(f"{params.main_path}{params.giga_directory}/IS_bootstrap_no_duplicate_rr_cumul_correct_16_members.csv")
+  final_df.to_csv(f"{params.main_path}{params.giga_directory}INST1/IS_bootstrap_no_duplicate_rr_cumul_correct_164_members.csv")

@@ -10,9 +10,9 @@ from importance_sampling_bootstrap import importance_sampling, compute_c, bootst
 if __name__ == "__main__":
     parser = ArgumentParser()
 
-    parser.add_argument("--giga_directory", type=str, default='/data_for_importance_sampling/',help="Data directory where gigafile are saved")
-    parser.add_argument("--main_path", type=str, default="/project/home/p200177/DE_371/datasets/dataset_Meteo_France_rr_u_v_t2m/data", help="Base path")
-    parser.add_argument("--data_directory",type=str,default="IS_rr_debug_1_1.0_0_0_0_0_0_256_large_lt",help="Data directory from which data is loaded")
+    parser.add_argument("--giga_directory", type=str, help="Data directory where gigafile are saved")
+    parser.add_argument("--main_path", type=str, help="Base path")
+    parser.add_argument("--data_directory",type=str,help="Data directory from which data is loaded")
     
     parser.add_argument("-c", "--crop", action="store_true", help="Crop while processing all")
     parser.add_argument("--crop_indexes",type=int,nargs="*",default=[120, 376, 540, 796],help="Crop index. If not specified, take the values : [120, 376, 540, 796] (SE_indexes). If no crop is wanted, pass 0 as an argument. Ex: --crop_indexes 120 376 540 796 for SE_indexes; --crop_indexes 0 for no crop",)
@@ -24,15 +24,15 @@ if __name__ == "__main__":
     parser.add_argument("--n_instances", type=int, default=1, help="Number of instances")
     parser.add_argument("--ignore_c", action="store_true", help="Don't execute fsolve to find c")
     parser.add_argument("--ravuri", action="store_true", help="Importance sampling with the same function as Ravuri et al.")
-    parser.add_argument("--output_csv", type=str, default='IS_bootstrap_rr_cumul_correct.csv',help= 'new csv file with IS and bootstrap')
-    parser.add_argument("--origin_csv", default = 'Large_lt_labels.csv',type=str, help= 'original csv before importance sampling')
+    parser.add_argument("--output_csv", type=str,help= 'new csv file with IS and bootstrap')
+    parser.add_argument("--origin_csv", type=str, help= 'original csv before importance sampling')
 
     ######################################
     parser.add_argument("--force", action="store_true")
     parser.add_argument("--old_param", type=str)
-    parser.add_argument("--n_bootstrap", type=int, default=1, help="number boostrap")
+    parser.add_argument("--n_bootstrap", type=int, default=4, help="number boostrap")
     parser.add_argument("--bootstrap", action = "store_true", help="apply boostrap or not")
-    parser.add_argument('--method_type', default='split_dataset', type=str, choices=["importance_sampling","merge_into_giga_file", "complete_members","split_dataset"], help='Type of methods we want to apply ')
+    parser.add_argument('--method_type', type=str, choices=["importance_sampling","merge_into_giga_file", "complete_members","split_dataset"], help='Type of methods we want to apply ')
 
 
 
@@ -42,7 +42,7 @@ if __name__ == "__main__":
         merge_into_gigafiles( "splitted", params)
         
     
-    # IMPORTANCE SAMPLING ##
+##    IMPORTANCE SAMPLING 
     if params.method_type=='importance_sampling':
         if params.l_c is None:
             params.l_c = [1, 1.25]
@@ -61,16 +61,17 @@ if __name__ == "__main__":
         #### IMPORTANCE SAMPLING ####
         ## PATH ##
         CSV_DIR = f"{params.main_path}{params.giga_directory}"
+        print(CSV_DIR)
         DATA_giga_DIR = f"{params.main_path}{params.giga_directory}"
         SAVE_DIR= f"{params.main_path}{params.giga_directory}"
         DIRS = (CSV_DIR, DATA_giga_DIR, SAVE_DIR)
 
-        # if not params.bootstrap:
-        #     importance_sampling(PARAMETERS, DIRS, GRIDSHAPE, VARIABLE, params)
-        # else:
-        #     for number_csv in range(params.bootstrap):
-        #         params.output_csv=f"IS_labels_{number_csv}.csv"
-        #         importance_sampling(PARAMETERS, DIRS, GRIDSHAPE, VARIABLE, params)
+        if not params.bootstrap:
+            importance_sampling(PARAMETERS, DIRS, GRIDSHAPE, VARIABLE, params)
+        else:
+            for number_csv in range(params.n_bootstrap):
+                params.output_csv=f"IS_labels_{number_csv}.csv"
+                importance_sampling(PARAMETERS, DIRS, GRIDSHAPE, VARIABLE, params)
 
         print(f"DONE")
 
@@ -81,7 +82,7 @@ if __name__ == "__main__":
 
     # ADD missing dates
     if params.method_type=="complete_members":
-        More_than(8,params)
+        More_than(4,params)
 
     # SPLIT 
     if params.method_type=="split_dataset":

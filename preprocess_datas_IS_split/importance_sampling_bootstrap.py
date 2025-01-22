@@ -6,9 +6,9 @@ import pandas as pd
 from scipy.optimize import fsolve
 import glob
 try:
-    from called.utile import make_save_dir, print_progress, print_progress_bar
+    from utils import make_save_dir, print_progress, print_progress_bar
 except ModuleNotFoundError:
-    from utile import make_save_dir, print_progress, print_progress_bar
+    from utils import make_save_dir, print_progress, print_progress_bar
 
 def random_select(proba: float) -> bool:
     """Choice to save sample or not."""
@@ -157,8 +157,8 @@ def bootstrap(IS_csv_folder):
     # List to stock dataframes 
     dataframes = []
     # Load csv 
-    print('JE SUIS',f"{IS_csv_folder}*.csv")
-    for file in glob.glob(f"{IS_csv_folder}/*.csv"):
+    print('JE SUIS',f"{IS_csv_folder}INST1/*.csv")
+    for file in glob.glob(f"{IS_csv_folder}INST1/*.csv"):
         print("FILE",file)
         df = pd.read_csv(file)
         dataframes.append(df)
@@ -170,6 +170,6 @@ def bootstrap(IS_csv_folder):
     df_unique = df_combined.drop_duplicates(subset=['Name'])
 
     #Save the final Dataframe 
-    df_unique.to_csv(f'{IS_csv_folder}/IS_boostrap_rr_cumul_correct.csv', index=False)
+    df_unique.to_csv(f'{IS_csv_folder}INST1/{params.output_csv}', index=False)
 
     print("The final CSV file without duplicates has been created successfully.")    

@@ -1,7 +1,7 @@
 import glob
 import os
 import numpy as np
-from called.utile import make_save_dir, print_progress, print_progress_bar
+from utile import make_save_dir, print_progress, print_progress_bar
 import pandas as pd
 from time import perf_counter
 import numpy as np 

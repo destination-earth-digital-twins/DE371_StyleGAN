@@ -13,9 +13,9 @@ export CUDA_HOME=/usr/local/cuda-12.1
 export NVHPC_CUDA_HOME=/usr/local/cuda-12.1
 export CXX=g++ #the compiler for cpp extensions
 export CC=gcc  #the compiler to access the good cpp standard
-export APPTAINER_BINDPATH="/project/home/p200177/DE_371/datasets:/project/home/p200177/DE_371/datasets/,/project/scratch/p200177/DE_371:/project/scratch/p200177/DE_371/"
+export APPTAINER_BINDPATH="datasets:datasets/,DE_371:/DE_371/"
 module load Apptainer/1.2.4-GCCcore-12.3.0
 
 
 
-apptainer exec --nv /path_to/container.sif python3 /path_to/main.py\
+apptainer exec --nv /container.sif  python3  main.py \
