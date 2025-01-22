@@ -126,7 +126,6 @@ def importance_sampling(parameters, dirs, gridshape, variable, param):
                 sample = dataframe_gigafile.iloc[idx_grid]
                 selected_samples.append(sample)
                 if param.verbose >= 3:
-                    print(f'SAMPLE {sample} JE GARDE INDEX {idx_grid}')
 
             # Save the sample from the current instance
             sample_from_instance(save_dir, p_importance, dataframe_gigafile.iloc[idx_grid], param)
@@ -157,9 +156,7 @@ def bootstrap(IS_csv_folder):
     # List to stock dataframes 
     dataframes = []
     # Load csv 
-    print('JE SUIS',f"{IS_csv_folder}INST1/*.csv")
     for file in glob.glob(f"{IS_csv_folder}INST1/*.csv"):
-        print("FILE",file)
         df = pd.read_csv(file)
         dataframes.append(df)
 
