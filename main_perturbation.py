@@ -37,7 +37,7 @@ def str2list(li):
         raise ValueError("li argument must be a string or a list, not '{}'".format(type(li)))
         
 
-def compute_generate_save(G, params, metrics_list, Means, Mins, Maxs, apply_log_transform):
+def compute_generate_save(G, params, metrics_list, Means, Mins, Maxs, apply_log_transform, dt, current_timestep):
 
     N_samples = params.N_samples
     if params.verbose:
@@ -66,7 +66,7 @@ def compute_generate_save(G, params, metrics_list, Means, Mins, Maxs, apply_log_
     title = f'{params.date_index}_{params.lt_index}_{params.inv_step}_{params.N_conditioners}'
 
     path_perturbation=None
-    if params.import_perturbation:
+    if params.import_perturbation or params.temporal_consistency:
         title_fixed_perturbation = f'{params.date_index}_3_{params.inv_step}_{params.N_conditioners}'
         path_perturbation = params.dir_perturbation + f'/samples/perturbation_{title_fixed_perturbation}.npy'
         print(f'Importing perturbation from perturbation_{title_fixed_perturbation}')
@@ -90,10 +90,11 @@ def compute_generate_save(G, params, metrics_list, Means, Mins, Maxs, apply_log_
         Ens_feature=Ens_feature,
         feature_id=params.feature_id,
         feature_scale=params.feature_scale,
-        temporal_consistency=False, #TODO : Add this to config
-        w_pert_former=None, #TODO : Add this to config
-        rho=0.1, #TODO : Add this to config
-        dt=1 #TODO : Add this to config
+        temporal_consistency=params.temporal_consistency,
+        dt=dt,
+        theta=params.theta,
+        sigma=params.sigma,
+        current_timestep=current_timestep
     )
 
     if params.verbose:
@@ -235,7 +236,10 @@ if __name__=="__main__" :
     parser.add_argument('--dir_perturbation',type=str, default ="", help='Directory where perturbation were saved')
     parser.add_argument("--save_perturbation", action="store_true", help='Directory where to save perturbation')
     
-
+    parser.add_argument("--temporal_consistency", action="store_true", help='Whether to have a perturbation that is temporally consistent')
+    parser.add_argument("--sigma",type=float, default=0.1, help="volatility parameter for temporal consistency")
+    parser.add_argument("--theta",type=float, default=0.01, help="speed of mean reversion parameter for temporal consistency")
+    
     ########################## CONTROL of Data to perturb ######################
     parser.add_argument("--dates_file", type=str, default = 'Large_lt_test_labels.csv')
     parser.add_argument("--date_start", type=str, default = "2021-07-01")
@@ -249,7 +253,7 @@ if __name__=="__main__" :
 
     params = parser.parse_args()
     params.output_dir = params.output_dir + f"{params.sample_rule}_{params.style_indices}_{params.unbias}_{params.scale_interp_step}_{params.N_conditioners}_{params.add_name}/" 
-    if params.import_perturbation :
+    if params.import_perturbation or params.temporal_consistency :
         params.dir_perturbation = params.dir_perturbation + f"{params.sample_rule}_{params.style_indices}_{params.unbias}_{params.scale_interp_step}_{params.N_conditioners}_{params.add_name}/" 
     # create output directories
     if not os.path.exists(params.output_dir):
@@ -310,12 +314,19 @@ if __name__=="__main__" :
     
     metrics_list = ['variance', 'std_diff']#, 'mean_bias']
     metrics = {}
+    dt = None
     for date_ in liste_dates:
         datename = date_.strftime('%Y-%m-%d')
-        for lt in params.leadtimes:
+        
+        if params.temporal_consistency:
+            dt = params.leadtimes[0]
+
+        for lt_id, lt in enumerate(params.leadtimes):
             params.date_index = datename
             params.lt_index = lt
-            
+            if params.temporal_consistency and lt_id > 0:
+                dt = lt - params.leadtimes[lt_id-1]
+
             already_exist = []
             if not params.import_perturbation :
                 label = 'generated_pert'
@@ -342,7 +353,9 @@ if __name__=="__main__" :
                         Means=Means,
                         Mins=Mins,
                         Maxs=Maxs,
-                        apply_log_transform=True if params.Shape[0]==4 else False
+                        apply_log_transform=True if params.Shape[0]==4 else False,
+                        dt=dt,
+                        current_timestep=lt_id # Not sure if lt_id or lt itself
                     )
                 except FileNotFoundError as e:
                     print(f"File not found {e}")
