@@ -318,6 +318,7 @@ if __name__=="__main__" :
     metrics_list = ['variance', 'std_diff']#, 'mean_bias']
     metrics = {}
     dt = None
+    temporal_noises=None
     for date_ in liste_dates:
         datename = date_.strftime('%Y-%m-%d')
         
@@ -332,7 +333,7 @@ if __name__=="__main__" :
                 if lt_id > 0:
                     dt = lt - params.leadtimes[lt_id-1]
                 temporal_noises.append(torch.normal(torch.tensor(0.), torch.tensor(1.)))
-            print(f'Timestep : {lt_id}, length temporal_noises : {len(temporal_noises)}')
+            # print(f'Timestep : {lt_id}, length temporal_noises : {len(temporal_noises)}')
             already_exist = []
             if not params.import_perturbation :
                 label = 'generated_pert'
