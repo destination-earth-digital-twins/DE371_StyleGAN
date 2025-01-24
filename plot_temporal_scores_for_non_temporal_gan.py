@@ -113,6 +113,7 @@ if __name__=="__main__" :
     pearsons_first_to_each_leadtime_img = np.zeros((2, 3, params.nb_timesteps-2, nb_sample_total))
     pearsons_sliding_img = np.zeros((2, 3, params.nb_timesteps-2, nb_sample_total))
     temporal_difference = np.zeros((2, 3, params.nb_timesteps-2, nb_sample_total))
+    absolute_temporal_difference = np.zeros((2, 3, params.nb_timesteps-2, nb_sample_total))
     cursor = 0
     for id_date, date_ in enumerate(list_dates):
         print(date_)
@@ -151,13 +152,13 @@ if __name__=="__main__" :
         
         for key_id, key in enumerate(pixel_coordinate_dict):
             pixel_coordinate=pixel_coordinate_dict[key]
-            for member_id in range(len(Ens_r)):
+            for member_id, Ens_r_member in enumerate(Ens_r):
                 gen_sample = Ens_gen[(len(Ens_gen)//len(Ens_r))*member_id]
                 for t in range(0, params.nb_timesteps-2):
                     # Diurnal Cycle for real sample
-                    u = Ens_r[member_id][t][0][pixel_coordinate[0]][pixel_coordinate[1]]
-                    v = Ens_r[member_id][t][1][pixel_coordinate[0]][pixel_coordinate[1]]
-                    t2m = Ens_r[member_id][t][2][pixel_coordinate[0]][pixel_coordinate[1]]
+                    u = Ens_r_member[t][0][pixel_coordinate[0]][pixel_coordinate[1]]
+                    v = Ens_r_member[t][1][pixel_coordinate[0]][pixel_coordinate[1]]
+                    t2m = Ens_r_member[t][2][pixel_coordinate[0]][pixel_coordinate[1]]
                     diurnal_cycle[0, key_id, 0, t, cursor+member_id] = np.sqrt(u**2+v**2)
                     diurnal_cycle[0, key_id, 1, t, cursor+member_id] = t2m
 
@@ -172,8 +173,8 @@ if __name__=="__main__" :
                     for var_id in range(3):
                         # Pearson Correlation on real samples
                         pearsons_first_to_each_leadtime_img[0, var_id, t, cursor+member_id] = scipy.stats.pearsonr(
-                                                                            Ens_r[member_id][0][var_id].flatten(),
-                                                                            Ens_r[member_id][t][var_id].flatten()
+                                                                            Ens_r_member[0][var_id].flatten(),
+                                                                            Ens_r_member[t][var_id].flatten()
                         ).statistic
                         # Pearson Correlation on perturbated samples
                         pearsons_first_to_each_leadtime_img[1, var_id, t, cursor+member_id] = scipy.stats.pearsonr(
@@ -185,8 +186,8 @@ if __name__=="__main__" :
                             pearsons_sliding_img[1, var_id, t, cursor+member_id]=np.nan
                         elif t < params.nb_timesteps-1:
                             pearsons_sliding_img[0, var_id, t, cursor+member_id] = scipy.stats.pearsonr(
-                                                                            Ens_r[member_id][t][var_id].flatten(),
-                                                                            Ens_r[member_id][t+1][var_id].flatten()
+                                                                            Ens_r_member[t][var_id].flatten(),
+                                                                            Ens_r_member[t+1][var_id].flatten()
                             ).statistic
 
                             pearsons_sliding_img[1, var_id, t, cursor+member_id] = scipy.stats.pearsonr(
@@ -198,10 +199,14 @@ if __name__=="__main__" :
                         if t==0 :
                             temporal_difference[0, var_id, t, cursor+member_id]=np.nan
                             temporal_difference[1, var_id, t, cursor+member_id]=np.nan
+                            absolute_temporal_difference[0, var_id, t, cursor+member_id]=np.nan
+                            absolute_temporal_difference[1, var_id, t, cursor+member_id]=np.nan
                         elif t < params.nb_timesteps-1:
-                            temporal_difference[0, var_id, t, cursor+member_id] = np.mean(np.abs(Ens_r[member_id][t+1][var_id] - Ens_r[member_id][t][var_id]))
-                            temporal_difference[1, var_id, t, cursor+member_id] = torch.mean(np.abs(gen_sample[t+2][var_id] - gen_sample[t+1][var_id]))
-
+                            temporal_difference[0, var_id, t, cursor+member_id] = np.mean(Ens_r_member[t+1][var_id] - Ens_r_member[t][var_id])
+                            temporal_difference[1, var_id, t, cursor+member_id] = torch.mean(gen_sample[t+2][var_id] - gen_sample[t+1][var_id])
+                            absolute_temporal_difference[0, var_id, t, cursor+member_id] = np.mean(np.abs(Ens_r_member[t+1][var_id] - Ens_r_member[t][var_id]))
+                            absolute_temporal_difference[1, var_id, t, cursor+member_id] = torch.mean(np.abs(gen_sample[t+2][var_id] - gen_sample[t+1][var_id]))
+                            
         cursor += 16
     print('final',cursor+member_id)
     
@@ -292,12 +297,37 @@ if __name__=="__main__" :
 
 
     temporal_difference = np.mean(temporal_difference, -1)
-
+    absolute_temporal_difference  = np.mean(absolute_temporal_difference, -1)
     print('Saving Temporal Difference')
     np.save(output_dir_temporal_exp+f'Temporal_Difference_over_{nb_sample_total}_samples_{params.nb_timesteps}_nb_var_{len(params.var_names)}.npy', temporal_difference)
+    np.save(output_dir_temporal_exp+f'Absolute_Temporal_Difference_over_{nb_sample_total}_samples_{params.nb_timesteps}_nb_var_{len(params.var_names)}.npy', absolute_temporal_difference)
     print('Plotting Temporal Difference')
 
-    
+    fig, ax = plt.subplots(nrows=3, ncols=1, figsize=(16,16))
+    ax[0].plot(range(len(absolute_temporal_difference[0, 0])),  absolute_temporal_difference[0, 0], linewidth=6, color='k', label='AROME')
+    ax[0].plot(range(len(absolute_temporal_difference[1, 0])),  absolute_temporal_difference[1, 0], linewidth=6, label='Generated')
+    ax[0].set_ylabel('Wind speed U (m/s)', size = 30)
+    ax[0].set_xticks(range(len(list_ticks)), labels=list_ticks)
+
+    ax[1].plot(range(len(absolute_temporal_difference[0, 1])),  absolute_temporal_difference[0, 1], linewidth=6, color='k', label='AROME')
+    ax[1].plot(range(len(absolute_temporal_difference[1, 1])),  absolute_temporal_difference[1, 1], linewidth=6, label='Generated')
+    ax[1].set_ylabel('Wind speed V (m/s)', size = 30)
+    ax[1].set_xticks(range(len(list_ticks)), labels=list_ticks)
+
+    ax[2].plot(range(len(absolute_temporal_difference[0, 2])), absolute_temporal_difference[0, 2], linewidth=6, color='k', label='AROME')
+    ax[2].plot(range(len(absolute_temporal_difference[1, 2])),  absolute_temporal_difference[1, 2], linewidth=6, label='Generated')
+    ax[2].set_ylabel('Temperature at 2m (K)', size = 30)
+    ax[2].set_xticks(range(len(list_ticks)), labels=list_ticks)
+
+    for i in ax :
+        i.legend()
+
+    fig.suptitle('Absolute Temporal Difference for Each Leadtime : ∆X = |X(t+1) - X(t)|', size=30)
+    output_dir_temporal_difference = output_dir_plots + 'Temporal_Difference/'
+    if not os.path.exists(output_dir_temporal_difference):
+        os.makedirs(output_dir_temporal_difference)
+    fig.savefig(output_dir_temporal_difference+f'Absolute_Temporal_Difference_over_{nb_sample_total}_samples_{params.nb_timesteps}_nb_var_{len(params.var_names)}.pdf') 
+
     fig, ax = plt.subplots(nrows=3, ncols=1, figsize=(16,16))
     ax[0].plot(range(len(temporal_difference[0, 0])),  temporal_difference[0, 0], linewidth=6, color='k', label='AROME')
     ax[0].plot(range(len(temporal_difference[1, 0])),  temporal_difference[1, 0], linewidth=6, label='Generated')
@@ -317,11 +347,7 @@ if __name__=="__main__" :
     for i in ax :
         i.legend()
 
-    fig.suptitle('Temporal Difference for Each Leadtime : ∆X = |X(t+1) - X(t)|', size=30)
-    output_dir_temporal_difference = output_dir_plots + 'Temporal_Difference/'
-    if not os.path.exists(output_dir_temporal_difference):
-        os.makedirs(output_dir_temporal_difference)
+    fig.suptitle('Temporal Difference for Each Leadtime : ∆X = X(t+1) - X(t)', size=30)
     fig.savefig(output_dir_temporal_difference+f'Temporal_Difference_over_{nb_sample_total}_samples_{params.nb_timesteps}_nb_var_{len(params.var_names)}.pdf') 
-
-            
+      
             
