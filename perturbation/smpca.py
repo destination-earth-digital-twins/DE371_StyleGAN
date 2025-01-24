@@ -42,7 +42,9 @@ def sm_pca(
     dt=3,
     theta=0.5,
     sigma=0.1,
-    current_timestep=3
+    current_timestep=3,
+    initial_timestep=3,
+    temporal_noises=[]
 ):
 
     N, R, D = Ens_w.shape
@@ -141,11 +143,11 @@ def sm_pca(
                         if path_perturbation is None:
                             raise ImportError(f'path_perturbation parameter has to be imported but instead got : {path_perturbation}')
                         w_pert_init = torch.tensor(np.load(path_perturbation)[k * per_cond : (k + 1) * per_cond].astype(np.float32)).to(device)
-                        if current_timestep == 0:
+                        if current_timestep == initial_timestep:
                             w_pert = deepcopy(w_pert_init)
                         else :
                             w_pert = deepcopy(w_pert_init) * (1-theta*dt)**(current_timestep)
-                            w_pert += torch.normal(torch.tensor(0.),torch.tensor(1)) * sigma * torch.sqrt(torch.tensor(dt)) * torch.from_numpy(np.array([(1-theta*dt)**k for k in range(current_timestep-1)])).sum()
+                            w_pert += sigma * torch.sqrt(torch.tensor(dt)) * torch.from_numpy(np.array([temporal_noises[current_timestep-k-1]*(1-theta*dt)**k for k in range(current_timestep-1)])).sum()
       
                 w_new = w_start + betas.view(1, 14, 1) * w_pert
 

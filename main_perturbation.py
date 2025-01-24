@@ -37,7 +37,7 @@ def str2list(li):
         raise ValueError("li argument must be a string or a list, not '{}'".format(type(li)))
         
 
-def compute_generate_save(G, params, metrics_list, Means, Mins, Maxs, apply_log_transform, dt, current_timestep):
+def compute_generate_save(G, params, metrics_list, Means, Mins, Maxs, apply_log_transform, dt, current_timestep, temporal_noises):
 
     N_samples = params.N_samples
     if params.verbose:
@@ -67,10 +67,10 @@ def compute_generate_save(G, params, metrics_list, Means, Mins, Maxs, apply_log_
 
     path_perturbation=None
     if params.import_perturbation or params.temporal_consistency:
-        title_fixed_perturbation = f'{params.date_index}_3_{params.inv_step}_{params.N_conditioners}'
+        title_fixed_perturbation = f'{params.date_index}_{params.initial_timestep}_{params.inv_step}_{params.N_conditioners}'
         path_perturbation = params.dir_perturbation + f'/samples/perturbation_{title_fixed_perturbation}.npy'
         print(f'Importing perturbation from perturbation_{title_fixed_perturbation}')
-        
+
     gen, w_new = smpca.sm_pca(
         Ens_w=w_ens, 
         G=G, 
@@ -94,7 +94,9 @@ def compute_generate_save(G, params, metrics_list, Means, Mins, Maxs, apply_log_
         dt=dt,
         theta=params.theta,
         sigma=params.sigma,
-        current_timestep=current_timestep
+        current_timestep=current_timestep,
+        initial_timestep=params.initial_timestep,
+        temporal_noises=temporal_noises
     )
 
     if params.verbose:
@@ -233,6 +235,7 @@ if __name__=="__main__" :
     # w_perturbated = w_inv + perturbation
     parser.add_argument("--save_w_perturbated", action="store_true", help='Save final perturbated latent space')
     parser.add_argument("--import_perturbation", action="store_true", help='Flag to import perturbation')
+    parser.add_argument('--initial_timestep',type=int, default =3, help='Initial timestep from which the perturbation is taken')
     parser.add_argument('--dir_perturbation',type=str, default ="", help='Directory where perturbation were saved')
     parser.add_argument("--save_perturbation", action="store_true", help='Directory where to save perturbation')
     
@@ -320,13 +323,16 @@ if __name__=="__main__" :
         
         if params.temporal_consistency:
             dt = params.leadtimes[0]
+            temporal_noises = []
 
         for lt_id, lt in enumerate(params.leadtimes):
             params.date_index = datename
             params.lt_index = lt
-            if params.temporal_consistency and lt_id > 0:
-                dt = lt - params.leadtimes[lt_id-1]
-
+            if params.temporal_consistency:
+                if lt_id > 0:
+                    dt = lt - params.leadtimes[lt_id-1]
+                temporal_noises.append(torch.normal(torch.tensor(0.), torch.tensor(1.)))
+            print(f'Timestep : {lt_id}, length temporal_noises : {len(temporal_noises)}')
             already_exist = []
             if not params.import_perturbation :
                 label = 'generated_pert'
@@ -355,7 +361,8 @@ if __name__=="__main__" :
                         Maxs=Maxs,
                         apply_log_transform=True if params.Shape[0]==4 else False,
                         dt=dt,
-                        current_timestep=lt_id # Not sure if lt_id or lt itself
+                        current_timestep=lt, # Not sure if lt_id or lt itself
+                        temporal_noises=temporal_noises
                     )
                 except FileNotFoundError as e:
                     print(f"File not found {e}")
