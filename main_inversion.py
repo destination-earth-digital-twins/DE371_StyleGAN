@@ -258,22 +258,22 @@ if __name__=="__main__" :
                 else :
                     print(params.pack_dir+f'Rsemble_{datename}_{lt}.npy' + ' Pack do not Exist')
                     already_exist.append(False)
-
-            if os.path.isfile(params.output_dir+'w_{}_{}_{}.npy'.format(params.date_index,lt, params.invstep)):
-                print(params.output_dir+'w_{}_{}_{}.npy'.format(params.date_index,lt, params.invstep) + ' already Exist')
-                already_exist.append(True)
-            else :
-                print(params.output_dir+'w_{}_{}_{}.npy'.format(params.date_index,lt, params.invstep) + ' do not Exist')
-                already_exist.append(False)
-            if os.path.isfile(params.output_dir+'invertFsemble_{}_{}_{}.npy'.format(params.date_index,lt, params.invstep)):
-                print(params.output_dir+'invertFsemble_{}_{}_{}.npy'.format(params.date_index,lt, params.invstep) +' already Exist')
-                already_exist.append(True)
-            else :
-                print(params.output_dir+'invertFsemble_{}_{}_{}.npy'.format(params.date_index,lt, params.invstep) + ' do not Exist')
-                already_exist.append(False)
+            for invstep in params.inv_checkpoints:
+                if os.path.isfile(params.output_dir+'w_{}_{}_{}.npy'.format(params.date_index,lt, invstep)):
+                    print(params.output_dir+'w_{}_{}_{}.npy'.format(params.date_index,lt, invstep) + ' already Exist')
+                    already_exist.append(True)
+                else :
+                    print(params.output_dir+'w_{}_{}_{}.npy'.format(params.date_index,lt, invstep) + ' do not Exist')
+                    already_exist.append(False)
+                if os.path.isfile(params.output_dir+'invertFsemble_{}_{}_{}.npy'.format(params.date_index,lt, invstep)):
+                    print(params.output_dir+'invertFsemble_{}_{}_{}.npy'.format(params.date_index,lt, invstep) +' already Exist')
+                    already_exist.append(True)
+                else :
+                    print(params.output_dir+'invertFsemble_{}_{}_{}.npy'.format(params.date_index,lt, invstep) + ' do not Exist')
+                    already_exist.append(False)
 
             if np.all(already_exist) :
-                print('The inversion was already done for the date {} with leadtime {}. This sample is skipped.'.format(datename,lt))
+                print('The inversion was already done for the date {} with leadtime {} and invstepps :{}. This sample is skipped.'.format(datename,lt,params.invstep))
             else :
                 
                 if not params.multi_timestep_mode :

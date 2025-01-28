@@ -13,7 +13,7 @@ import math
 import random
 from time import perf_counter
 from gan.model.op import conv2d_gradfix
-from gan.model.op_3d import conv3d_gradfix
+# from gan.model.op_3d import conv3d_gradfix
 
 
 def timer(func):
@@ -63,7 +63,7 @@ def d_r1_loss(real_pred, real_img):
                 outputs=real_pred.sum(), inputs=real_img, create_graph=True
             )[0]
     elif len(real_img.shape)==5 :
-        with conv3d_gradfix.no_weight_gradients():
+        with conv2d_gradfix.no_weight_gradients():
             grad_real = autograd.grad(
                 outputs=real_pred.sum(), inputs=real_img, create_graph=True
             )[0]
