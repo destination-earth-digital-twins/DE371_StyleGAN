@@ -8,7 +8,7 @@ from encoders.models.psp import pSp
 from gan.model.stylegan2 import Generator
 from configs.paths_config import model_paths
 from models.hypernetworks.hypernetwork import SharedWeightsHyperNetResNet, SharedWeightsHyperNetResNetSeparable
-from encoders.utils.model_utils import RESNET_MAPPING
+from encoders.utils_encoder.model_utils import RESNET_MAPPING
 from collections import OrderedDict
 
 

@@ -27,7 +27,6 @@ from encoders.models.feature_style_encoder.feature_style_module import FeatureSt
 import inversion.optimization_based.inversion as inv
 from gan.model.stylegan2 import Generator
 from collections import OrderedDict
-from gan.model.stylegan2 import Generator
 import inversion.optimization_based.inversion as inv
 import utils.utils as utils
 from ast import literal_eval as make_tuple
@@ -48,6 +47,8 @@ if __name__=="__main__" :
     parser.add_argument('--output_size', default=256, type=int, help='Output size of generator')
     parser.add_argument('--n_vars', default=3, type=int, help='Number of variables as channels')
     parser.add_argument("--plot_checkpoint", action='store_true')
+    parser.add_argument('--plot_gif', action='store_true')
+    parser.add_argument('--plot_loss_evolution', action='store_true')
 
     parser.add_argument("--train_discriminator", action='store_true')
 
@@ -83,6 +84,7 @@ if __name__=="__main__" :
     parser.add_argument('--stack_sample_along_time_and_variable', action='store_true')
     parser.add_argument('--g_channels', type=int, default=4)
     parser.add_argument('--channel_multiplier', type=int, default=2)
+    
     
     ############################ INVERSION PARAMETERS #################    
     parser.add_argument("--lr_rampup",type=float,default=0.05,help="duration of the learning rate warmup")
@@ -214,7 +216,7 @@ if __name__=="__main__" :
 
         ################### producing latent mean #######
         if not os.path.exists(f'{params.output_dir}latent_mean.npy'):
-            latent_z = torch.empty(1e5, 512).normal_().to(params.device)
+            latent_z = torch.empty(10000, 512).normal_().to(params.device)
             with torch.no_grad():
                 w = G.style(latent_z)
             latent_mean = w.mean(dim=0).detach().cpu()
@@ -295,7 +297,7 @@ if __name__=="__main__" :
                         apply_log_transform=True if params.Shape[0]==4 else False
                         
                     ) #, crop_indices=params.crop_indices)                   
-                    if params.pack_dir :
+                    if params.pack_dir != "" :
                         if params.save_normalized_sample:
                             np.save(params.pack_dir+f'Rsemble_{datename}_{lt}.npy', Ens_r_norm.numpy().astype(np.float32))
                         else :    

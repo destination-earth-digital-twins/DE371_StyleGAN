@@ -1,4 +1,4 @@
-from encoders.utils import common
+from encoders.utils_encoder import common
 import matplotlib.pyplot as plt
 import matplotlib
 matplotlib.use('Agg')

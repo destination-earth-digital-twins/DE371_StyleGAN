@@ -12,13 +12,13 @@ sys.path.append("..")
 
 print(sys.path)
 
-from options.e4e_train_options import e4eTrainOptions, createNamesFromLosses
+from options.restyle_e4e_train_options import Restylee4eTrainOptions, createNamesFromLosses
 from encoders.training.coach_restyle_e4e import Coach
 
 
 def main(namesFromLosses=False):
     
-    config = e4eTrainOptions().parse()
+    config = Restylee4eTrainOptions().parse()
     
     if namesFromLosses : 
         config.exp_dir = config.exp_dir + 'restyle_e4e_training/' +  createNamesFromLosses(config)

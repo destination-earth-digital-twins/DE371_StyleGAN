@@ -3,7 +3,7 @@ import numpy as np
 import random
 import torch
 import os
-from copy import copy,deepcopy#random.seed(0)
+from copy import copy,deepcopy #random.seed(0)
 
 def str2intlist(li):
     if type(li)==list:

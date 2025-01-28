@@ -1,5 +1,5 @@
 from argparse import ArgumentParser
-import utils.utils as utils
+from utils import utils
 
 class TrainOptions:
 

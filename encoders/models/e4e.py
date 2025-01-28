@@ -8,7 +8,7 @@ from torch import nn
 from gan.model.stylegan2 import Generator
 from encoders.configs.paths_config import model_paths
 from encoders.models.encoders import restyle_e4e_encoders
-from encoders.utils.model_utils import RESNET_MAPPING
+from encoders.utils_encoder.model_utils import RESNET_MAPPING
 from collections import OrderedDict
 
 class e4e(nn.Module):

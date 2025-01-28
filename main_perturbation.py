@@ -63,8 +63,13 @@ def compute_generate_save(G, params, metrics_list, Means, Mins, Maxs, apply_log_
     betas = torch.tensor(np.load(os.path.join(params.scale_dir,"ema_scale.npy")).astype(np.float32)[params.scale_interp_step], device=params.device)
     alphas = torch.tensor(np.load(os.path.join(params.scale_dir,"ema_interp.npy")).astype(np.float32)[params.scale_interp_step], device=params.device)
 
+    title = f'{params.date_index}_{params.lt_index}_{params.inv_step}_{params.N_conditioners}'
+
+    path_perturbation=None
     if params.import_perturbation:
-        print(f'Importing perturbation from {params.path_perturbation}')
+        title_fixed_perturbation = f'{params.date_index}_1_{params.inv_step}_{params.N_conditioners}'
+        path_perturbation = params.dir_perturbation + f'/samples/perturbation_{title_fixed_perturbation}.npy'
+        print(f'Importing perturbation from perturbation_{title_fixed_perturbation}')
         
     gen, w_new = smpca.sm_pca(
         Ens_w=w_ens, 
@@ -81,17 +86,21 @@ def compute_generate_save(G, params, metrics_list, Means, Mins, Maxs, apply_log_
         w0=w0,
         import_perturbation=params.import_perturbation,
         save_perturbation=params.save_perturbation,
-        path_perturbation=params.path_perturbation,
+        path_perturbation=path_perturbation,
         Ens_feature=Ens_feature,
         feature_id=params.feature_id,
-        feature_scale=params.feature_scale
+        feature_scale=params.feature_scale,
+        temporal_consistency=False, #TODO : Add this to config
+        w_pert_former=None, #TODO : Add this to config
+        rho=0.1, #TODO : Add this to config
+        dt=1 #TODO : Add this to config
     )
 
     if params.verbose:
         print(gen.mean(axis=(0,-2,-1)))
         print(Ens_r.mean(axis=(0,-2,-1)))
     
-    title = f'{params.date_index}_{params.lt_index}_{params.inv_step}_{params.N_conditioners}'
+    
     
     
     if params.save_w_perturbated:
@@ -223,8 +232,9 @@ if __name__=="__main__" :
     # w_perturbated = w_inv + perturbation
     parser.add_argument("--save_w_perturbated", action="store_true", help='Save final perturbated latent space')
     parser.add_argument("--import_perturbation", action="store_true", help='Flag to import perturbation')
-    parser.add_argument("--save_perturbation", action="store_true", help='Flag to save perturbation')
-    parser.add_argument('--path_perturbation',type=str, default ="", help='Flag perturbation path')
+    parser.add_argument('--dir_perturbation',type=str, default ="", help='Directory where perturbation were saved')
+    parser.add_argument("--save_perturbation", action="store_true", help='Directory where to save perturbation')
+    
 
     ########################## CONTROL of Data to perturb ######################
     parser.add_argument("--dates_file", type=str, default = 'Large_lt_test_labels.csv')
@@ -239,7 +249,8 @@ if __name__=="__main__" :
 
     params = parser.parse_args()
     params.output_dir = params.output_dir + f"{params.sample_rule}_{params.style_indices}_{params.unbias}_{params.scale_interp_step}_{params.N_conditioners}_{params.add_name}/" 
-
+    if params.import_perturbation :
+        params.dir_perturbation = params.dir_perturbation + f"{params.sample_rule}_{params.style_indices}_{params.unbias}_{params.scale_interp_step}_{params.N_conditioners}_{params.add_name}/" 
     # create output directories
     if not os.path.exists(params.output_dir):
         os.makedirs(params.output_dir)
