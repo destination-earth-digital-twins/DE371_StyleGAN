@@ -13,7 +13,7 @@ from math import ceil
 import numpy as np
 import torch
 import torch.nn.functional as F
-
+from copy import deepcopy
 import perturbation.pca_stylegan as pca
 
 
@@ -39,9 +39,13 @@ def sm_pca(
     feature_id=6,
     feature_scale=1,
     temporal_consistency=False,
-    w_pert_former=None,
-    rho=0.1,
-    dt=1
+    dt=3,
+    theta=0.5,
+    sigma=0.1,
+    current_timestep=(0,3),
+    initial_timestep=3,
+    temporal_noises=[]
+
 ):
 
     N, R, D = Ens_w.shape
@@ -137,8 +141,14 @@ def sm_pca(
                         else:
                             w_pert = new_w
                     else :
-                        raise NotImplementedError
-                        w_pert = w_pert_former[k]*torch.exp(-rho*dt) + torch.sqrt(1-torch.exp(-2*rho*dt))*torch.normal(0,1)
+                        if path_perturbation is None:
+                            raise ImportError(f'path_perturbation parameter has to be imported but instead got : {path_perturbation}')
+                        w_pert_init = torch.tensor(np.load(path_perturbation)[k * per_cond : (k + 1) * per_cond].astype(np.float32)).to(device)
+
+                        w_pert = deepcopy(w_pert_init) * (1-theta*dt)**(current_timestep[1])
+                        list_temporal_noise = [temporal_noises[current_timestep[0]-k]*(1-theta*dt)**k for k in range(current_timestep[0]+1)]
+                        w_pert += sigma * torch.sqrt(torch.tensor(dt)) * torch.from_numpy(np.array(list_temporal_noise)).sum()
+
       
                 w_new = w_start + betas.view(1, 14, 1) * w_pert
 
