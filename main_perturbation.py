@@ -333,7 +333,7 @@ if __name__=="__main__" :
                 if lt_id > 0:
                     dt = lt - params.leadtimes[lt_id-1]
                 temporal_noises.append(torch.normal(torch.tensor(0.), torch.tensor(1.)))
-            # print(f'Timestep : {lt_id}, length temporal_noises : {len(temporal_noises)}')
+
             already_exist = []
             if not params.import_perturbation :
                 label = 'generated_pert'
@@ -362,7 +362,7 @@ if __name__=="__main__" :
                         Maxs=Maxs,
                         apply_log_transform=True if params.Shape[0]==4 else False,
                         dt=dt,
-                        current_timestep=lt, # Not sure if lt_id or lt itself
+                        current_timestep=(lt_id, lt), # Not sure if lt_id or lt itself
                         temporal_noises=temporal_noises
                     )
                 except FileNotFoundError as e:

@@ -110,21 +110,21 @@ if __name__=="__main__" :
 
     print('pixel_coordinate:', pixel_coordinate_dict)
     nb_sample_total = len(list_dates)*16
-    AROME_diurnal_cycle = np.zeros((len(pixel_coordinate_dict), 2, params.nb_timesteps-1, nb_sample_total))
-    AROME_pearsons_first_to_each_leadtime_img = np.zeros((3, params.nb_timesteps-1, nb_sample_total))
-    AROME_pearsons_sliding_img = np.zeros((3, params.nb_timesteps-1, nb_sample_total))
-    AROME_temporal_difference = np.zeros((3, params.nb_timesteps-1, nb_sample_total))
-    AROME_absolute_temporal_difference = np.zeros((3, params.nb_timesteps-1, nb_sample_total))
+    AROME_diurnal_cycle = np.zeros((len(pixel_coordinate_dict), 2, params.nb_timesteps-2, nb_sample_total))
+    AROME_pearsons_first_to_each_leadtime_img = np.zeros((3, params.nb_timesteps-2, nb_sample_total))
+    AROME_pearsons_sliding_img = np.zeros((3, params.nb_timesteps-2, nb_sample_total))
+    AROME_temporal_difference = np.zeros((3, params.nb_timesteps-2, nb_sample_total))
+    AROME_absolute_temporal_difference = np.zeros((3, params.nb_timesteps-2, nb_sample_total))
     
     nb_child_member = 3
     if 50//16 < nb_child_member:
         nb_child_member = 50//16
     nb_sample_total_gen = len(list_dates)*16*nb_child_member
-    gen_diurnal_cycle = np.zeros((len(pixel_coordinate_dict), 2, params.nb_timesteps-1, nb_sample_total_gen))
-    gen_pearsons_first_to_each_leadtime_img = np.zeros((3, params.nb_timesteps-1, nb_sample_total_gen))
-    gen_pearsons_sliding_img = np.zeros((3, params.nb_timesteps-1, nb_sample_total_gen))
-    gen_temporal_difference = np.zeros((3, params.nb_timesteps-1, nb_sample_total_gen))
-    gen_absolute_temporal_difference = np.zeros((3, params.nb_timesteps-1, nb_sample_total_gen))
+    gen_diurnal_cycle = np.zeros((len(pixel_coordinate_dict), 2, params.nb_timesteps-2, nb_sample_total_gen))
+    gen_pearsons_first_to_each_leadtime_img = np.zeros((3, params.nb_timesteps-2, nb_sample_total_gen))
+    gen_pearsons_sliding_img = np.zeros((3, params.nb_timesteps-2, nb_sample_total_gen))
+    gen_temporal_difference = np.zeros((3, params.nb_timesteps-2, nb_sample_total_gen))
+    gen_absolute_temporal_difference = np.zeros((3, params.nb_timesteps-2, nb_sample_total_gen))
 
     print(f'AROME : {nb_sample_total}, GEN : {nb_sample_total_gen}')
 
@@ -152,7 +152,7 @@ if __name__=="__main__" :
         date_=str(date_)[:10]
         for lt in params.leadtimes :
             try :
-                path_to_sample = params.gen_sample_dir + f"genFsemble_{date_}_{lt-1}_{params.invstep}_16.npy"    
+                path_to_sample = params.gen_sample_dir + f"genFsemble_{date_}_{lt}_{params.invstep}_16.npy"    
                 Ens_gen.append(np.load(path_to_sample))
             except :
                 print(f"File 'genFsemble_{date_}_{lt}_{params.invstep}_16.npy' Not Found")
@@ -161,7 +161,7 @@ if __name__=="__main__" :
         Ens_gen = torch.tensor(np.array(Ens_gen), dtype=torch.float32).transpose(1,0)
         print('Ens_r shape :', Ens_r.shape)
         print('Ens_gen shape :', Ens_gen.shape)
-        for t in range(0, params.nb_timesteps-1):
+        for t in range(0, params.nb_timesteps-2):
             for member_id, Ens_r_member in enumerate(Ens_r):
                 # print('member_id :', member_id)
                 # print('Ens_r_member shape :', Ens_r_member.shape)
@@ -182,7 +182,7 @@ if __name__=="__main__" :
                     ).statistic
                     if t==0 :
                         AROME_pearsons_sliding_img[var_id, t, member_id+16*id_date]=np.nan
-                    elif t < params.nb_timesteps-1:
+                    elif t < params.nb_timesteps-2:
                         AROME_pearsons_sliding_img[var_id, t, member_id+16*id_date] = scipy.stats.pearsonr(
                                                                         Ens_r_member[t][var_id].flatten(),
                                                                         Ens_r_member[t+1][var_id].flatten()
@@ -199,9 +199,9 @@ if __name__=="__main__" :
                     for key_id, key in enumerate(pixel_coordinate_dict):
                         pixel_coordinate=pixel_coordinate_dict[key]
                         # Diurnal Cycle for perturbated sample
-                        u = Ens_gen[gen_member_id][t][0][pixel_coordinate[0]][pixel_coordinate[1]]
-                        v = Ens_gen[gen_member_id][t][1][pixel_coordinate[0]][pixel_coordinate[1]]
-                        t2m = Ens_gen[gen_member_id][t][2][pixel_coordinate[0]][pixel_coordinate[1]]
+                        u = Ens_gen[gen_member_id][t+1][0][pixel_coordinate[0]][pixel_coordinate[1]]
+                        v = Ens_gen[gen_member_id][t+1][1][pixel_coordinate[0]][pixel_coordinate[1]]
+                        t2m = Ens_gen[gen_member_id][t+1][2][pixel_coordinate[0]][pixel_coordinate[1]]
 
                         gen_diurnal_cycle[key_id, 0, t, gen_member_id+16*id_date*nb_child_member] = np.sqrt(u**2+v**2)
                         gen_diurnal_cycle[key_id, 1, t, gen_member_id+16*id_date*nb_child_member] = t2m
@@ -210,20 +210,20 @@ if __name__=="__main__" :
                         # Pearson Correlation on perturbated samples
                         gen_pearsons_first_to_each_leadtime_img[var_id, t, gen_member_id+16*id_date*nb_child_member] = scipy.stats.pearsonr(
                                                                             Ens_gen[gen_member_id][1][var_id].flatten(),
-                                                                            Ens_gen[gen_member_id][t][var_id].flatten()
+                                                                            Ens_gen[gen_member_id][t+1][var_id].flatten()
                         ).statistic
 
-                        if t < params.nb_timesteps-1:
+                        if t < params.nb_timesteps-2:
 
                             
                             gen_pearsons_sliding_img[var_id, t, gen_member_id+16*id_date*nb_child_member] = scipy.stats.pearsonr(
-                                                                            Ens_gen[gen_member_id][t][var_id].flatten(),
-                                                                            Ens_gen[gen_member_id][t+1][var_id].flatten()
+                                                                            Ens_gen[gen_member_id][t+1][var_id].flatten(),
+                                                                            Ens_gen[gen_member_id][t+2][var_id].flatten()
                             ).statistic
                         
-                        if t < params.nb_timesteps-1:
-                            gen_temporal_difference[var_id, t, gen_member_id+16*id_date*nb_child_member] = torch.mean(Ens_gen[gen_member_id][t+1][var_id] - Ens_gen[gen_member_id][t][var_id])
-                            gen_absolute_temporal_difference[var_id, t, gen_member_id+16*id_date*nb_child_member] = torch.mean(np.abs(Ens_gen[gen_member_id][t+1][var_id] - Ens_gen[gen_member_id][t][var_id]))
+                        if t < params.nb_timesteps-2:
+                            gen_temporal_difference[var_id, t, gen_member_id+16*id_date*nb_child_member] = torch.mean(Ens_gen[gen_member_id][t+2][var_id] - Ens_gen[gen_member_id][t+1][var_id])
+                            gen_absolute_temporal_difference[var_id, t, gen_member_id+16*id_date*nb_child_member] = torch.mean(np.abs(Ens_gen[gen_member_id][t+2][var_id] - Ens_gen[gen_member_id][t+1][var_id]))
                             
     
     list_ticks = np.array(params.leadtimes)
