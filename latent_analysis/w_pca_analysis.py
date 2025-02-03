@@ -140,59 +140,70 @@ if __name__=="__main__" :
     fig.savefig(figname, dpi=100)
 
     ########## Visualize all components ##############
-    # num_components=512
-    # w_samples_reduced, w_samples_sorted_eigenvalue, w_samples_sorted_eigenvectors = PCA(X=np.array(w_samples), num_components=num_components)
-    # prop_var_w_samples = w_samples_sorted_eigenvalue / np.sum(w_samples_sorted_eigenvalue)
+    num_components=512
+    w_samples_reduced, w_samples_sorted_eigenvalue, w_samples_sorted_eigenvectors = PCA(X=np.array(w_samples), num_components=num_components)
+    prop_var_w_samples = w_samples_sorted_eigenvalue / np.sum(w_samples_sorted_eigenvalue)
 
-    # num_components=16
-    # w_inv1_reduced, w_inv1_sorted_eigenvalue, w_inv1_sorted_eigenvectors = PCA(X=w_inv1, num_components=num_components)
-    # prop_var_w_inv1 = w_inv1_sorted_eigenvalue / np.sum(w_inv1_sorted_eigenvalue)
+    num_components=16
+    w_inv1_reduced, w_inv1_sorted_eigenvalue, w_inv1_sorted_eigenvectors = PCA(X=w_inv1, num_components=num_components)
+    prop_var_w_inv1 = w_inv1_sorted_eigenvalue / np.sum(w_inv1_sorted_eigenvalue)
+    w_inv2_reduced, w_inv2_sorted_eigenvalue, w_inv2_sorted_eigenvectors = PCA(X=w_inv2, num_components=num_components)
+    prop_var_w_inv2 = w_inv2_sorted_eigenvalue / np.sum(w_inv2_sorted_eigenvalue)
+    w_inv3_reduced, w_inv3_sorted_eigenvalue, w_inv3_sorted_eigenvectors = PCA(X=w_inv3, num_components=num_components)
+    prop_var_w_inv3 = w_inv3_sorted_eigenvalue / np.sum(w_inv3_sorted_eigenvalue)
     
-    # # scree_plot
-    # print('plotting scree plots')
-    # fig = plt.figure(figsize=(16,7))
-    # ax = fig.add_subplot()
-    # ax.plot(np.arange(1, len(prop_var_w_samples)+1), prop_var_w_samples, marker='o', c='blue')
-    # # ax.plot(np.arange(1, len(prop_var_w_inv1)+1), prop_var_w_inv1, marker='o', c='red')
-    # ax.set_xlabel('Principal Component',size = 20)
-    # ax.set_yscale('log')
-    # ax.set_ylabel('Proportion of Variance Explained',size = 20)
-    # fig.suptitle('Figure 3: Scree Plot for Proportion of Variance Explained',size = 25)
-    # ax.grid(True)
-    # figname = f"{args.output_dir}/scree_plot_w_scatter_{args.case}_step_{args.inversion_step}.png"
-    # fig.savefig(figname, dpi=100)
+    # scree_plot
+    print('plotting scree plots')
+    fig = plt.figure(figsize=(16,7))
+    ax = fig.add_subplot()
+    ax.plot(np.arange(1, len(prop_var_w_samples)+1), prop_var_w_samples, marker='o', c='blue')
+    ax.plot(np.arange(1, len(prop_var_w_inv1)+1), prop_var_w_inv1, marker='o', c='red')
+    ax.plot(np.arange(1, len(prop_var_w_inv2)+1), prop_var_w_inv2, marker='o', c='green')
+    ax.plot(np.arange(1, len(prop_var_w_inv3)+1), prop_var_w_inv3, marker='o', c='magenta')
+    ax.set_xlabel('Principal Component',size = 20)
+    ax.set_yscale('log')
+    ax.set_ylabel('Proportion of Variance Explained',size = 20)
+    fig.suptitle('Figure 3: Scree Plot for Proportion of Variance Explained',size = 25)
+    ax.grid(True)
+    figname = f"{args.output_dir}/scree_plot_w_scatter_{args.case}.png"
+    fig.savefig(figname, dpi=100)
 
-    # # scree_plot kaiser
-    # fig = plt.figure(figsize=(16,7))
-    # ax = fig.add_subplot()
-    # ax.plot(np.arange(1, len(w_samples_sorted_eigenvalue)+1), w_samples_sorted_eigenvalue, marker='o', c='blue')
-    # # ax.plot(np.arange(1, len(prop_var_w_875_arome)+1), prop_var_w_875_arome, marker='o', c='magenta')
-    # ax.plot(np.arange(1, len(w_inv1_sorted_eigenvalue)+1), w_inv1_sorted_eigenvalue, marker='o', c='green')
-    # # # ax.plot(np.arange(1, len(prop_var_w_inv2)+1), prop_var_w_inv2, marker='o', c='green')
-    # ax.set_xlabel('Principal Component',size = 20)
-    # ax.set_yscale('log')
-    # ax.set_ylabel('Proportion of Variance Explained',size = 20)
-    # fig.suptitle('Figure 4: Scree Plot for Eigenvalues',size = 25)
-    # ax.axhline(y=1, color='r',linestyle='--')
-    # ax.grid(True)
-    # figname = f"{args.output_dir}/scree_plot_kaiser_w_scatter_{args.case}_step_{args.inversion_step}.png"
-    # fig.savefig(figname, dpi=100)
+    # scree_plot kaiser
+    fig = plt.figure(figsize=(16,7))
+    ax = fig.add_subplot()
+    ax.plot(np.arange(1, len(w_samples_sorted_eigenvalue)+1), w_samples_sorted_eigenvalue, marker='o', c='blue')
+    # ax.plot(np.arange(1, len(prop_var_w_875_arome)+1), prop_var_w_875_arome, marker='o', c='magenta')
+    ax.plot(np.arange(1, len(w_inv1_sorted_eigenvalue)+1), w_inv1_sorted_eigenvalue, marker='o', c='red')
+    ax.plot(np.arange(1, len(w_inv2_sorted_eigenvalue)+1), w_inv2_sorted_eigenvalue, marker='o', c='green')
+    ax.plot(np.arange(1, len(w_inv3_sorted_eigenvalue)+1), w_inv3_sorted_eigenvalue, marker='o', c='magenta')
+    ax.set_xlabel('Principal Component',size = 20)
+    ax.set_yscale('log')
+    ax.set_ylabel('Proportion of Variance Explained',size = 20)
+    fig.suptitle('Figure 4: Scree Plot for Eigenvalues',size = 25)
+    ax.axhline(y=1, color='r',linestyle='--')
+    ax.grid(True)
+    figname = f"{args.output_dir}/scree_plot_kaiser_w_scatter_{args.case}.png"
+    fig.savefig(figname, dpi=100)
 
 
-    # # log likelihood plot 
-    # print('log likelihood plot')
-    # evals=w_samples_sorted_eigenvalue
-    # ll = log_likelihood(evals)
-    # # Fraction of variance explained
-    # cut=50
-    # fraction_var = np.cumsum(evals[0:cut] / np.sum(evals))
-    # fig, ax = plt.subplots()
-    # xs = np.arange(1, cut+1)
-    # ys = ll[0:cut]
-    # ax.set_xlabel("num PCs")
-    # ax.set_ylabel("profile log likelihood")
-    # ax.set_title(f"profile log likelihood L*={np.argmax(ll)+1}")
-    # ax.plot(xs, ys)
-    # ax.grid(True)
-    # figname = f"{args.output_dir}/profile_log_likelihood_w_scatter_{args.case}_step_{args.inversion_step}.png"
-    # fig.savefig(figname, dpi=100)
+    # log likelihood plot 
+    print('log likelihood plot')
+    fig, ax = plt.subplots()
+    colorss = ['blue', 'red', 'green', 'magenta']
+    for id, evals in enumerate([w_samples_sorted_eigenvalue, w_inv1_sorted_eigenvalue, w_inv2_sorted_eigenvalue, w_inv3_sorted_eigenvalue]):
+        ll = log_likelihood(evals)
+        # Fraction of variance explained
+        cut=50
+        fraction_var = np.cumsum(evals[0:cut] / np.sum(evals))
+        
+        xs = np.arange(1, cut+1)
+        ys = ll[0:cut]
+
+        ax.set_xlabel("num PCs")
+        ax.set_ylabel("profile log likelihood")
+        ax.set_title(f"profile log likelihood L*={np.argmax(ll)+1}")
+        ax.set_label(f'{id}')
+        ax.plot(xs, ys, c=colorss[id])
+    ax.grid(True)
+    figname = f"{args.output_dir}/profile_log_likelihood_w_scatter_{args.case}.png"
+    fig.savefig(figname, dpi=100)
