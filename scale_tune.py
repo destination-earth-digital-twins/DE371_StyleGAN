@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt
 from itertools import product
 from argparse import ArgumentParser
 import os
+import utils.utils as utils
 #import spectral_loss_filtered as spec
 
 #from hyperparams.util import str2intlist, load_all_lt, select_random_dates, load_whole_model, list_all_obs
@@ -71,6 +72,7 @@ if __name__=="__main__" :
                         default='/project/home/p200177/DE_371/datasets/dataset_Meteo_France/eigenvalues_gan_training/')
     parser.add_argument("--output_dir", type=str, 
                         default='/project/scratch/p200177/DE_371/victorsanchez/results/scaled_perturbation/ScaleTune/')
+    parser.add_argument("--leadtimes", type=utils.str2intlist, default=[3,6,9,12,15,18,21,24,27,30,33,36,39,42,45])
 
     args = parser.parse_args()
 
@@ -86,7 +88,8 @@ if __name__=="__main__" :
 
     liste_dates = df_date['Date'].unique().tolist()
     print(liste_dates)
-    leadtimes = [3,6,9,12,15,18,21,24,27,30,33,36,39,42,45]
+    leadtimes = args.leadtimes
+    # leadtimes = [6,12,18,24,30,36,42]
 
     ensemble_dataset = list(product(liste_dates,leadtimes))
     print(len(ensemble_dataset))
@@ -150,12 +153,12 @@ if __name__=="__main__" :
                 w_avg = torch.load(args.fake_data_dir + f'w_avg_{date[:10]}_{lt}_{args.pca_cut}_{args.invert_step}.pt')
 
                 if w_avg.shape!=(args.pca_cut,512):
-                    Cov, w_avg = pca.computeReducedCovarianceW(batch_w[:,:args.pca_cut],cut=args.n_samples-1)
+                    Cov, w_avg = pca.compute_K_covariance(batch_w[:,:args.pca_cut],cut=args.n_samples-1)
                     torch.save(Cov, args.fake_data_dir + f'Cov_{date[:10]}_{lt}_{args.pca_cut}_{args.invert_step}.pt')
                     torch.save(w_avg, args.fake_data_dir + f'w_avg_{date[:10]}_{lt}_{args.pca_cut}_{args.invert_step}.pt')
 
             except FileNotFoundError:
-                Cov, w_avg  = pca.computeReducedCovarianceW(batch_w[:,:args.pca_cut],cut=args.n_samples-1)
+                Cov, w_avg  = pca.compute_K_covariance(batch_w[:,:args.pca_cut],cut=args.n_samples-1)
                 torch.save(Cov, args.fake_data_dir + f'Cov_{date[:10]}_{lt}_{args.pca_cut}_{args.invert_step}.pt')
                 torch.save(w_avg, args.fake_data_dir + f'w_avg_{date[:10]}_{lt}_{args.pca_cut}_{args.invert_step}.pt')
             
@@ -164,8 +167,20 @@ if __name__=="__main__" :
             except AssertionError:
                 print(date, lt, batch_w.shape, w_avg.shape)
                 raise AssertionError("Uncorrect shape")
-
-            gen = smpca.fast_style_mixing(interp_noise, scale_noise, batch_w, Cov, w_avg, w0, args.n_samples, G, Whitening, device=device, scale_rule=args.scale_rule) 
+            # TODO : The style mixing has to be done with w_avg or with w0 ??
+            # For me it has to be done with w_avg
+            gen = smpca.fast_style_mixing(
+                    alphas=interp_noise,
+                    betas=scale_noise,
+                    batch_w=batch_w,
+                    K=Cov,
+                    w_avg=w_avg, #w0,
+                    n_samples=args.n_samples,
+                    G=G,
+                    Whitening=Whitening,
+                    device=device,
+                    beta_rule=args.scale_rule
+                ) 
             if args.convert_ff_t:
                 gen, batch_y = convert_uvt2fft(gen, batch_y)
             if args.optim_criterion == 'distrib_matching':

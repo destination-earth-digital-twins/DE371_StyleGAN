@@ -27,7 +27,6 @@ from encoders.models.feature_style_encoder.feature_style_module import FeatureSt
 import inversion.optimization_based.inversion as inv
 from gan.model.stylegan2 import Generator
 from collections import OrderedDict
-import inversion.optimization_based.inversion as inv
 import utils.utils as utils
 from ast import literal_eval as make_tuple
 torch.manual_seed(42) #reproducibility of runs
