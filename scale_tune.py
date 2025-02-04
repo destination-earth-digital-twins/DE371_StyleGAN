@@ -39,6 +39,7 @@ def convert_uvt2fft(batch_gen, batch_y):
     new_batch_y = torch.cat((torch.sqrt(batch_y[:,0:1,:,:]**2 + batch_y[:,1:2,:,:]**2),batch_y[:,2:,:,:]),dim=1)
 
     return new_batch_gen, new_batch_y
+
 if __name__=="__main__" :
     parser = ArgumentParser()
 
@@ -150,12 +151,12 @@ if __name__=="__main__" :
                 w_avg = torch.load(args.fake_data_dir + f'w_avg_{date[:10]}_{lt}_{args.pca_cut}_{args.invert_step}.pt')
 
                 if w_avg.shape!=(args.pca_cut,512):
-                    Cov, w_avg = pca.computeReducedCovarianceW(batch_w[:,:args.pca_cut],cut=args.n_samples-1)
+                    Cov, w_avg = pca.compute_K_covariance(batch_w[:,:args.pca_cut],cut=args.n_samples-1)
                     torch.save(Cov, args.fake_data_dir + f'Cov_{date[:10]}_{lt}_{args.pca_cut}_{args.invert_step}.pt')
                     torch.save(w_avg, args.fake_data_dir + f'w_avg_{date[:10]}_{lt}_{args.pca_cut}_{args.invert_step}.pt')
 
             except FileNotFoundError:
-                Cov, w_avg  = pca.computeReducedCovarianceW(batch_w[:,:args.pca_cut],cut=args.n_samples-1)
+                Cov, w_avg  = pca.compute_K_covariance(batch_w[:,:args.pca_cut],cut=args.n_samples-1)
                 torch.save(Cov, args.fake_data_dir + f'Cov_{date[:10]}_{lt}_{args.pca_cut}_{args.invert_step}.pt')
                 torch.save(w_avg, args.fake_data_dir + f'w_avg_{date[:10]}_{lt}_{args.pca_cut}_{args.invert_step}.pt')
             

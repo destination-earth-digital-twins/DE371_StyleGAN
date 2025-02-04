@@ -75,7 +75,8 @@ class pSp(nn.Module):
                 input_code=False,
                 randomize_noise=True,
                 return_latents=False, 
-                average_code=False
+                average_code=False,
+                return_code=False
                 ):
         
         if input_code:
@@ -109,9 +110,13 @@ class pSp(nn.Module):
                                              return_latents=return_latents
                                              )
 
-        if return_latents:
+        if return_latents and not return_code:
             return images, result_latent
-        else:
+        elif return_code and not return_latents:
+            return images, codes
+        elif return_code and return_latents :
+            return images, result_latent, codes
+        else :
             return images
 
     def set_config(self, config):
