@@ -40,6 +40,7 @@ def convert_uvt2fft(batch_gen, batch_y):
     new_batch_y = torch.cat((torch.sqrt(batch_y[:,0:1,:,:]**2 + batch_y[:,1:2,:,:]**2),batch_y[:,2:,:,:]),dim=1)
 
     return new_batch_gen, new_batch_y
+
 if __name__=="__main__" :
     parser = ArgumentParser()
 
