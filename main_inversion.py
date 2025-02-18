@@ -56,16 +56,14 @@ if __name__=="__main__" :
     parser.add_argument('--n_iters_per_batch_checkpoint', type=utils.str2intlist, default=[1,5,10], help='Number of forward passes per batch during training')
     
     ########################### Directories ###########################
-
     # Real Data Directory - PATH to samples of the dataset
     parser.add_argument('--real_data_dir', type = str,default='')
     # Output Directory - PATH where the output of the inversion will be saved
     parser.add_argument('--output_dir',type = str, default='')
+    
     # Pack Directory - PATH where the packed ensembles will be saved
-
     parser.add_argument("--pack_dir", type=str, default = '') # storing "packed" (normalized) real data
     parser.add_argument('--ckpt_dir', type = str, default ='')
- 
 
     # Dataset information
     parser.add_argument("--normalization", type=str, default="minmax", choices=["minmax", "meanmax"])
