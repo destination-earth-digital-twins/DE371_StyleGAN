@@ -97,7 +97,6 @@ def compute_generate_save(G, params, metrics_list, Means, Mins, Maxs, apply_log_
         theta=params.theta,
         sigma=params.sigma,
         current_timestep=current_timestep,
-        initial_timestep=params.initial_timestep,
         temporal_noises=temporal_noises
     )
 
@@ -370,7 +369,7 @@ if __name__=="__main__" :
                         Maxs=Maxs,
                         apply_log_transform=True if params.Shape[0]==4 else False,
                         dt=dt,
-                        current_timestep=(lt_id, lt), # Not sure if lt_id or lt itself
+                        current_timestep=lt_id,
                         temporal_noises=temporal_noises
                     )
                 except FileNotFoundError as e:
