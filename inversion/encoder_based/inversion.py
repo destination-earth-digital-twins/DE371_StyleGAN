@@ -1,13 +1,12 @@
 import torch
 import numpy as np
-from encoders.utils import common, train_utils
+from encoders.utils_encoder import common, train_utils
 import matplotlib.pyplot as plt
 import matplotlib
 matplotlib.use('Agg')
-import perturbation.utils as utils
-from generate_sample import humanbytes
+import utils.utils as utils
 from time import time
-from inversion.encoder_based.utils import log_images_diff
+from inversion.encoder_based.encoder_utils import log_images_diff
 
 
 def inversion_restyle(params, network, Ens_r):
@@ -15,7 +14,7 @@ def inversion_restyle(params, network, Ens_r):
 
     y_hats = {idx: [] for idx in range(Ens_r.shape[0])}
     mem_cuda = torch.cuda.memory_allocated(device=params.device)
-    print('memory_allocated {}'.format(humanbytes(mem_cuda)))
+    # print('memory_allocated {}'.format(humanbytes(mem_cuda)))
     # get the image corresponding to the latent average
     avg_sample = network(
         network.latent_avg.unsqueeze(0),
@@ -27,7 +26,7 @@ def inversion_restyle(params, network, Ens_r):
         avg_sample = avg_sample.to(params.device).float()                
         Ens_r = Ens_r.to(params.device)
         mem_cuda = torch.cuda.memory_allocated(device=params.device)
-        print('memory_allocated {}'.format(humanbytes(mem_cuda)))
+        # print('memory_allocated {}'.format(humanbytes(mem_cuda)))
         t0 = time()
         # Restyle-Encoder Loop
         for iter in range(params.n_iters_per_batch):
@@ -66,7 +65,7 @@ def inversion_psp_e4e(params, network, Ens_r):
     y_hat, latent = None, None
 
     mem_cuda = torch.cuda.memory_allocated(device=params.device)
-    print('memory_allocated {}'.format(humanbytes(mem_cuda)))
+    # print('memory_allocated {}'.format(humanbytes(mem_cuda)))
 
     with torch.no_grad():             
         Ens_r = Ens_r.to(params.device)
@@ -87,7 +86,7 @@ def inversion_inDomain(params, network, Ens_r):
     y_hat, latent = None, None
 
     mem_cuda = torch.cuda.memory_allocated(device=params.device)
-    print('memory_allocated {}'.format(humanbytes(mem_cuda)))
+    # print('memory_allocated {}'.format(humanbytes(mem_cuda)))
 
     with torch.no_grad():             
         Ens_r = Ens_r.to(params.device)
@@ -108,7 +107,7 @@ def inversion_featureStyle(params, network, Ens_r):
     y_hat, latent = None, None
 
     mem_cuda = torch.cuda.memory_allocated(device=params.device)
-    print('memory_allocated {}'.format(humanbytes(mem_cuda)))
+    # print('memory_allocated {}'.format(humanbytes(mem_cuda)))
 
     with torch.no_grad():             
         Ens_r = Ens_r.to(params.device)

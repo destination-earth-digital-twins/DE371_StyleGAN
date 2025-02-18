@@ -1,5 +1,5 @@
 from encoders.options.train_options import TrainOptions
-import perturbation.utils as utils
+import utils.utils as utils
 
 class HyperStyleTrainOptions(TrainOptions):
 
@@ -21,7 +21,7 @@ class HyperStyleTrainOptions(TrainOptions):
         self.parser.add_argument('--load_w_encoder', action='store_true', help='Whether to load the w e4e encoder.')
         self.parser.add_argument('--w_encoder_type', default='WEncoder',
                                  help='Encoder type for the encoder used to get the initial inversion')
-        self.parser.add_argument('--w_encoder_checkpoint_path', default='model_paths["e4e_w_encoder"]', type=str,
+        self.parser.add_argument('--w_encoder_encoder_checkpoint_dir', default='model_paths["e4e_w_encoder"]', type=str,
                                  help='Path to pre-trained W-encoder.')
         
         self.parser.add_argument('--layers_to_tune', default='0,2,3,5,6,8,9,11,12,14,15,17,18,20,21,23,24', type=str, 

@@ -8,13 +8,13 @@ from torch import nn
 from torch.utils.data import DataLoader
 import torch.nn.functional as F
 from tqdm import tqdm
-from encoders.utils import common, train_utils
+from encoders.utils_encoder import common, train_utils
 from encoders.configs import data_configs
 from encoders.datasets.arome_dataset import AromeDataset
 from encoders.models.psp import pSp
 from encoders.training.ranger import Ranger
 from inversion.perceptual_loss.perceptual_loss import PerceptualLoss
-
+from encoders.criteria.w_norm import WNormLoss
 import numpy as np
 
 class Coach:
@@ -51,7 +51,9 @@ class Coach:
         self.mse_loss = nn.MSELoss().to(self.device).eval()
         if self.config.perceptual_lambda > 0 :
             self.perceptual_loss = PerceptualLoss(config=self.config, device=self.device, multi_scale=self.config.multi_scale_perceptual_loss).to(self.device).eval()
-        
+        if self.config.w_norm_lambda > 0 :
+            self.w_norm_loss = WNormLoss(start_from_latent_avg=self.config.start_from_latent_avg)
+
 		# Initialize optimizer
         self.optimizer = self.configure_optimizers()
         self.pbar = None
@@ -92,14 +94,14 @@ class Coach:
             if iter == 0:
                 avg_image_for_batch = self.avg_sample.unsqueeze(0).repeat(y.shape[0], 1, 1, 1)
                 x_input = torch.cat([y, avg_image_for_batch], dim=1)
-                y_hat, latent_hat = self.net.forward(x_input, latent=None, return_latents=True)
+                y_hat, latent_hat, latent_code = self.net.forward(x_input, latent=None, return_latents=True, return_code=True)
             else:
                 y_hat_clone = y_hat.clone().detach().requires_grad_(True)
                 latent_hat_clone = latent_hat.clone().detach().requires_grad_(True)
                 x_input = torch.cat([y, y_hat_clone], dim=1)
-                y_hat, latent_hat = self.net.forward(x_input, latent=latent_hat_clone, return_latents=True)
+                y_hat, latent_hat, latent_code = self.net.forward(x_input, latent=latent_hat_clone, return_latents=True, return_code=True)
     
-            loss, loss_dict = self.calc_loss(x, y, y_hat, latent, latent_hat, sample_origin=sample_origin, option='train')
+            loss, loss_dict = self.calc_loss(x, y, y_hat, latent_code, latent_hat, sample_origin=sample_origin, option='train')
             loss.backward(retain_graph=True)
 			# store intermediate outputs
             for idx in range(y.shape[0]):
@@ -189,9 +191,9 @@ class Coach:
             else:
                 x_input = torch.cat([y, y_hat], dim=1)
     
-            y_hat, latent_hat = self.net.forward(x_input, latent=latent_hat, return_latents=True)
+            y_hat, latent_hat, latent_code = self.net.forward(x_input, latent=latent_hat, return_latents=True, return_code=True)
                 
-            loss, cur_loss_dict = self.calc_loss(x, y, y_hat, latent_hat=latent_hat, latent=latent, option = 'test', sample_origin=sample_origin)
+            loss, cur_loss_dict = self.calc_loss(x, y, y_hat, latent_hat=latent_hat, latent=latent_code, option = 'test', sample_origin=sample_origin)
     		# store intermediate outputs
             for idx in range(y.shape[0]):
                 y_hats[idx].append([y_hat[idx]])
@@ -222,7 +224,8 @@ class Coach:
 			# Logging related
             if batch_idx % 50 == 0:
                 self.parse_and_log_images(x, y, y_hats, title='samples/test', subscript='{:04d}'.format(batch_idx))
-                self.parse_and_log_images(fake_img, fake_img, fake_img_hats, title='samples/test_fake', subscript='{:04d}'.format(batch_idx))
+                if self.config.training_on_fake_samples:
+                    self.parse_and_log_images(fake_img, fake_img, fake_img_hats, title='samples/test_fake', subscript='{:04d}'.format(batch_idx))
 
 			# For first step just do sanity test on small amount of data
             if self.global_step == 0 and batch_idx >= 4:
@@ -249,8 +252,8 @@ class Coach:
     def checkpoint_me(self, loss_dict, is_best):
         save_name = 'best_model.pt' if is_best else 'iteration_{}.pt'.format(self.global_step)
         save_dict = self.__get_save_dict()
-        checkpoint_path = os.path.join(self.checkpoint_dir, save_name)
-        torch.save(save_dict, checkpoint_path)
+        encoder_checkpoint_dir = os.path.join(self.checkpoint_dir, save_name)
+        torch.save(save_dict, encoder_checkpoint_dir)
         with open(os.path.join(self.checkpoint_dir, 'timestamp.txt'), 'a') as f:
             if is_best:
                 f.write('**Best**: Step - {}, Loss - {:.3f} \n{}\n'.format(self.global_step, self.best_val_loss, loss_dict))
@@ -312,6 +315,11 @@ class Coach:
             perceptual_loss = self.perceptual_loss(y_hat, y)
             loss_dict['perceptual_loss_on_'+sample_origin] = float(perceptual_loss)
             loss += perceptual_loss * self.config.perceptual_lambda
+
+        if self.config.w_norm_lambda > 0 :
+            w_norm_loss = self.w_norm_loss(latent=latent, latent_avg=self.net.latent_avg.unsqueeze(0))
+            loss_dict['w_norm_loss'] = float(w_norm_loss)
+            loss += w_norm_loss * self.config.w_norm_lambda
 
         if self.config.l2_lambda_on_fake_latent > 0 and (latent_hat is not None and latent is not None) :
             loss_l2_on_fake_latent = F.mse_loss(latent, latent_hat)

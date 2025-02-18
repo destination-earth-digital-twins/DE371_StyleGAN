@@ -36,10 +36,10 @@ def add_var(var_names=['z500','t850','tpw850'], csv_path='', data_path='', new_d
 
 
 if __name__=="__main__":
-    csv_path = '/home/poulainauzeaul/IS_method_labels.csv'
+    csv_path = ''
     var_names = ['z500','t850','tpw850']
-    data_path = "/cnrm/recyf/NO_SAVE/Data/users/brochetc/Sud_Est_Baselines_IS_1_1.0_0_0_0_0_0_256_done/Sud_Est_Baselines_IS_1_1.0_0_0_0_0_0_256_done/"
-    new_data_path = "/cnrm/recyf/NO_SAVE/Data/users/brochetc/float32_t850_theta850_z500/"
-    save_path = "/home/poulainauzeaul/IS_1_1.0_0_0_0_0_0_256_done_with_8_var/"
+    data_path = ""
+    new_data_path = ""
+    save_path = ""
     add_var(var_names=var_names, csv_path=csv_path, data_path=data_path, new_data_path=new_data_path, save_path=save_path)
 

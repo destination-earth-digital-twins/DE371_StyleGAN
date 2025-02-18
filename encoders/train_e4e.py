@@ -26,7 +26,7 @@ def main(namesFromLosses=False):
     os.makedirs(config.exp_dir, exist_ok=True)
     count = len(glob(config.exp_dir+'Instance_*'))
     
-    if config.checkpoint_path is None :
+    if config.encoder_checkpoint_dir is None :
     
         config.exp_dir = config.exp_dir + 'Instance_{}'.format(str(count + 1))
     

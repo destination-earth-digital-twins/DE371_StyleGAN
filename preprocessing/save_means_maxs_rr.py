@@ -18,7 +18,7 @@ Maxs = np.array([5.74386344, 36.23238196, 42.47807584, 47.46977905,  0.96848761]
 np.save('./mean_log_rr_imp.npy', Means)
 np.save('./max_log_rr_imp.npy', Maxs)
 
-lifiles = ['/scratch/mrmn/gandonb/data/crop_processed_giga/{}.npy'.format(i) for i in range(1,26)]
+lifiles = ['/{}.npy'.format(i) for i in range(1,26)]
 
 
 for i,f in enumerate(lifiles) :

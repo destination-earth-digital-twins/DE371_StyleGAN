@@ -1,5 +1,5 @@
 from argparse import ArgumentParser
-import perturbation.utils as utils
+from utils import utils
 
 class TrainOptions:
 
@@ -50,7 +50,7 @@ class TrainOptions:
         # weights and checkpoint paths
         self.parser.add_argument('--stylegan_weights', default='/project/home/p200177/DE_371/resources/models/trained_generator/000024.pt', type=str,help='Path to StyleGAN model weights')
         self.parser.add_argument('--random_resnet', action='store_true')
-        self.parser.add_argument('--checkpoint_path', default=None, type=str, help='Path to ReStyle model checkpoint')
+        self.parser.add_argument('--encoder_checkpoint_dir', default=None, type=str, help='Path to ReStyle model checkpoint')
         self.parser.add_argument('--resume_step', default=0, type=int,help='step number to resume from')
 
         # intervals for logging, validation, and saving

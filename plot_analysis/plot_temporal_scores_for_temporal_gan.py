@@ -20,13 +20,15 @@ if __name__=="__main__" :
     
     # Paths
     parser.add_argument('--data_dir', type=str, default="/project/home/p200177/DE_371/datasets/dataset_Meteo_France/IS_1_1.0_0_0_0_0_0_256_large_lt_done/")
-    parser.add_argument('--mean_file', type=str, default=None )
     parser.add_argument('--std_file', type=str, default=None )
-    parser.add_argument('--max_file', type=str, default=None )
-    parser.add_argument('--min_file', type=str, default=None )
+    parser.add_argument('--max_file', type=str, default='MaxNew_4_var.npy') # use 'MaxNew_4_var.npy' if AROME data # max_rr_log.npy
+    parser.add_argument('--mean_file', type=str, default='Mean_4_var.npy') # not used if minmax normalization
+    parser.add_argument('--min_file', type=str, default='min_rr_log.npy')  # not used if meanmax normalization
     parser.add_argument('--id_file', type=str, default="Large_lt_train_labels_1.csv")
     parser.add_argument('--pretrained_model', type=int, default=-1)
     parser.add_argument('--training_dir', type=str, default='/project/home/p200177/DE_371/experiments_WP1/gan_training/exp11ter/')
+    parser.add_argument('--output_dir', type=str, default='/project/home/p200177/DE_371/experiments_WP1/temporal_diff_samples/temporal_gan_results/')
+    
     parser.add_argument('--training_step', type=int, default=[146000])
     # Model architecture hyper-parameters
     
@@ -120,14 +122,7 @@ if __name__=="__main__" :
     parser.add_argument('--timestep_period', type=int, default=6)
     parser.add_argument('--stack_sample_along_time_and_variable', action='store_true')
     parser.add_argument('--cutoff_dataset_leadtimes', action='store_true', help='To only consider [t+dt, t+2*dt...] and not the leadtime between t and dt')
-    
-    # Training settings -schedulers
-    parser.add_argument('--lrD_sched', type=str, default='None', \
-                        choices=['None','exp', 'linear', 'cyclic'])
-    parser.add_argument('--lrG_sched', type=str, default='None', \
-                        choices=['None','exp', 'linear', 'cyclic'])
-    parser.add_argument('--lrD_gamma', type=float, default=0.95)
-    parser.add_argument('--lrG_gamma', type=float, default=0.95)
+
     
     
     # Testing and plotting setting
@@ -204,7 +199,7 @@ if __name__=="__main__" :
         G = G.to(device)
         generators.append(G)
 
-    output_dir = config.training_dir+'scores/'
+    output_dir = config.output_dir
     
     
     # Dataset loading
@@ -218,122 +213,123 @@ if __name__=="__main__" :
         transform=Dl_train.transform(), 
         detransform=Dl_train.detransform()
     )
-
+    batch_size = 16*31
     train_dataloader = DataLoader(dataset = dataset,
-                        batch_size = 16,
+                        batch_size = 1,
                         shuffle = False,
                         drop_last = True,
                         num_workers=1
     )
-    nb_batch = 233
-    nb_sample_total = nb_batch * 16
+    nb_batch = 2000
+    nb_sample_total = nb_batch * batch_size
 
     print(f'Eval done on {nb_sample_total} samples')
 
     diurnal_cycle = np.zeros((len(generators)+1, len(pixel_coordinate_dict), 2, config.nb_timesteps, nb_sample_total))
-    diurnal_cycle_average = np.zeros((len(generators)+1, 2, config.nb_timesteps, nb_sample_total))
     pearsons_first_to_each_leadtime_img = np.zeros((len(generators)+1, 3, config.nb_timesteps, nb_sample_total))
     pearsons_sliding_img = np.zeros((len(generators)+1, 3, config.nb_timesteps-1, nb_sample_total))
     temporal_difference = np.zeros((len(generators)+1, 3, config.nb_timesteps-1, nb_sample_total))
+    absolute_temporal_difference = np.zeros((len(generators)+1, 3, config.nb_timesteps-1, nb_sample_total))
 
     loop = enumerate(train_dataloader)
-    cursor = 0
     
-    for i, batch in loop:
-        if i > nb_batch-1 : 
+    
+    for id, batch in loop:
+        print('id', id)
+        if id > nb_batch-1 : 
             break
         # Computing diurnal cycle for original samples
         
         img, _, _ = batch
         sample = img.numpy()
-        for key_id, key in enumerate(pixel_coordinate_dict):
-            pixel_coordinate=pixel_coordinate_dict[key]
-            for member_id in range(len(img)):
-                real_sample = sample[member_id].transpose(2,3,1,0)
-                real_sample = np.array([dataset.detransform(real_sample[:,:,:,t]) for t in range(config.nb_timesteps)])
-                for t in range(config.nb_timesteps):
-                    _sample = real_sample[t]
+        # print('sample shape', sample.shape)
+        for member_id in range(len(img)):
+            real_sample = sample[member_id].transpose(2,3,1,0)
+            real_sample = np.array([dataset.detransform(real_sample[:,:,:,t]) for t in range(config.nb_timesteps)])
 
-                    # Diurnal Cycle
-                    u = _sample[0][pixel_coordinate[0]][pixel_coordinate[1]]
-                    v = _sample[1][pixel_coordinate[0]][pixel_coordinate[1]]
-                    t2m = _sample[2][pixel_coordinate[0]][pixel_coordinate[1]]
-                    diurnal_cycle[0, key_id, 0, t, cursor+member_id] = np.sqrt(u**2+v**2)
-                    diurnal_cycle[0, key_id, 1, t, cursor+member_id] = t2m
-                    
-                    
-                    # Average diurnal cycle
-                    u = np.mean(_sample[0])
-                    v = np.mean(_sample[1])
-                    diurnal_cycle_average[0, 0, t, cursor+member_id] = np.sqrt(u**2+v**2)
-                    diurnal_cycle_average[0, 1, t, cursor+member_id] = np.mean(_sample[2])
+            gen_samples = []
+            for checkpoint_id in range(1, len(config.training_step)+1):
+                z = torch.empty(1, 512).normal_().to(device)
 
-                    for var_id in range(3):
-                        # Pearson Correlation on generated samples
-                        pearsons_first_to_each_leadtime_img[0, var_id, t, cursor+member_id] = scipy.stats.pearsonr(
-                                                                        real_sample[0][var_id].flatten(),
-                                                                        real_sample[t][var_id].flatten()
-                        ).statistic
-                        if t==0 :
-                            pearsons_sliding_img[0, var_id, t, cursor+member_id]=np.nan
-                        elif t < config.nb_timesteps-1:
-                            pearsons_sliding_img[0, var_id, t, cursor+member_id] = scipy.stats.pearsonr(
-                                                            real_sample[t][var_id].flatten(),
-                                                            real_sample[t+1][var_id].flatten()
-                            ).statistic
+                with torch.no_grad():
+                    gen_sample, _, _ = generators[checkpoint_id-1]([z])
+                    gen_sample = gen_sample.cpu().numpy()
+                    gen_sample = gen_sample.reshape((config.nb_timesteps, len(config.var_names), np.shape(sample)[-2], np.shape(sample)[-1]))
+                    gen_sample = gen_sample.transpose(2,3,1,0)
+                    gen_sample = np.array([dataset.detransform(gen_sample[:,:,:,t]) for t in range(config.nb_timesteps)])
+                    # print('gen_sample shape', gen_sample.shape)
+                    gen_samples.append(gen_sample)
 
-                        # Temporal Difference
-                        if t==0 :
-                            temporal_difference[0, var_id, t, cursor+member_id]=np.nan
-                        elif t < config.nb_timesteps-1:
-                            temporal_difference[0, var_id, t, cursor+member_id] = np.mean(np.abs(real_sample[t+1][var_id] - real_sample[t][var_id]))
+            for t in range(config.nb_timesteps):
 
-                for checkpoint_id in range(1, len(config.training_step)+1):
-                    z = torch.empty(1, 512).normal_().to(device)
+                for key_id, key in enumerate(pixel_coordinate_dict):
+                    pixel_coordinate=pixel_coordinate_dict[key]
 
-                    with torch.no_grad():
-                        gen_sample, _, _ = generators[checkpoint_id-1]([z])
-                        gen_sample = gen_sample.cpu().numpy()
-                        gen_sample = gen_sample.reshape((config.nb_timesteps, len(config.var_names), np.shape(sample)[-2], np.shape(sample)[-1]))
-                        gen_sample = gen_sample.transpose(2,3,1,0)
-                        gen_sample = np.array([dataset.detransform(gen_sample[:,:,:,t]) for t in range(config.nb_timesteps)])
-                    for t in range(config.nb_timesteps):
-                        _sample= gen_sample[t]
+                    # Diurnal Cycle of real sample
+                    u = real_sample[t][0][pixel_coordinate[0]][pixel_coordinate[1]]
+                    v = real_sample[t][1][pixel_coordinate[0]][pixel_coordinate[1]]
+                    t2m = real_sample[t][2][pixel_coordinate[0]][pixel_coordinate[1]]
+                    diurnal_cycle[0, key_id, 0, t, id*16+member_id] = np.sqrt(u**2+v**2)
+                    diurnal_cycle[0, key_id, 1, t, id*16+member_id] = t2m
+
+                    # Diurnal Cycle of generated sample
+                    for checkpoint_id in range(1, len(config.training_step)+1):
 
                         # Diurnal Cycle
-                        u = _sample[0][pixel_coordinate[0]][pixel_coordinate[1]]
-                        v = _sample[1][pixel_coordinate[0]][pixel_coordinate[1]]
-                        diurnal_cycle[checkpoint_id, key_id, 0, t, cursor+member_id] = np.sqrt(u**2+v**2)
-                        diurnal_cycle[checkpoint_id, key_id, 1, t, cursor+member_id] = _sample[2][pixel_coordinate[0]][pixel_coordinate[1]]
+                        u = gen_samples[checkpoint_id-1][t][0][pixel_coordinate[0]][pixel_coordinate[1]]
+                        v = gen_samples[checkpoint_id-1][t][1][pixel_coordinate[0]][pixel_coordinate[1]]
+                        diurnal_cycle[checkpoint_id, key_id, 0, t, id*16+member_id] = np.sqrt(u**2+v**2)
+                        diurnal_cycle[checkpoint_id, key_id, 1, t, id*16+member_id] = gen_samples[checkpoint_id-1][t][2][pixel_coordinate[0]][pixel_coordinate[1]]
 
-                        # Average diurnal cycle
-                        u = np.mean(_sample[0])
-                        v = np.mean(_sample[1])
-                        diurnal_cycle_average[checkpoint_id, 0, t, cursor+member_id] = np.sqrt(u**2+v**2)
-                        diurnal_cycle_average[checkpoint_id, 1, t, cursor+member_id] = np.mean(_sample[2])
 
+                for var_id in range(3):
+                    # Pearson Correlation on real samples
+                    pearsons_first_to_each_leadtime_img[0, var_id, t, id*16+member_id] = scipy.stats.pearsonr(
+                                                                    real_sample[0][var_id].flatten(),
+                                                                    real_sample[t][var_id].flatten()
+                    ).statistic
+                    if t==0 :
+                        pearsons_sliding_img[0, var_id, t, id*16+member_id]=np.nan
+                    elif t < config.nb_timesteps-1:
+                        pearsons_sliding_img[0, var_id, t, id*16+member_id] = scipy.stats.pearsonr(
+                                                        real_sample[t][var_id].flatten(),
+                                                        real_sample[t+1][var_id].flatten()
+                        ).statistic
+                    
+                    # Temporal Difference  on real samples
+                    if t==0 :
+                        absolute_temporal_difference[0, var_id, t, id*16+member_id]=np.nan
+                        temporal_difference[0, var_id, t, id*16+member_id]=np.nan
+                    elif t < config.nb_timesteps-1:
+                        absolute_temporal_difference[0, var_id, t, id*16+member_id] = np.mean(np.abs(real_sample[t+1][var_id] - real_sample[t][var_id]))
+                        temporal_difference[0, var_id, t, id*16+member_id] = np.mean(real_sample[t+1][var_id] - real_sample[t][var_id])
+
+                
+
+                    
+                    for checkpoint_id in range(1, len(config.training_step)+1):
                         # Pearson Correlation on generated samples
-                        for var_id in range(3):
-                            pearsons_first_to_each_leadtime_img[checkpoint_id, var_id, t, cursor+member_id] = scipy.stats.pearsonr(
-                                                                            gen_sample[0][var_id].flatten(),
-                                                                            gen_sample[t][var_id].flatten()
+                        pearsons_first_to_each_leadtime_img[checkpoint_id, var_id, t, id*16+member_id] = scipy.stats.pearsonr(
+                                                                            gen_samples[checkpoint_id-1][0][var_id].flatten(),
+                                                                            gen_samples[checkpoint_id-1][t][var_id].flatten()
+                        ).statistic
+                        if t==0 :
+                            pearsons_sliding_img[checkpoint_id, var_id, t, id*16+member_id]=np.nan
+                        elif t < config.nb_timesteps-1:
+                            pearsons_sliding_img[checkpoint_id, var_id, t, id*16+member_id] = scipy.stats.pearsonr(
+                                                            gen_samples[checkpoint_id-1][t][var_id].flatten(),
+                                                            gen_samples[checkpoint_id-1][t+1][var_id].flatten()
                             ).statistic
-                            if t==0 :
-                                pearsons_sliding_img[checkpoint_id, var_id, t, cursor+member_id]=np.nan
-                            elif t < config.nb_timesteps-1:
-                                pearsons_sliding_img[checkpoint_id, var_id, t, cursor+member_id] = scipy.stats.pearsonr(
-                                                                gen_sample[t][var_id].flatten(),
-                                                                gen_sample[t+1][var_id].flatten()
-                                ).statistic
 
-                            # Temporal Difference
-                            if t==0 :
-                                temporal_difference[checkpoint_id, var_id, t, cursor+member_id] = np.nan
-                            elif t < config.nb_timesteps-1:
-                                temporal_difference[checkpoint_id, var_id, t, cursor+member_id] = np.mean(np.abs(gen_sample[t+1][var_id] - gen_sample[t][var_id]))
+                        # Temporal Difference on generated samples
+                        if t==0 :
+                            absolute_temporal_difference[checkpoint_id, var_id, t, id*16+member_id] = np.nan
+                            temporal_difference[checkpoint_id, var_id, t, id*16+member_id] = np.nan
+                        elif t < config.nb_timesteps-1:
+                            absolute_temporal_difference[checkpoint_id, var_id, t, id*16+member_id] = np.mean(np.abs(gen_samples[checkpoint_id-1][t+1][var_id] - gen_samples[checkpoint_id-1][t][var_id]))
+                            temporal_difference[checkpoint_id, var_id, t, id*16+member_id] = np.mean(gen_samples[checkpoint_id-1][t+1][var_id] - gen_samples[checkpoint_id-1][t][var_id])
 
 
-        cursor+=16
 
     list_ticks = np.arange(0, 45, config.timestep_period)
     output_dir_temporal_exp = output_dir + 'Temporal_Experiments/'
@@ -344,7 +340,6 @@ if __name__=="__main__" :
         os.makedirs(output_dir_plots)
     
     diurnal_cycle = np.mean(diurnal_cycle, -1)
-    diurnal_cycle_average = np.mean(diurnal_cycle_average, -1)
     print('Saving Diurnal Cycle')
     np.save(output_dir_temporal_exp+f'Diurnal_Cycle_over_{nb_sample_total}_samples_{config.nb_timesteps}_nb_var_{len(config.var_names)}.npy', diurnal_cycle)
     print('Plotting Diurnal Cycle')
@@ -369,28 +364,6 @@ if __name__=="__main__" :
         if not os.path.exists(output_dir_diurnal_cycle):
             os.makedirs(output_dir_diurnal_cycle)
         fig.savefig(output_dir_diurnal_cycle+f'Diurnal_Cycle_over_{nb_sample_total}_samples_{config.nb_timesteps}_nb_var_{len(config.var_names)}_{key}.pdf') 
-    
-    fig, ax = plt.subplots(nrows=2, ncols=1, figsize=(16,16))
-    ax[0].plot(range(config.nb_timesteps),  diurnal_cycle_average[0, 0], linewidth=6, color='k', label='AROME')
-    ax[0].set_ylabel('Wind speed (m/s)', size = 30)
-    ax[0].set_xticks(range(len(list_ticks)), labels=list_ticks)
-    ax[1].plot(range(config.nb_timesteps), diurnal_cycle_average[0, 1], linewidth=6, color='k', label='AROME')
-    ax[1].set_ylabel('Temperature at 2m (K)', size = 30)
-    ax[1].set_xticks(range(len(list_ticks)), labels=list_ticks)
-
-    for checkpoint_id in range(1, len(config.training_step)+1):
-        ax[0].plot(range(config.nb_timesteps), diurnal_cycle_average[checkpoint_id, 0], linewidth=6, label=f'Generated - {config.training_step[checkpoint_id-1]}')
-        ax[0].legend(prop={'size':20})
-        ax[1].plot(range(config.nb_timesteps), diurnal_cycle_average[checkpoint_id, 1], linewidth=6, label=f'Generated - {config.training_step[checkpoint_id-1]}')
-        ax[1].legend(prop={'size':20})
-
-    fig.suptitle('Average Diurnal Cycle', size=30)
-    output_dir_diurnal_cycle = output_dir_plots + 'Diurnal_Cycle/'
-    if not os.path.exists(output_dir_diurnal_cycle):
-        os.makedirs(output_dir_diurnal_cycle)
-    fig.savefig(output_dir_diurnal_cycle+f'Average_diurnal_cycle_{nb_sample_total}_samples_{config.nb_timesteps}_nb_var_{len(config.var_names)}.pdf') 
-
-
     
     pearsons_sliding_img = np.mean(pearsons_sliding_img, -1)
     pearsons_first_to_each_leadtime_img = np.mean(pearsons_first_to_each_leadtime_img, -1)
@@ -453,13 +426,43 @@ if __name__=="__main__" :
     fig.savefig(output_dir_pearson_correlation+f'Pearson_Correlation_sliding_over_{nb_sample_total}_samples_{config.nb_timesteps}_nb_var_{len(config.var_names)}.pdf') 
 
 
+    absolute_temporal_difference = np.mean(absolute_temporal_difference, -1)
     temporal_difference = np.mean(temporal_difference, -1)
 
-    print('Saving Temporal Difference')
+    print('Saving Temporal Differences')
+    np.save(output_dir_temporal_exp+f'Absolute_Temporal_Difference_over_{nb_sample_total}_samples_{config.nb_timesteps}_nb_var_{len(config.var_names)}.npy', absolute_temporal_difference)
     np.save(output_dir_temporal_exp+f'Temporal_Difference_over_{nb_sample_total}_samples_{config.nb_timesteps}_nb_var_{len(config.var_names)}.npy', temporal_difference)
-    print('Plotting Temporal Difference')
-
     
+    print('Plotting Absolute Temporal Difference')
+    
+    fig, ax = plt.subplots(nrows=3, ncols=1, figsize=(16,16))
+    ax[0].plot(range(config.nb_timesteps-1),  absolute_temporal_difference[0, 0], linewidth=6, color='k', label='AROME')
+    ax[0].set_ylabel('Wind speed U (m/s)', size = 30)
+    ax[0].set_xticks(range(len(list_ticks)), labels=list_ticks)
+
+    ax[1].plot(range(config.nb_timesteps-1),  absolute_temporal_difference[0, 1], linewidth=6, color='k', label='AROME')
+    ax[1].set_ylabel('Wind speed V (m/s)', size = 30)
+    ax[1].set_xticks(range(len(list_ticks)), labels=list_ticks)
+
+    ax[2].plot(range(config.nb_timesteps-1), absolute_temporal_difference[0, 2], linewidth=6, color='k', label='AROME')
+    ax[2].set_ylabel('Temperature at 2m (K)', size = 30)
+    ax[2].set_xticks(range(len(list_ticks)), labels=list_ticks)
+
+    for checkpoint_id in range(1, len(config.training_step)+1):
+        ax[0].plot(range(config.nb_timesteps-1), absolute_temporal_difference[checkpoint_id, 0], linewidth=6, label=f'Generated - {config.training_step[checkpoint_id-1]}')
+        ax[0].legend(prop={'size':20})
+        ax[1].plot(range(config.nb_timesteps-1), absolute_temporal_difference[checkpoint_id, 1], linewidth=6, label=f'Generated - {config.training_step[checkpoint_id-1]}')
+        ax[1].legend(prop={'size':20})
+        ax[2].plot(range(config.nb_timesteps-1), absolute_temporal_difference[checkpoint_id, 2], linewidth=6, label=f'Generated - {config.training_step[checkpoint_id-1]}')
+        ax[2].legend(prop={'size':20})
+
+    fig.suptitle('Temporal Difference for Each Leadtime : ∆X = |X(t+1) - X(t)|', size=30)
+    output_dir_temporal_difference = output_dir_plots + 'Temporal_Difference/'
+    if not os.path.exists(output_dir_temporal_difference):
+        os.makedirs(output_dir_temporal_difference)
+    fig.savefig(output_dir_temporal_difference+f'Absolute_Temporal_Difference_over_{nb_sample_total}_samples_{config.nb_timesteps}_nb_var_{len(config.var_names)}.pdf') 
+    
+    print('Plotting Temporal Difference')
     fig, ax = plt.subplots(nrows=3, ncols=1, figsize=(16,16))
     ax[0].plot(range(config.nb_timesteps-1),  temporal_difference[0, 0], linewidth=6, color='k', label='AROME')
     ax[0].set_ylabel('Wind speed U (m/s)', size = 30)
@@ -481,8 +484,5 @@ if __name__=="__main__" :
         ax[2].plot(range(config.nb_timesteps-1), temporal_difference[checkpoint_id, 2], linewidth=6, label=f'Generated - {config.training_step[checkpoint_id-1]}')
         ax[2].legend(prop={'size':20})
 
-    fig.suptitle('Temporal Difference for Each Leadtime : ∆X = |X(t+1) - X(t)|', size=30)
-    output_dir_temporal_difference = output_dir_plots + 'Temporal_Difference/'
-    if not os.path.exists(output_dir_temporal_difference):
-        os.makedirs(output_dir_temporal_difference)
+    fig.suptitle('Temporal Difference for Each Leadtime : ∆X = X(t+1) - X(t)', size=30)
     fig.savefig(output_dir_temporal_difference+f'Temporal_Difference_over_{nb_sample_total}_samples_{config.nb_timesteps}_nb_var_{len(config.var_names)}.pdf') 

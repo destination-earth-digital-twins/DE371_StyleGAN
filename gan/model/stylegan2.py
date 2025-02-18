@@ -561,6 +561,7 @@ class Generator(nn.Module):
 
     def insert_feature(self, x, layer_idx, features_in, feature_scale):
         if features_in is not None and features_in[layer_idx] is not None:
+            # print('insertion of features')
             x = (1 - feature_scale) * x + feature_scale * features_in[layer_idx].type_as(x)
         return x
 
@@ -653,16 +654,18 @@ class Generator(nn.Module):
         for conv1, conv2, noise1, noise2, to_rgb in zip(
             self.convs[::2], self.convs[1::2], noise[1::2], noise[2::2], self.to_rgbs
         ):
-            
+            # print('feature_size before conv1',out.shape)
             out = self.insert_feature(out, i, features_in=features_in, feature_scale=feature_scale)
             # out = conv1(out, latent[:, i], noise=noise1)
             out = conv1(out, latent[:, i], noise=noise1, weights_delta=weights_deltas[weight_idx])
-
+            # print('feature_size after conv1',out.shape)
             outs.append(out)
             # print("From Generator :conv1 gen ", out.shape)
             out = self.insert_feature(out, i + 1, features_in=features_in, feature_scale=feature_scale)
             # out = conv2(out, latent[:, i + 1], noise=noise2)
+            # print('feature_size before conv2',out.shape)
             out = conv2(out, latent[:, i + 1], noise=noise2, weights_delta=weights_deltas[weight_idx + 1])
+            # print('feature_size after conv2',out.shape)
             # print("From Generator :conv2 gen ", out.shape)
             outs.append(out)
             # skip, input_conved, prev_rgb_upsampled, prev_rgb = to_rgb(out, latent[:, i + 2], skip)

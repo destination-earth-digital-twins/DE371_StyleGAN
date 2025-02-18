@@ -1,3 +1,4 @@
+*.pt
 *.pyc
 *regan*
 .idea
@@ -11,7 +12,6 @@ gan/configs/*
 *run*
 *.pth
 *.code-workspace
-*plotter/
 gan_2_ae/*
 *.sif
 .vscode/

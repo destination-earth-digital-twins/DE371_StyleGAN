@@ -14,7 +14,7 @@ log transform
 import numpy as np
 
 
-lifiles = ['/scratch/mrmn/gandonb/data/crop_processed_giga/{}.npy'.format(i) for i in range(1,26)]
+lifiles = ['/{}.npy'.format(i) for i in range(1,26)]
 
 
 Mean = np.zeros((5,))
