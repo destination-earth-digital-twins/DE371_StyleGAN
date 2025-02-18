@@ -76,6 +76,7 @@ def compute_generate_save(G, params, metrics_list, Means, Mins, Maxs, apply_log_
         Ens_w=w_ens, 
         G=G, 
         N_samples=N_samples, 
+        N_seeds=params.N_conditioners,
         sm_ind=params.style_indices,
         device=params.device, 
         sample_rule=params.sample_rule, 
@@ -137,6 +138,10 @@ def compute_generate_save(G, params, metrics_list, Means, Mins, Maxs, apply_log_
                                         Maxs=Maxs,
                                         apply_log_transform=apply_log_transform
                                         )
+    else :
+        Ens_r_denorm = Ens_r
+        inv_ens_denorm = inv_ens
+        
     gen_denorm = utils.denormalize(
                                     data=gen,
                                     normalization_type=params.normalization,
