@@ -5,10 +5,10 @@ import os
 from tqdm import tqdm
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--inv_data_dir', type=str, default='/project/home/p200177/DE_371/experiments_WP1/Grand_Ensemble/Inversion/')
-parser.add_argument('--gen_data_dir',type = str, default ="/project/home/p200177/DE_371/experiments_WP1/Grand_Ensemble/Perturbation/stochastic_['1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '0', '0', '0', '0']_False/samples/")
-parser.add_argument('--pack_dir',type = str, default ='/project/home/p200177/DE_371/experiments_WP1/Grand_Ensemble/Pack/')
-parser.add_argument('--output_dir',type = str, default ='/project/home/p200177/DE_371/experiments_WP1/Grand_Ensemble/Final/')
+parser.add_argument('--inv_data_dir', type=str, default='')
+parser.add_argument('--gen_data_dir',type = str, default ="")
+parser.add_argument('--pack_dir',type = str, default ='')
+parser.add_argument('--output_dir',type = str, default ='')
 parser.add_argument('--num_member',type = int, default = 875)
 parser.add_argument("--leadtimes", type=utils.str2intlist, default=[6,12,18,24,30,36,42])
 parser.add_argument("--var_indices", type=utils.str2intlist, default=[1,2,3])

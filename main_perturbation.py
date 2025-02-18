@@ -106,7 +106,6 @@ def compute_generate_save(G, params, metrics_list, Means, Mins, Maxs, apply_log_
     
     
     
-    
     if params.save_w_perturbated:
         if params.save_perturbation and not params.import_perturbation :
             title+='_generated_pert'
