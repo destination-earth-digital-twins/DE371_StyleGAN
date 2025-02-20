@@ -350,7 +350,7 @@ if __name__=="__main__" :
     for i in ax :
         i.legend()
 
-    fig.suptitle('Absolute Temporal Difference for Each Leadtime : ∆X = |X(t+1) - X(t)|', size=30)
+    fig.suptitle('Absolute Temporal Difference for Each Leadtime : ∆X = X(t+1) - X(t)', size=30)
     output_dir_temporal_difference = output_dir_plots + 'Temporal_Difference/'
     if not os.path.exists(output_dir_temporal_difference):
         os.makedirs(output_dir_temporal_difference)
@@ -375,7 +375,7 @@ if __name__=="__main__" :
     for i in ax :
         i.legend()
 
-    fig.suptitle('Temporal Difference for Each Leadtime : ∆X = X(t+1) - X(t)', size=30)
+    fig.suptitle('Temporal Difference for Each Leadtime : ∆X = |X(t+1) - X(t)|', size=30)
     fig.savefig(output_dir_temporal_difference+f'Temporal_Difference_over_{nb_sample_total}_samples_{params.nb_timesteps}_nb_var_{len(params.var_names)}.pdf') 
       
             

@@ -16,6 +16,7 @@ if __name__=="__main__" :
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--param', type=str, default='t2m')
+    parser.add_argument('--base_dir', type=str, default='/project/home/p200177/DE_371/datasets/dataset_Meteo_France/grandEnsemble/AROME/')
     parser.add_argument('--GAN_sample_dir', type=str, default='/project/home/p200177/DE_371/experiments_WP1/Grand_Ensemble/Perturbation/')
     parser.add_argument('--output_dir', type=str, default='/project/home/p200177/DE_371/experiments_WP1/Grand_Ensemble/Scores')
     parser.add_argument('--ech', type=int, default=6) # echeance de la prevision, n'importe quelle valeur entre 0 et 45h est disponible (par pas de 1h)
@@ -36,21 +37,9 @@ if __name__=="__main__" :
     lsmallens = True
     nbGANs = 1       # Nb of different GAN setups to plot
     nbrandinit = 50
-
     nameGAN = ["stochastic_['1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '0', '0', '0', '0']_False/"]
-
-    GANfilenames = ['genFsemble_']#'StyleMixing_2_3_10_12_','StyleMixing_0_2_9_12_']
-    GANnameout = ['cut=10_infl1.0']#,'cut=8', 'cut=10','cut=12', 'cut=14']
-
-    # choose the right option depending on the GAN file names 
-    #ech_GAN=np.int((ech/3)-1)
-    ech_GAN = args.ech
-
-    base_dir = "/project/home/p200177/DE_371/datasets/dataset_Meteo_France/grandEnsemble/AROME/"
-
-    unbias = args.unbias
-    # out_dir = base_dir + f"{args.ech}_{param}_{GANnameout[0]}" if not unbias else base_dir + f"{args.ech}_{param}_{GANnameout[0]}_unbias_{unbias}"
-    
+    GANfilenames = ['genFsemble_']
+    GANnameout = ['cut=10_infl1.2'] 
     os.makedirs(args.output_dir, exist_ok=True)
 
     if param=='t2m':
@@ -74,15 +63,12 @@ if __name__=="__main__" :
 
     # Initialisation projection
     crs=None
-    lpercentilebig=False
     lpercentile=True
     ldiffq=True
     lplotq=True
     lsaveq=True
     lstamp=False
     lrandinit=False
-    # reseaux = rangex(myDates)
-    # print(reseaux)
 
     def initsmall(lstbc,lstic,Ns,Nlbc):
         yic = random.sample(lstic, Ns)
@@ -107,31 +93,12 @@ if __name__=="__main__" :
             mb[:,r] = initsmall(lstlbc,lstic,Nsmall,Nlbc)
         np.save(args.output_dir + '/' + 'nbrandinit_MBs',mb,allow_pickle=True)
 
-    # reseau= reseaux[0]
-    if lpercentilebig:
-        print("computing percentiles of the real ensemble")
-        tab=np.load(base_dir+"/"+f'AllMB_{param}{str(lag)}_{suite}_+{str(args.ech)}h.npy', allow_pickle=True)
-        q0 = np.percentile(tab,0.0,interpolation='nearest',axis=0)
-        q05 = np.percentile(tab,0.5,interpolation='nearest',axis=0)
-        q1 = np.percentile(tab,1,interpolation='nearest',axis=0)
-        q5 = np.percentile(tab,5,interpolation='nearest',axis=0)
-        q10 = np.percentile(tab,10,interpolation='nearest',axis=0)
-        q25 = np.percentile(tab,25,interpolation='nearest',axis=0)
-        q50 = np.percentile(tab,50,interpolation='nearest',axis=0)
-        q75 = np.percentile(tab,75,interpolation='nearest',axis=0)
-        q90 = np.percentile(tab,90,interpolation='nearest',axis=0)
-        q95 = np.percentile(tab,95,interpolation='nearest',axis=0)
-        q99 = np.percentile(tab,99,interpolation='nearest',axis=0)
-        q995 = np.percentile(tab,99.5,interpolation='nearest',axis=0)
-        q100 = np.percentile(tab,100,interpolation='nearest',axis=0)
-
-
     if lGAN:
         reseau = '2021-10-01T21:00:00Z'
         if ldiffq:
             #load bigens.
             print("loading big real ensemble")
-            tabref = np.load(base_dir + '/AllMB_domain_' + str(dom) + '_' + param + str(lag)  + "_" + suite + "_"+ str(reseau) + "+"  + str(args.ech) + "h.npy", allow_pickle=True)
+            tabref = np.load(args.base_dir + '/AllMB_domain_' + str(dom) + '_' + param + str(lag)  + "_" + suite + "_"+ str(reseau) + "+"  + str(args.ech) + "h.npy", allow_pickle=True)
             print("computing quantiles and stdev of real ensemble")
 
             Qrefs = np.percentile(tabref, quant, interpolation='nearest', axis=0)
@@ -243,7 +210,7 @@ if __name__=="__main__" :
             Qs = []
             for i in range(nbrandinit):
                 print("Loading files containing GAN generations")
-                data = np.load(args.GAN_sample_dir + nameGAN[k] + 'samples/' + GANfilenames[k] + str(i) + '_' + str(ech_GAN) + '_2000.npy', mmap_mode='r', allow_pickle=True)
+                data = np.load(args.GAN_sample_dir + nameGAN[k] + 'samples/' + GANfilenames[k] + str(i) + '_' + str(args.ech) + '_2000.npy', mmap_mode='r', allow_pickle=True)
                 tabs = np.zeros((Nsmall,tabref.shape[1],tabref.shape[2]))
                 ## this members tab is the same for all leadtimes
                 mb = np.load(args.GAN_sample_dir + nameGAN[0] + "mb_" + str(i) + '_6_2000.npy',allow_pickle=True).astype(np.uint16)
@@ -266,7 +233,7 @@ if __name__=="__main__" :
                     
                     fig.savefig(args.output_dir + "/" + "MapOf_" + param  + "_dom" + dom + "_" + GANnameout[k] + "_mb100_init_"+ str(i)  +"_"+ str(reseau) + "+" + str(args.ech) + "h.png", dpi = 150, bbox_inches='tight')
 
-                if unbias:
+                if args.unbias:
                     print("unbiasing gan data wrt to conditioning AROME")
 
                     gan_mean = gan.mean(axis=0)

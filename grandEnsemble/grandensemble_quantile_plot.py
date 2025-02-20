@@ -81,37 +81,29 @@ ech = args.ech
 param = args.param
 
 list_expe = ['cut=10_infl1.0']
-names = {'cut=0_infl' :'cut=0' ,'cut=8' :'cut=8' ,'cut=12' :'cut=12' ,'cut=14' :'cut=14' ,'cut=10' : "cut=10", "shrink" :  "Shrink."}
-list_names = [n for n in list_expe] + ['Small']
 
-#list_data = []
 list_data_xtremes = []
+
 for exp in list_expe:
     print(exp)
     expename = exp[:-3] if 'ub' in exp else exp
-    #list_data.append(pd.read_pickle(PATH_pkl[exp] + 'Quantiles_avg_' + param + f'0_domGAN_{expename}_2021-10-01T21:00:00Z+'+ str(ech) + '.pkl'))
     list_data_xtremes.append(pd.read_pickle(PATH_pkl[exp] + 'Quantiles_avg_Xtremes' + param + f'0_domGAN_{expename}_2021-10-01T21:00:00Z+'+ str(ech) + '.pkl'))
     print(list_data_xtremes[-1].head(10))
 
+list_data_xtremes.append(pd.read_pickle(PATH_pkl[exp] + 'Quantiles_Xtremes_avg_' + param + f'0_domGAN_Small_2021-10-01T21:00:00Z+'+ str(ech) + '.pkl'))
 
-#list_data.append(pd.read_pickle(PATH_pkl['random'] + 'Quantiles_avg_' + param + f'0_domGAN_Small_2021-10-01T21:00:00Z+'+ str(ech) + '.pkl'))
-# list_data_xtremes.append(pd.read_pickle(PATH_pkl['pca_10_uvt'] + 'Quantiles_Xtremes_avg_' + param + f'0_domGAN_Small_2021-10-01T21:00:00Z+'+ str(ech) + '.pkl'))
-
-list_data_full = []
-list_data_1_99 = []
 
 merge = pd.concat(list_data_xtremes)
+file_name = '_'.join(list_expe)
+value_vars = [f"Diff{exp}" for exp in list_expe]
 
-file_name = '_'.join(list_names)
+merge = merge.loc[(merge['Quantiles'] >=1.0 ) & (merge['Quantiles'] <=95.0)]
 
-value_vars = [f"Diff{exp}" for exp in list_names]
-
-
-merge_5_95 = merge.loc[(merge['Quantiles'] >=5.0 ) & (merge['Quantiles'] <=95.0)]
 dd=pd.melt(merge,
             id_vars=['Quantiles'],
-            value_vars=value_vars,#['DiffSmall','Diffnormal','Diffrandom','Diffnormal_opt_sp'],
+            value_vars=value_vars,
             var_name='')
+
 sns.boxplot(x='Quantiles', y='value', data=dd, hue='')
 if param=='ff':
     plt.ylim(-9,9)
