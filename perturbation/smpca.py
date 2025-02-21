@@ -292,3 +292,80 @@ def fast_style_mixing(
     gen, _, _ = G([res], input_is_latent=True)
 
     return gen
+
+
+def fast_style_mixing_temporal(
+    dt,
+    theta,
+    gamma,
+    batch_w,
+    batch_w_next,
+    K,
+    w_avg,
+    n_samples,
+    G,
+    Whitening,
+    device="cpu",
+    beta_rule="linear",
+):
+    """
+    Perform style mixing using interpolation coefficients (alpha's) and scale coefficients (beta's)
+    and make the resulting physical samples differentiable wrt alpha's and beta's
+    To be used with scale_tune script
+    """
+    R, D = w_avg.shape  # Repeats, Dimension (typicallly = 14, 512)
+    n_styles_no_pca = 14 - R
+    
+    # sigmoid is applied to theta --> stored value is thus sigmoid(theta)
+    w_start = (
+        F.sigmoid(theta).view(1, 14, 1) * dt * batch_w_next
+        + (1.0 - F.sigmoid(theta).view(1, 14, 1) * dt) * batch_w
+    )
+
+    # perturbation on styles implying filtering
+    if R > 0:
+        z = torch.empty((n_samples, D)).normal_().contiguous().to(device)
+        with torch.no_grad():
+            w = G.style(z)
+        diff = torch.bmm(
+            Whitening.to(device).unsqueeze(0).repeat(n_samples, 1, 1),
+            (w - w.mean(dim=0)).unsqueeze(-1),
+        )  # diff of shape N_samples  x D
+        new_w = torch.einsum("abc, dc-> dab", K, diff.squeeze(dim=-1))
+
+    # perturbation on styles implying random noise
+    if n_styles_no_pca > 0:
+        z = torch.empty((n_samples, 512)).normal_().to(device)
+        with torch.no_grad():
+            w_nopca = G.style(z)
+        if R > 0:
+            w_pert = torch.cat(
+                [
+                    new_w,
+                    (w_nopca - w_nopca.mean(dim=0))
+                    .unsqueeze(1)
+                    .repeat(1, n_styles_no_pca, 1),
+                ],
+                dim=1,
+            )
+        else:
+            w_pert = (
+                (w_nopca - w_nopca.mean(dim=0))
+                .unsqueeze(1)
+                .repeat(1, n_styles_no_pca, 1)
+            )
+    else:
+        w_pert = new_w
+    # print(w_pert.shape)
+    dt = 1
+    # betas viewed as linear parameters
+    if beta_rule == "linear":
+        res = w_start + torch.mul(gamma.view(1, 14, 1) * w_pert, torch.sqrt(torch.tensor(dt)))
+        gen, _, _ = G([res], input_is_latent=True)
+
+    # constraining betas to be strictly in (0,1)
+    elif beta_rule == "sigmoid":
+        res = w_start + torch.mul(F.sigmoid(gamma).view(1, 14, 1) * w_pert , torch.sqrt(torch.tensor(dt)))
+    gen, _, _ = G([res], input_is_latent=True)
+
+    return gen
