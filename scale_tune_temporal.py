@@ -50,11 +50,14 @@ if __name__=="__main__" :
     parser.add_argument("--scale_rule",type=str,default='sigmoid')
     parser.add_argument("--pca_cut",type=int,default=10)
     parser.add_argument("--inflate",type=float, default=1.0)
+    parser.add_argument("--inflate_delta_field",type=float, default=1.0)
     parser.add_argument("--start",type=str, default="ones")
     parser.add_argument("--lambda_bias",type=float, default=1.0)
     parser.add_argument("--lambda_spectrum",type=float, default=0.0)
     parser.add_argument("--lambda_spread",type=float, default=1.0)
     parser.add_argument("--convert_ff_t",action="store_true")
+    parser.add_argument("--loss_on_delta_field",action="store_true")
+    parser.add_argument("--loss_on_field",action="store_true")
     parser.add_argument("--invert_step",type=int, default=1000)
     parser.add_argument("--optim_criterion", type=str, default='distrib_matching', choices=['distrib_matching','exchangeability'])
 
@@ -81,7 +84,7 @@ if __name__=="__main__" :
     args = parser.parse_args()
 
 
-    output_dir = f"{args.output_dir}interp_scale_pca_{args.pca_cut}_{args.inflate_random}_{args.inflate}_bias_{args.start}_{args.lambda_bias}_spread_{args.lambda_spread}_ff_{args.convert_ff_t}_{args.invert_step}/"
+    output_dir = f"{args.output_dir}interp_scale_pca_{args.pca_cut}_{args.inflate}_{args.inflate_delta_field}_loss_field_{args.loss_on_field}_loss_delta_field_{args.loss_on_delta_field}_bias_{args.start}_{args.invert_step}_{args.dt}/"
     os.makedirs(output_dir, exist_ok=True)
     instances = len(glob(output_dir + "Instance_*/"))
     print("instances already existing", instances)
@@ -127,9 +130,11 @@ if __name__=="__main__" :
     if args.start=='ones':
         theta = torch.ones((14,),dtype=torch.float32, requires_grad=True,device=device)
         gamma = 0.05 * torch.ones((14,),dtype=torch.float32,device=device)
+        gamma = gamma.requires_grad_(True)
     elif args.start=='zeros':
         theta = torch.zeros((14,),dtype=torch.float32, requires_grad=True,device=device)
-        gamma = -1.0 * torch.ones((14,),dtype=torch.float32,device=device, requires_grad=True)
+        gamma = -1.0 * torch.ones((14,),dtype=torch.float32,device=device)
+        gamma = gamma.requires_grad_(True)
     else:
         raise RuntimeError("Start unspecified")
 
@@ -148,8 +153,9 @@ if __name__=="__main__" :
             for id_lt, lt in enumerate(leadtimes):
                 batch_w = torch.tensor(np.load(args.fake_data_dir + f"w_{date[:10]}_{lt}_{args.invert_step}.npy").astype(np.float32)).to(device)
                 batch_y = torch.tensor(np.load(args.ensemble_data_dir + f"Rsemble_{date[:10]}_{lt}.npy").astype(np.float32)).to(device)
-                batch_w_next = torch.tensor(np.load(args.fake_data_dir + f"w_{date[:10]}_{lt+args.dt}_{args.invert_step}.npy").astype(np.float32)).to(device)
-                batch_y_next = torch.tensor(np.load(args.ensemble_data_dir + f"Rsemble_{date[:10]}_{lt+args.dt}.npy").astype(np.float32)).to(device)
+                # temporal difference is hard coded here
+                batch_w_next = torch.tensor(np.load(args.fake_data_dir + f"w_{date[:10]}_{lt+3}_{args.invert_step}.npy").astype(np.float32)).to(device)
+                batch_y_next = torch.tensor(np.load(args.ensemble_data_dir + f"Rsemble_{date[:10]}_{lt+3}.npy").astype(np.float32)).to(device)
 
                 batch_delta_w = ( batch_w_next - batch_w )
                 batch_delta_y = ( batch_y_next - batch_y )
@@ -226,15 +232,29 @@ if __name__=="__main__" :
                 if args.convert_ff_t:
                     gen, batch_y = convert_uvt2fft(gen, batch_y)
                 
-                # mean_loss = F.l1_loss(batch_delta_gen.mean(dim=0), batch_delta_y.mean(dim=0))
-                # inflation = args.inflate if not args.inflate_random else (1.0 + uniform(0,args.inflate))
-                # std_loss = F.l1_loss(torch.std(batch_delta_gen,dim=0, unbiased=True), inflation * torch.std(batch_delta_y,dim=0, unbiased=True))
+                if args.loss_on_field and not args.loss_on_delta_field:
+                    mean_loss = F.l1_loss(gen.mean(dim=0), batch_y.mean(dim=0))
+                    mean_loss += F.l1_loss(gen_next.mean(dim=0), batch_y_next.mean(dim=0))
+                    inflation = args.inflate if not args.inflate_random else (1.0 + uniform(0,args.inflate))
+                    std_loss = F.l1_loss(torch.std(gen,dim=0, unbiased=True), inflation * torch.std(batch_y,dim=0, unbiased=True))
+                    std_loss += F.l1_loss(torch.std(gen_next,dim=0, unbiased=True), inflation * torch.std(batch_y_next,dim=0, unbiased=True))
+                    
+                elif args.loss_on_delta_field and not args.loss_on_field:
+                    mean_loss = F.l1_loss(batch_delta_gen.mean(dim=0), batch_delta_y.mean(dim=0))
+                    inflation = args.inflate_delta_field if not args.inflate_random else (1.0 + uniform(0,args.inflate_delta_field))
+                    std_loss = F.l1_loss(torch.std(batch_delta_gen,dim=0, unbiased=True), inflation * torch.std(batch_delta_y,dim=0, unbiased=True))
 
-                mean_loss = F.l1_loss(gen.mean(dim=0), batch_y.mean(dim=0))
-                mean_loss += F.l1_loss(gen_next.mean(dim=0), batch_y_next.mean(dim=0))
-                inflation = args.inflate if not args.inflate_random else (1.0 + uniform(0,args.inflate))
-                std_loss = F.l1_loss(torch.std(gen,dim=0, unbiased=True), inflation * torch.std(batch_y,dim=0, unbiased=True))
-                std_loss += F.l1_loss(torch.std(gen_next,dim=0, unbiased=True), inflation * torch.std(batch_y_next,dim=0, unbiased=True))
+                else :
+                    # loss_on_field
+                    mean_loss = F.l1_loss(gen.mean(dim=0), batch_y.mean(dim=0))
+                    mean_loss += F.l1_loss(gen_next.mean(dim=0), batch_y_next.mean(dim=0))
+                    inflation = args.inflate if not args.inflate_random else (1.0 + uniform(0,args.inflate))
+                    std_loss = F.l1_loss(torch.std(gen,dim=0, unbiased=True), inflation * torch.std(batch_y,dim=0, unbiased=True))
+                    std_loss += F.l1_loss(torch.std(gen_next,dim=0, unbiased=True), inflation * torch.std(batch_y_next,dim=0, unbiased=True))
+                    # loss on delta field
+                    mean_loss += F.l1_loss(batch_delta_gen.mean(dim=0), batch_delta_y.mean(dim=0))
+                    inflation = args.inflate_delta_field if not args.inflate_random else (1.0 + uniform(0,args.inflate_delta_field))
+                    std_loss += F.l1_loss(torch.std(batch_delta_gen,dim=0, unbiased=True), inflation * torch.std(batch_delta_y,dim=0, unbiased=True))
 
                 if args.lambda_spectrum>0.0:
                     loss = args.lambda_bias * mean_loss + args.lambda_spread * std_loss# \

@@ -357,7 +357,6 @@ def fast_style_mixing_temporal(
     else:
         w_pert = new_w
     # print(w_pert.shape)
-    dt = 1
     # betas viewed as linear parameters
     if beta_rule == "linear":
         res = w_start + torch.mul(gamma.view(1, 14, 1) * w_pert, torch.sqrt(torch.tensor(dt)))
