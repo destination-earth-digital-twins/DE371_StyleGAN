@@ -17,104 +17,63 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 import argparse
+import os
 
-parser = argparse.ArgumentParser()
+def str2intlist(li):
+    if type(li)==list:
+        li2 = [int(p) for p in li]
+        return li2
+    
+    elif type(li)==str:
+        li2 = li[1:-1].split(',')
+        li3 = [int(p) for p in li2]
+        return li3
 
-parser.add_argument("--ech", type=int, default=42)
-parser.add_argument("--param", type=str,  default='t2m', choices = ['ff', 't2m'])
-parser.add_argument("--output_dir", type=str, default='/project/home/p200177/DE_371/experiments_WP1/Grand_Ensemble/scores/')
-args = parser.parse_args()
+    else : 
+        raise ValueError("li argument must be a string or a list, not '{}'".format(type(li)))
 
-base_dir = '/project/home/p200177/DE_371/experiments_WP1/Grand_Ensemble/Scores/'
+if __name__=="__main__" :
+    parser = argparse.ArgumentParser()
 
-# PATH_pkl = {'normal' : base_dir + f"{args.ech}_{args.param}_normal/",
-#             'normal_ub' : base_dir + f"{args.ech}_{args.param}_normal_unbias_True/",
-#             'random' : base_dir + f"{args.ech}_{args.param}_random/",
-#             'random_ub' : base_dir + f"{args.ech}_{args.param}_random_unbias_True/",
-#             'random_23_814' : base_dir + f"{args.ech}_{args.param}_random_23_814/",
-#             'random_23_814_ub' : base_dir + f"{args.ech}_{args.param}_random_23_814_unbias_True/",
-#             'random_ub' : base_dir + f"{args.ech}_{args.param}_random_unbias_True/",
-#             'normal_opt_sp' : base_dir + f"{args.ech}_{args.param}_normal_opt_sp/",
-#             'normal_opt_sp_ub' : base_dir + f"{args.ech}_{args.param}_normal_opt_sp_unbias_True/",
-#             'pca_w' : base_dir + f"{args.ech}_{args.param}_pca_w/",
-#             'pca_w_2.5' : base_dir + f"{args.ech}_{args.param}_pca_w_2.5/",
-#             'pca_w_5.0' : base_dir + f"{args.ech}_{args.param}_pca_w_5.0/",
-#             'mix_1.0_7_False' : base_dir + f"{args.ech}_{args.param}_mix_1.0_7_False/",
-#             'mix_0.5_8_False' :  base_dir + f"{args.ech}_{args.param}_mix_0.5_8_False/",
-#             'mix_0.5_8_True' :  base_dir + f"{args.ech}_{args.param}_mix_0.5_8_True/",
-#             'mix_0.5_5_True' :  base_dir + f"{args.ech}_{args.param}_mix_0.5_5_True/",
-#             'mix_0.5_11_True' :  base_dir + f"{args.ech}_{args.param}_mix_0.5_11_True/",
-#             'mix_0.5_11_False' :  base_dir + f"{args.ech}_{args.param}_mix_0.5_11_False/",
-#             'mix2_10' :  base_dir + f"{args.ech}_{args.param}_mix2_10/",
-#             'mix2_10_ub' :  base_dir + f"{args.ech}_{args.param}_mix2_10_ub/",
-#             'mix3_0' :  base_dir + f"{args.ech}_{args.param}_mix3_0/",
-#             'mix3_10' :  base_dir + f"{args.ech}_{args.param}_mix3_10/",
-#             'mix3_14' :  base_dir + f"{args.ech}_{args.param}_mix3_14/",
-#             'mix3_14_ub' :  base_dir + f"{args.ech}_{args.param}_mix3_14_unbias_True/",
-#             'mix3_10_ub' :  base_dir + f"{args.ech}_{args.param}_mix3_10_unbias_True/",
-#             'mix3_0_ub' :  base_dir + f"{args.ech}_{args.param}_mix3_0_unbias_True/",
-#             'cut=0' :  base_dir + f"{args.ech}_{args.param}_cut=0/",
-#             'cut=8' :  base_dir + f"{args.ech}_{args.param}_cut=8/",
-#             'pca_10_uvt' :  base_dir + f"{args.ech}_{args.param}_pca_10_uvt/",
-#             'cut=12' :  base_dir + f"{args.ech}_{args.param}_cut=12/",
-#             'cut=14' :  base_dir + f"{args.ech}_{args.param}_cut=14/",
-#             'cut=10' :  base_dir + f"{args.ech}_{args.param}_cut=10/",
-#             'cut=0_infl1.0' :  base_dir + f"{args.ech}_{args.param}_cut=0_infl1.0/",
-#             'cut=0_infl1.1' :  base_dir + f"{args.ech}_{args.param}_cut=0_infl1.1/",
-#             'cut=0_infl1.2' :  base_dir + f"{args.ech}_{args.param}_cut=0/",
-#             'cut=0_infl1.3' :  base_dir + f"{args.ech}_{args.param}_cut=0_infl1.3/",
-#             'cut=10_infl1.0' :  base_dir + f"{args.ech}_{args.param}_cut=0_infl1.0/",
-#             'cut=10_infl1.1' :  base_dir + f"{args.ech}_{args.param}_cut=0_infl1.1/",
-#             'cut=10_infl1.2' :  base_dir + f"{args.ech}_{args.param}_cut=0/",
-#             'cut=10_infl1.3' :  base_dir + f"{args.ech}_{args.param}_cut=0_infl1.3/",
-#             'cut=10_infl1.0' :  base_dir + f"{args.ech}_{args.param}_cut=0_infl1.0/",
-#             'cut=0_infl1.1' :  base_dir + f"{args.ech}_{args.param}_cut=0_infl1.1/",
-#             'cut=0_infl1.2' :  base_dir + f"{args.ech}_{args.param}_cut=0/",
-#             'cut=0_infl1.3' :  base_dir + f"{args.ech}_{args.param}_cut=0_infl1.3/",
-#             'shrink' :  base_dir + f"{args.ech}_{args.param}_shrink/",
-#             }
+    parser.add_argument("--ech", type=int, default=6)
+    parser.add_argument('--param', type=str2intlist, default=['ff', 't2m'])
+    parser.add_argument('--leadtimes', type=str2intlist, default=[6,12,18,24,30,36,42])
+    parser.add_argument("--output_dir", type=str, default='/project/home/p200177/DE_371/experiments_WP1/Grand_Ensemble/scores/')
+    args = parser.parse_args()
 
-PATH_pkl ={'cut=10_infl1.0' :  base_dir ,
-            }
+    base_dir = '/project/home/p200177/DE_371/experiments_WP1/Grand_Ensemble/Scores/Optim_Inversion/'
+    output_dir = base_dir + 'final_plot/'
+    os.makedirs(output_dir, exist_ok=True)
+    for param in args.param:
+        for leadtime in args.leadtimes :
+            list_expe = ['cut=10_infl1.2']
+            list_data_xtremes = []
+            for exp in list_expe:
+                list_data_xtremes.append(pd.read_pickle(base_dir+ 'Quantiles_Xtremes_avg/' + 'Quantiles_Xtremes_avg_GAN_' + param + f'0_domGAN_{exp}_2021-10-01T21:00:00Z+'+ str(leadtime) + '.pkl'))
+            list_data_xtremes.append(pd.read_pickle(base_dir+ 'Quantiles_Xtremes_avg/' + 'Quantiles_Xtremes_avg_AROME_' + param + f'0_domGAN_Small_2021-10-01T21:00:00Z+'+ str(leadtime) + '.pkl'))
 
-ech = args.ech
-param = args.param
+            merge = pd.concat(list_data_xtremes)
+            value_vars = [f"Diff{exp}" for exp in list_expe] + ["DiffSmall"] 
 
-list_expe = ['cut=10_infl1.0']
+            merge = merge.loc[(merge['Quantiles'] >=1.0 ) & (merge['Quantiles'] <=95.0)]
 
-list_data_xtremes = []
+            dd=pd.melt(merge,
+                        id_vars=['Quantiles'],
+                        value_vars=value_vars,
+                        var_name='')
 
-for exp in list_expe:
-    print(exp)
-    expename = exp[:-3] if 'ub' in exp else exp
-    list_data_xtremes.append(pd.read_pickle(PATH_pkl[exp] + 'Quantiles_avg_Xtremes' + param + f'0_domGAN_{expename}_2021-10-01T21:00:00Z+'+ str(ech) + '.pkl'))
-    print(list_data_xtremes[-1].head(10))
-
-list_data_xtremes.append(pd.read_pickle(PATH_pkl[exp] + 'Quantiles_Xtremes_avg_' + param + f'0_domGAN_Small_2021-10-01T21:00:00Z+'+ str(ech) + '.pkl'))
-
-
-merge = pd.concat(list_data_xtremes)
-file_name = '_'.join(list_expe)
-value_vars = [f"Diff{exp}" for exp in list_expe]
-
-merge = merge.loc[(merge['Quantiles'] >=1.0 ) & (merge['Quantiles'] <=95.0)]
-
-dd=pd.melt(merge,
-            id_vars=['Quantiles'],
-            value_vars=value_vars,
-            var_name='')
-
-sns.boxplot(x='Quantiles', y='value', data=dd, hue='')
-if param=='ff':
-    plt.ylim(-9,9)
-elif param=='t2m':
-    plt.ylim(-2,3)
-plt.axhline(0.0,0,1)
-plt.xlabel(f"Quantiles", fontweight='bold', fontsize=18)
-plt.xticks(size=14)
-plt.yticks(size=14)
-plt.savefig(base_dir + 'Diffqavg_overinit_wSmall_allQ_Xtremes_' + param + '_' + str(ech) + '_' + file_name +'.pdf')
-plt.clf()
-plt.close()
+            sns.boxplot(x='Quantiles', y='value', data=dd, hue='')
+            if param=='ff':
+                plt.ylim(-5,5)
+            elif param=='t2m':
+                plt.ylim(-2,3)
+            plt.suptitle(f'variable : {param} for leadtime +{leadtime}')
+            plt.axhline(0.0,0,1)
+            plt.xlabel(f"Quantiles", fontweight='bold', fontsize=18)
+            plt.xticks(size=14)
+            plt.yticks(size=14)
+            plt.savefig(output_dir + 'Diffqavg_overinit_allQ_Xtremes_' + param + '_' + str(leadtime)+'.pdf')
+            plt.clf()
+            plt.close()
 
 
