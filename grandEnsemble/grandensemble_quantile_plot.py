@@ -38,10 +38,10 @@ if __name__=="__main__" :
     parser.add_argument("--ech", type=int, default=6)
     parser.add_argument('--param', type=str2intlist, default=['ff', 't2m'])
     parser.add_argument('--leadtimes', type=str2intlist, default=[6,12,18,24,30,36,42])
-    parser.add_argument("--output_dir", type=str, default='/project/home/p200177/DE_371/experiments_WP1/Grand_Ensemble/scores/')
+    parser.add_argument("--base_dir", type=str, default='/project/home/p200177/DE_371/experiments_WP1/Grand_Ensemble/Scores/Optim_Inversion_ubiased/')
     args = parser.parse_args()
 
-    base_dir = '/project/home/p200177/DE_371/experiments_WP1/Grand_Ensemble/Scores/Optim_Inversion/'
+    base_dir = args.base_dir
     output_dir = base_dir + 'final_plot/'
     os.makedirs(output_dir, exist_ok=True)
     for param in args.param:
@@ -61,7 +61,7 @@ if __name__=="__main__" :
                         id_vars=['Quantiles'],
                         value_vars=value_vars,
                         var_name='')
-            print(dd)
+
             sns.boxplot(x='Quantiles', y='value', data=dd, hue='')
             if param=='ff':
                 plt.ylim(-5,5)
