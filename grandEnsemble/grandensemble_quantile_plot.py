@@ -55,13 +55,13 @@ if __name__=="__main__" :
             merge = pd.concat(list_data_xtremes)
             value_vars = [f"Diff{exp}" for exp in list_expe] + ["DiffSmall"] 
 
-            merge = merge.loc[(merge['Quantiles'] >=1.0 ) & (merge['Quantiles'] <=95.0)]
+            merge = merge.loc[(merge['Quantiles'] >= 0.6 ) & (merge['Quantiles'] <= 99.0)]
 
             dd=pd.melt(merge,
                         id_vars=['Quantiles'],
                         value_vars=value_vars,
                         var_name='')
-
+            print(dd)
             sns.boxplot(x='Quantiles', y='value', data=dd, hue='')
             if param=='ff':
                 plt.ylim(-5,5)

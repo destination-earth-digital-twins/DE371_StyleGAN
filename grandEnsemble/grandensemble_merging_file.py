@@ -34,6 +34,7 @@ for lt in tqdm(params.leadtimes) :
             lead_time=lt,
             var_indices=params.var_indices
         )
+        #  DENORM DATA IF NECESSARY
         np.save(params.output_dir + f'Pack/Rsemble_{lt}_875.npy', Ens_r)
 
     if not os.path.isfile(params.output_dir + f'Inversion/invertFsemble_{lt}_875.npy'):
