@@ -38,11 +38,11 @@ if __name__=="__main__" :
     parser.add_argument("--ech", type=int, default=6)
     parser.add_argument('--param', type=str2intlist, default=['ff', 't2m'])
     parser.add_argument('--leadtimes', type=str2intlist, default=[6,12,18,24,30,36,42])
-    parser.add_argument("--base_dir", type=str, default='/project/home/p200177/DE_371/experiments_WP1/Grand_Ensemble/Scores/Optim_Inversion_ubiased/')
+    parser.add_argument("--base_dir", type=str, default='/project/home/p200177/DE_371/experiments_WP1/Grand_Ensemble/Scores/Optim_Inversion/')
     args = parser.parse_args()
 
     base_dir = args.base_dir
-    output_dir = base_dir + 'final_plot/'
+    output_dir = base_dir + '_final_plot_/'
     os.makedirs(output_dir, exist_ok=True)
     for param in args.param:
         for leadtime in args.leadtimes :
@@ -53,18 +53,18 @@ if __name__=="__main__" :
             list_data_xtremes.append(pd.read_pickle(base_dir+ 'Quantiles_Xtremes_avg/' + 'Quantiles_Xtremes_avg_AROME_' + param + f'0_domGAN_Small_2021-10-01T21:00:00Z+'+ str(leadtime) + '.pkl'))
 
             merge = pd.concat(list_data_xtremes)
-            value_vars = [f"Diff{exp}" for exp in list_expe] + ["DiffSmall"] 
-
-            merge = merge.loc[(merge['Quantiles'] >= 0.6 ) & (merge['Quantiles'] <= 99.0)]
+            value_vars = [f"Diff{exp}" for exp in list_expe] + ["DiffSmall"]
+            merge = merge.loc[(merge['Quantiles'] != 0.5) & (merge['Quantiles'] != 99.5)]
 
             dd=pd.melt(merge,
                         id_vars=['Quantiles'],
                         value_vars=value_vars,
-                        var_name='')
+                        var_name=''
+            )
 
             sns.boxplot(x='Quantiles', y='value', data=dd, hue='')
             if param=='ff':
-                plt.ylim(-5,5)
+                plt.ylim(-9,9)
             elif param=='t2m':
                 plt.ylim(-2,3)
             plt.suptitle(f'variable : {param} for leadtime +{leadtime}')
