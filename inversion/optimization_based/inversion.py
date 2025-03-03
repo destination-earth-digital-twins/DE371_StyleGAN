@@ -227,8 +227,6 @@ def optimize(Ens_r, g_ema, init_latent, device, params, Means, Maxs, Mins, featu
         else :
             img_gen, features_out, _ = g_ema([latent_n], input_is_latent=True, return_features=True, noise=None, features_in=features_in, feature_scale=params.feature_scale)
 
-        batch, channel, height, width = img_gen.shape
-        # print('img_gen shape :', img_gen.shape)
         if params.noise_optimize:
             noise_loss = noise_regularize(noises)
             loss+=noise_loss*params.lambda_noise

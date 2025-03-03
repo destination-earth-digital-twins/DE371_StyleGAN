@@ -165,11 +165,8 @@ if __name__=="__main__" :
         os.mkdir(params.output_dir)
         os.mkdir(params.output_dir + '/samples/')
         os.mkdir(params.output_dir + '/log/')
-        # source_readme = root_dir + 'ReadMe_0.txt'
-        # target_readme = params.output_dir + 'ReadMe_0.txt'
-        # copyfile(source_readme, target_readme)
     
-    
+
     ################ loading network #################
 
     device = 'cuda' if torch.cuda.is_available() else 'cpu'

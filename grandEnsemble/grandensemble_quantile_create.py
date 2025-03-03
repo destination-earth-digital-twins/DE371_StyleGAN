@@ -88,14 +88,11 @@ if __name__=="__main__" :
     quant = [0,0.5,1,5,10,25,50,75,90,95,99,99.5,100]
     Nsmall = 16
     Nlbc = 25
-    lGAN = True
-    lvisuGAN = False # True if you want to plot individualGAN members in addition to percentiles
-    lsmallens = True
     nbGANs = 1       # Nb of different GAN setups to plot
     nbrandinit = 50
     nameGAN = ["stochastic_['1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '0', '0', '0', '0']_False/"]
     GANfilenames = ['genFsemble_']
-    GANnameout = ['cut=10_infl1.2'] 
+    GANnameout = ['Optim_MSE', 'Optim_VGG', 'Hybrid'] 
     plot_id_nbrandinit = 0
     os.makedirs(args.output_dir, exist_ok=True)
 
@@ -134,10 +131,13 @@ if __name__=="__main__" :
             reseau = '2021-10-01T21:00:00Z'
             clim = list()
 
-            #load big ensemble as a reference
-            print("loading big real ensemble")
+            ################################################
+            ############# Large AROME Ensemble #############
+            ################################################
+
+            print("Loading large real ensemble")
             tabref = np.load(args.base_dir + '/AllMB_domain_' + str(dom) + '_' + param + str(lag)  + "_" + suite + "_"+ str(reseau) + "+"  + str(leadtime) + "h.npy", allow_pickle=True)
-            print("computing quantiles and stdev of real ensemble")
+            print("Computing quantiles and stdev of large real ensemble")
 
             Qrefs = np.percentile(tabref, quant, interpolation='nearest', axis=0)
             data_ref_list = [Qrefs[i] for i in range(13)]
@@ -151,7 +151,7 @@ if __name__=="__main__" :
             for quantile in Qrefs:
                 clim.append((quantile.min(), quantile.max()))
 
-            print("Plotting AROME Quantile large")
+            print("Plotting AROME Quantile of large real ensemble")
             plot_quantile(
                 data_list=Qrefs,
                 output_dir=args.output_dir,
@@ -163,12 +163,16 @@ if __name__=="__main__" :
                 denom = ["Q0","Q05", "Q1", "Q5", "Q10","Q25","Q50","Q75","Q90","Q95", "Q99", "Q995", "Q100", "Sdev"]
             )
 
-            print("Keeping track of quantiles spatial means")
+            # Keeping track of quantiles spatial means
             qref_avg = np.zeros((np.size(quant)))
             for q in range(np.size(quant)):
                 qref_avg[q] = Qrefs[q].mean()
 
-            print("Computing stats of small ensemble")
+            ################################################
+            ############# Small AROME Ensemble #############
+            ################################################
+
+            print("Loading small real ensemble")
             q0small = []
             q05small = []
             q1small = []
@@ -184,6 +188,7 @@ if __name__=="__main__" :
             q100small = []
             sdev_small = []
             qavg_small=pd.DataFrame(columns=['leadtime','Quantiles','Init','DiffSmall', 'DiffRelSmall'])
+            print("Computing quantiles and stdev of small real ensemble")
             for i in trange(nbrandinit):
                 tabs = np.zeros((Nsmall,tabref.shape[1],tabref.shape[2]))
                 mb = np.load(args.GAN_sample_dir + nameGAN[0] + "mb_" + str(i) + f'_{leadtime}_2000.npy',allow_pickle=True).astype(np.uint16)
@@ -202,12 +207,12 @@ if __name__=="__main__" :
                 q50small.append(Qsmall[6])
                 q75small.append(Qsmall[7])
                 q90small.append(Qsmall[8])
-                q95small.append(Qsmall[9]) #)np.percentile(tabref,50,interpolation='nearest',axis=0)
-                q99small.append(Qsmall[10]) #np.percentile(tabref,75,interpolation='nearest',axis=0)
-                q995small.append(Qsmall[11]) #np.percentile(tabref,75,interpolation='nearest',axis=0)
-                q100small.append(Qsmall[12])#np
+                q95small.append(Qsmall[9])
+                q99small.append(Qsmall[10])
+                q995small.append(Qsmall[11])
+                q100small.append(Qsmall[12])
                 sdev_small.append(np.std(tabs,axis=0,ddof=1))
-                # ## I don't understand this loop
+
                 for q in range(np.size(quant)):
                     qsmall_avg = np.mean(Qsmall[q])
                     newq=pd.DataFrame([[leadtime,quant[q],i,qsmall_avg-qref_avg[q],(qsmall_avg-qref_avg[q])/qref_avg[q]]],columns=['leadtime','Quantiles','Init','DiffSmall','DiffRelSmall'])
@@ -254,6 +259,10 @@ if __name__=="__main__" :
                 median_quantiles_diffsmall_dir = args.output_dir+'/median_quantiles_diffsmall'
                 os.makedirs(median_quantiles_diffsmall_dir, exist_ok=True)
                 np.save(f"{median_quantiles_diffsmall_dir}/median_quantiles_diffsmall_{leadtime}_{param}.npy",np.array(data_list))
+
+            ################################################
+            ############# Large GAN Ensemble #############
+            ################################################
 
             for k in range(nbGANs):
                 qavg=pd.DataFrame(columns=['leadtime','Quantiles','Init','Diff'+GANnameout[k], 'DiffRel'+GANnameout[k]])
