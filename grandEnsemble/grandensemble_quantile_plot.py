@@ -38,22 +38,29 @@ if __name__=="__main__" :
     parser.add_argument("--ech", type=int, default=6)
     parser.add_argument('--param', type=str2intlist, default=['ff', 't2m'])
     parser.add_argument('--leadtimes', type=str2intlist, default=[6,12,18,24,30,36,42])
-    parser.add_argument("--base_dir", type=str, default='/project/home/p200177/DE_371/experiments_WP1/Grand_Ensemble/Scores/Optim_Inversion/')
+    parser.add_argument("--base_dir", type=str, default='/project/home/p200177/DE_371/experiments_WP1/Grand_Ensemble/Scores/')
     args = parser.parse_args()
 
+    PATH_exp = {'Optim_MSE_250' : "/project/home/p200177/DE_371/experiments_WP1/Grand_Ensemble/Scores/Optim_MSE/Quantiles_250/",
+                'Optim_MSE' : "/project/home/p200177/DE_371/experiments_WP1/Grand_Ensemble/Scores/Optim_MSE/Quantiles_500/",
+                'Optim_MSE_1000' : "/project/home/p200177/DE_371/experiments_WP1/Grand_Ensemble/Scores/Optim_MSE/Quantiles_1000/",
+                'cut=10_infl1.2' : "/project/home/p200177/DE_371/experiments_WP1/Grand_Ensemble/Scores/Optim/Optim_Inversion/",
+                'Hybrid_200' : "/project/home/p200177/DE_371/experiments_WP1/Grand_Ensemble/Scores/Hybrid/"
+    }
     base_dir = args.base_dir
-    output_dir = base_dir + '_final_plot_/'
+    output_dir = base_dir + 'final_plot_500/'
     os.makedirs(output_dir, exist_ok=True)
     for param in args.param:
         for leadtime in args.leadtimes :
-            list_expe = ['cut=10_infl1.2']
+
+            list_expe = ['Optim_MSE', 'cut=10_infl1.2']
             list_data_xtremes = []
             for exp in list_expe:
-                list_data_xtremes.append(pd.read_pickle(base_dir+ 'Quantiles_Xtremes_avg/' + 'Quantiles_Xtremes_avg_GAN_' + param + f'0_domGAN_{exp}_2021-10-01T21:00:00Z+'+ str(leadtime) + '.pkl'))
-            list_data_xtremes.append(pd.read_pickle(base_dir+ 'Quantiles_Xtremes_avg/' + 'Quantiles_Xtremes_avg_AROME_' + param + f'0_domGAN_Small_2021-10-01T21:00:00Z+'+ str(leadtime) + '.pkl'))
+                list_data_xtremes.append(pd.read_pickle(PATH_exp[exp]+ 'Quantiles_Xtremes_avg/' + 'Quantiles_Xtremes_avg_GAN_' + param + f'0_domGAN_{exp}_2021-10-01T21:00:00Z+'+ str(leadtime) + '.pkl'))
+            list_data_xtremes.append(pd.read_pickle(PATH_exp[exp]+ 'Quantiles_Xtremes_avg/' + 'Quantiles_Xtremes_avg_AROME_' + param + f'0_domGAN_Small_2021-10-01T21:00:00Z+'+ str(leadtime) + '.pkl'))
 
             merge = pd.concat(list_data_xtremes)
-            value_vars = [f"Diff{exp}" for exp in list_expe] + ["DiffSmall"]
+            value_vars = ["DiffOptim_MSE", "Diffcut=10_infl1.2" ,"DiffSmall"]
             merge = merge.loc[(merge['Quantiles'] != 0.5) & (merge['Quantiles'] != 99.5)]
 
             dd=pd.melt(merge,

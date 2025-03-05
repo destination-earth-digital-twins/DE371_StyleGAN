@@ -76,6 +76,7 @@ if __name__=="__main__" :
     parser.add_argument('--GAN_sample_dir', type=str, default='/project/home/p200177/DE_371/experiments_WP1/Grand_Ensemble/Perturbation/')
     parser.add_argument('--output_dir', type=str, default='/project/home/p200177/DE_371/experiments_WP1/Grand_Ensemble/Scores/test_test')
     parser.add_argument('--leadtimes', type=str2intlist, default=[6,12,18,24,30,36,42]) # echeance de la prevision, n'importe quelle valeur entre 0 et 45h est disponible (par pas de 1h)
+    parser.add_argument('--inv_step', type=int, default=1000)
     parser.add_argument('--unbias', action="store_true")
     args = parser.parse_args()
 
@@ -92,7 +93,7 @@ if __name__=="__main__" :
     nbrandinit = 50
     nameGAN = ["stochastic_['1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '0', '0', '0', '0']_False/"]
     GANfilenames = ['genFsemble_']
-    GANnameout = ['Optim_MSE', 'Optim_VGG', 'Hybrid'] 
+    GANnameout = ['Optim_MSE'] 
     plot_id_nbrandinit = 0
     os.makedirs(args.output_dir, exist_ok=True)
 
@@ -191,7 +192,7 @@ if __name__=="__main__" :
             print("Computing quantiles and stdev of small real ensemble")
             for i in trange(nbrandinit):
                 tabs = np.zeros((Nsmall,tabref.shape[1],tabref.shape[2]))
-                mb = np.load(args.GAN_sample_dir + nameGAN[0] + "mb_" + str(i) + f'_{leadtime}_2000.npy',allow_pickle=True).astype(np.uint16)
+                mb = np.load(args.GAN_sample_dir + nameGAN[0] + "mb_" + str(i) + f'_{leadtime}_{args.inv_step}.npy',allow_pickle=True).astype(np.uint16)
 
                 ### This loop should maybe be rewritten and using numpy array reindexing directly
                 for k in range(Nsmall):
@@ -269,10 +270,10 @@ if __name__=="__main__" :
                 Qs = []
                 for i in trange(nbrandinit):
                     print("Loading files containing GAN generations")
-                    data = np.load(args.GAN_sample_dir + nameGAN[k] + 'samples/' + GANfilenames[k] + str(i) + '_' + str(leadtime) + '_2000.npy', mmap_mode='r', allow_pickle=True)
+                    data = np.load(args.GAN_sample_dir + nameGAN[k] + 'samples/' + GANfilenames[k] + str(i) + '_' + str(leadtime) + f'_{args.inv_step}.npy', mmap_mode='r', allow_pickle=True)
                     tabs = np.zeros((Nsmall,tabref.shape[1],tabref.shape[2]))
                     ## this members tab is the same for all leadtimes
-                    mb = np.load(args.GAN_sample_dir + nameGAN[0] + "mb_" + str(i) + f'_{leadtime}_2000.npy',allow_pickle=True).astype(np.uint16)
+                    mb = np.load(args.GAN_sample_dir + nameGAN[0] + "mb_" + str(i) + f'_{leadtime}_{args.inv_step}.npy',allow_pickle=True).astype(np.uint16)
 
                     ### This loop should maybe be rewritten and using numpy array reindexing directly
                     for mb_idx in range(Nsmall):

@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 from inversion.experimental_loss.ssim import MS_SSIM
 from plot_analysis.utils import calc_anomaly_correlation_coefficient
 import scipy
+from utils.utils import denormalize, normalize
 torch.manual_seed(42) #reproducibility of runs
 
 
@@ -25,15 +26,17 @@ if __name__=="__main__" :
     
     ########################### Directories ###########################
     # Checkpoint directory - PATH to generator's weight
-    parser.add_argument('--ckpt_dir', type = str, default ='')
+    parser.add_argument('--ckpt_dir', type = str, default ='/project/home/p200177/DE_371/resources/models/trained_generator/000024.pt')
     # Real Data Directory - PATH to samples of the dataset
     
-    parser.add_argument('--pack_dir', type = str, default ='')
+    parser.add_argument('--pack_dir', type = str, default ='/project/home/p200177/DE_371/experiments_WP1/Grand_Ensemble/Final/Pack/')
+    parser.add_argument('--real_data_dir', type = str, 
+                        default='/project/home/p200177/DE_371/datasets/dataset_Meteo_France/IS_1_1.0_0_0_0_0_0_256_large_lt_done/')
     
     # Output Directory - PATH where the output of the inversion will be saved
-    parser.add_argument('--output_dir',type = str, default ='')
+    parser.add_argument('--output_dir',type = str, default ='/project/home/p200177/DE_371/experiments_WP1/Grand_Ensemble/Scores/Distance_plots/')
     
-    parser.add_argument('--gen_sample_dir',type = str, default ="")
+    parser.add_argument('--gen_sample_dir',type = str, default ="/project/home/p200177/DE_371/experiments_WP1/Grand_Ensemble/Final/Gen/")
 
     parser.add_argument("--var_indices", type=utils.str2intlist, default=[1,2,3])
     parser.add_argument("--Shape", type=tuple, default=(3,256,256), help='size of the samples')
@@ -46,7 +49,7 @@ if __name__=="__main__" :
     parser.add_argument('--mean_file', type=str, default='Mean_4_var.npy') # not used if minmax normalization
     parser.add_argument('--min_file', type=str, default='min_rr_log.npy')  # not used if meanmax normalization
     
-    parser.add_argument('--device', type=str, default='cuda')
+    parser.add_argument('--device', type=str, default='cpu')
 
     ########################## CONTROL of Data to invert ######################
     parser.add_argument("--leadtimes", type=utils.str2intlist, default=[6,12,18,24,30,36,42])
@@ -65,6 +68,18 @@ if __name__=="__main__" :
     params.Shape = tuple(params.Shape)
     params.crop_indices = tuple(params.crop_indices)
 
+    Means=None
+    Maxs=None
+    Mins=None
+    if params.normalization=="meanmax":
+        Means = np.load(f'{params.real_data_dir}{params.mean_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
+        Maxs = np.load(f'{params.real_data_dir}{params.max_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
+    elif params.normalization=="minmax":
+       Mins = np.load(f'{params.real_data_dir}/stat_files/{params.min_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
+       Maxs = np.load(f'{params.real_data_dir}/stat_files/{params.max_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
+    else:
+       raise ValueError(f"Unknown normalization: {params.normalization}")
+    
     # create output and pack directories
     if not os.path.exists(params.output_dir):
         os.makedirs(params.output_dir)
@@ -81,24 +96,45 @@ if __name__=="__main__" :
     #################### main loop ##################
     start = params.start_member
     stop = params.stop_member
-    
+    random = True
+    if random : 
+        members_id = np.random.randint(0, 875, params.stop_member).tolist()
     for lt in params.leadtimes:
-        path_to_pack_sample = params.pack_dir + f"Rsemble_{lt}_875.npy"    
-        Ens_r = torch.from_numpy(np.load(path_to_pack_sample)).to(params.device)[:params.stop_member]
+        path_to_pack_sample = params.pack_dir + f"Rsemble_{lt}_875.npy"
+        if not random :
+            Ens_r = torch.from_numpy(np.load(path_to_pack_sample)).to(params.device)[:params.stop_member]
+        else :
+            Ens_r = torch.from_numpy(np.load(path_to_pack_sample)).to(params.device)[members_id]
+        
+        
         print('shape of AROME ensemble :', Ens_r.size())
         params.date_index = f'{start}_{stop}'
         params.lt_index = lt
         nb_member, _, _ ,_ = Ens_r.size()
 
-        try :
-            path_to_sample = params.gen_sample_dir + f"genFsemble_{lt}_875.npy"    
-            Ens_gen = torch.from_numpy(shuffle_along_axis(np.load(path_to_sample), 0)).to(params.device)[:params.stop_member]
-            nb_gen_member, _, _ ,_ = Ens_gen.shape
-        except :
-            print(f"File 'genFsemble_{lt}_875.npy' Not Found")
-            nb_gen_member=0
-        
+        # try :
+        path_to_sample = params.gen_sample_dir + f"genFsemble_{lt}_875.npy"    
+        # Ens_gen = torch.from_numpy(shuffle_along_axis(np.load(path_to_sample), 0)).to(params.device)[:params.stop_member]
+        if not random :
+            Ens_gen = torch.from_numpy(np.load(path_to_sample)).to(params.device)[:params.stop_member]
+        else :
+            Ens_gen = torch.from_numpy(np.load(path_to_sample)).to(params.device)[members_id]
 
+        Ens_gen = normalize(
+            data=Ens_gen.clone(),
+            normalization_type=params.normalization,
+            Means=Means,
+            Mins=Mins,
+            Maxs=Maxs,
+            apply_log_transform=False
+        )
+
+        nb_gen_member, _, _ ,_ = Ens_gen.shape
+        # except :
+        #     print(f"File 'genFsemble_{lt}_875.npy' Not Found")
+        #     nb_gen_member=0
+        
+        print('Total nb member to compare :', nb_member+nb_gen_member)
         dist_l2 = np.zeros((nb_member+nb_gen_member, nb_member+nb_gen_member))
         dist_l1 = np.zeros((nb_member+nb_gen_member, nb_member+nb_gen_member))
         dist_ssim = np.zeros((nb_member+nb_gen_member, nb_member+nb_gen_member))
@@ -107,6 +143,7 @@ if __name__=="__main__" :
         
         for i in range(nb_member+nb_gen_member):
             for j in range(i, nb_member+nb_gen_member):
+                # print(lt, i,j)
                 if i!=j :
                     if i < nb_member and j < nb_member :
                         # Distance of AROME members with themselves
@@ -170,9 +207,9 @@ if __name__=="__main__" :
                         # # anomaly_correlation_coefficient[i][j]=climpred.metrics._pearson_r((Ens_gen[j-nb_member].flatten().cpu().numpy()+1)/2, (Ens_gen[j-nb_member].flatten().cpu().numpy()+1)/2)
                         anomaly_correlation_coefficient[j][i]=anomaly_correlation_coefficient[i][j]
 
-        dist_l2 = (dist_l2-dist_l2.min())/(dist_l2.max()-dist_l2.min())
-        dist_l1 = (dist_l1-dist_l1.min())/(dist_l1.max()-dist_l1.min())
-        dist_ssim = (dist_ssim-dist_ssim.min())/(dist_ssim.max()-dist_ssim.min())
+        # dist_l2 = (dist_l2-dist_l2.min())/(dist_l2.max()-dist_l2.min())
+        # dist_l1 = (dist_l1-dist_l1.min())/(dist_l1.max()-dist_l1.min())
+        # dist_ssim = (dist_ssim-dist_ssim.min())/(dist_ssim.max()-dist_ssim.min())
 
         fig, ax = plt.subplots(nrows=1, ncols=5, figsize=(25,6))
         im=ax[0].matshow(dist_l2, cmap='plasma')

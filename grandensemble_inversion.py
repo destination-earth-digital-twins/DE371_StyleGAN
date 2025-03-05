@@ -269,7 +269,7 @@ if __name__=="__main__" :
                     already_exist.append(False)
 
             if np.all(already_exist) :
-                print('The inversion was already done for the date {} with leadtime {} and invstepps :{}. This sample is skipped.'.format(datename,lt,params.invstep))
+                print('The inversion was already done for the date {} with leadtime {} and invstepps :{}. This sample is skipped.'.format(params.date_index,lt,params.invstep))
             else :
                 print('Launching inversion process for member {} to member {} with leadtime {}.'.format(start,stop,lt))
 
