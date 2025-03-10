@@ -22,16 +22,21 @@ def interpolate(dataloader, model, generator, device, args):
         for index, batch in enumerate(dataloader):
             date, t_start, t_end, t_int = dataloader.dataset.indices[index]
             print(f"Date: {date}, t_start={t_start}, t_end={t_end}, t_int={t_int}")
-            batch = [x.to(device).view(-1, *x.shape[2:]) for x in batch]
-            w_start, w_end, t, w_t, r_start, r_end, r_t = batch
+            batch = [
+                x.to(device).view(-1, *x.shape[2:]) if x.dim() > 2 else x.to(device)
+                for x in batch
+            ]
+            w_start, w_end, t_frac, t_encodings, w_t, r_start, r_end, r_t = batch
+            w_interpolated = model(w_start, w_end, t_frac, t_encodings).to(device)
 
-            w_interpolated = model(w_start, w_end, t).to(device)
-            w_latent_linear_interpolation = linear_interpolation(w_start, w_end, t[0])
+            n_members = int(w_start.size(0) / t_frac.size(0))
+            t_frac = torch.repeat_interleave(t_frac, repeats=n_members)
+            w_latent_linear_interpolation = linear_interpolation(w_start, w_end, t_frac.view(-1, 1, 1))
 
             r_inverted = generate_image_from_latent(w_t, generator).to(device)
             r_latent_nn_interpolation = generate_image_from_latent(w_interpolated, generator).to(device)
             r_latent_linear_interpolation = generate_image_from_latent(w_latent_linear_interpolation, generator)
-            r_phys_interpolated = linear_interpolation(r_start, r_end, t)
+            r_phys_interpolated = linear_interpolation(r_start, r_end, t_frac.view(-1, 1, 1, 1))
             
             # Compute MSE metrics
             inverted_mse = get_mse(r_t, r_inverted, device)
@@ -113,7 +118,9 @@ def main():
         "LatentCodeInterpolator": models.LatentCodeInterpolator,
         "LatentCodeInterpolatorCorrector": models.LatentCodeInterpolatorCorrector,
         "StyleVectorInterpolator": models.StyleVectorInterpolator,
-        "StyleVectorInterpolatorCorrector": models.StyleVectorInterpolatorCorrector
+        "StyleVectorInterpolatorCorrector": models.StyleVectorInterpolatorCorrector,
+        "StyleVectorInterpolatorExtended": models.StyleVectorInterpolatorExtended,
+        "StyleVectorInterpolatorCorrectorExtended": models.StyleVectorInterpolatorCorrectorExtended
     }
 
     # Initialize model, loss function and optimizer
@@ -144,7 +151,7 @@ def main():
         latent_basepath=f"{inv_dir}w",
         real_basepath=f"{pack_dir}Rsemble",
         leadtimes=np.arange(1, 26, 6),
-        dt=6, fmt='npy', include_input_leadtimes=False)
+        dt=6, fmt='npy', include_input_leadtimes=True)
     
     intepolation_dataloader = DataLoader(dataset, batch_size=1, num_workers=num_workers)
 
