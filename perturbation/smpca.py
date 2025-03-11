@@ -13,7 +13,6 @@ from math import ceil
 import numpy as np
 import torch
 import torch.nn.functional as F
-from copy import deepcopy
 import perturbation.pca_stylegan as pca
 
 
@@ -144,9 +143,9 @@ def sm_pca(
                             raise ImportError(f'path_perturbation parameter has to be imported but instead got : {path_perturbation}')
                         w_pert_init = torch.tensor(np.load(path_perturbation)[k * per_cond : (k + 1) * per_cond].astype(np.float32)).to(device)
                         if current_timestep == 0:
-                            w_pert = deepcopy(w_pert_init)
+                            w_pert = w_pert_init.detach().clone()
                         else :
-                            w_pert = deepcopy(w_pert_init) * (1-theta*dt)**(current_timestep)
+                            w_pert = w_pert_init.detach().clone() * (1-theta*dt)**(current_timestep)
                             list_temporal_noise = [temporal_noises[current_timestep-k]*(1-theta*dt)**k for k in range(current_timestep)]
                             w_pert += sigma * torch.sqrt(torch.tensor(dt)) * torch.from_numpy(np.array(list_temporal_noise)).sum()
 
