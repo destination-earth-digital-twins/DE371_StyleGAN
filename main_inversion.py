@@ -77,6 +77,8 @@ if __name__=="__main__" :
 
     parser.add_argument('--device', type=str, default='cuda')
 
+    parser.add_argument("--mean_latent_encoder",  action='store_true')
+    
     ############################ SEQUENCE PARAMETERS #################    
     parser.add_argument('--multi_timestep_mode', action='store_true')
     parser.add_argument('--nb_timesteps', type=int, default=15)
@@ -102,6 +104,7 @@ if __name__=="__main__" :
     parser.add_argument("--feature_scale", type=float, default=1, help="features scale when inserting")
     parser.add_argument("--lambda_features", type=float, default=1, help="weight of the noise regularization")
 
+
     # Noise optimization and loss noise parameter
     parser.add_argument("--noise_optimize", action='store_true', help="joint optimization of noise and latent code (1) or latent code optimization only (0)?")
     parser.add_argument("--lambda_noise", type=float, default=1e5, help="weight of the noise regularization")
@@ -112,9 +115,8 @@ if __name__=="__main__" :
     parser.add_argument('--pixel_loss_type', type=str, default='amse', choices = ['mse', 'mae','amse','wamse','wmse'])
     parser.add_argument("--lambda_pixel", type=float, default=0.0, help="weight of the (mae/mse) pixel loss")
     
-        
-    # Focal Frequency Loss
-    parser.add_argument("--lambda_focal_frequency_loss", type=float, default=0.0, help="weight of the vgg (perceptual) loss")
+    # Spectral Loss
+    parser.add_argument("--lambda_spectral_loss", type=float, default=0.0, help="weight of the spectral loss")
 
     # VGG
     parser.add_argument("--lambda_lpips_loss", type=float, default=0.0, help="weight of the LPIPS loss")
@@ -132,7 +134,7 @@ if __name__=="__main__" :
     parser.add_argument("--alpha_style", type=float, default=0.01, help="weight of the style loss")
     parser.add_argument("--split_factor", type=int, default=2, help="splitting factor for patching")
     parser.add_argument("--multi_scale_perceptual_loss",  action='store_true')
-
+    
     parser.add_argument("--invstep", type=int, default=2000, help="optimize iterations (default is 50 when hybrid-based and 1000 when optimization-based)")
     parser.add_argument("--inv_checkpoints", type=utils.str2intlist, default=[500,1000, 1500,2000])
     
@@ -388,7 +390,15 @@ if __name__=="__main__" :
 
                 elif params.inversion_type == 'encoder':
                     if params.encoder_framework_type  in ['restyle-pSp', "restyle-e4e"]:
-                        y_hat = inversion_restyle(params=params, network=network, Ens_r=Ens_r_norm)
+                        y_hat = inversion_restyle(
+                            params=params,
+                            network=network,
+                            Ens_r=Ens_r_norm,
+                            Means=Means,
+                            Maxs=Maxs,
+                            Mins=Mins,
+                            apply_log_transform=True if params.Shape[0]==4 else False
+                        )
                     elif params.encoder_framework_type  in ['e4e', 'pSp']:
                         y_hat = inversion_psp_e4e(params=params, network=network, Ens_r=Ens_r_norm)
                     elif params.encoder_framework_type == 'inDomain':
@@ -418,7 +428,9 @@ if __name__=="__main__" :
                         init_latent, init_feature = init_latent_featureStyle(params=params, network=network, Ens_r=Ens_r_norm)
                     else :
                         raise NotImplementedError
-
+                    if params.mean_latent_encoder:
+                        init_latent = init_latent.mean(dim=(0,1))
+                    print('hybrid latent shape : ', init_latent.shape)
                     inv.optimize(
                         Ens_r=Ens_r_norm,
                         g_ema=network.decoder,
@@ -426,11 +438,12 @@ if __name__=="__main__" :
                         device=params.device,
                         params=params,
                         features_in=init_feature,
-                        hybrid=True,
+                        hybrid=False,
                         Means=Means,
                         Maxs=Maxs,
                         Mins=Mins,
-                        apply_log_transform=True if params.Shape[0]==4 else False
+                        apply_log_transform=True if params.Shape[0]==4 else False,
+                        mean_latent_encoder=False
                     )
                 
 

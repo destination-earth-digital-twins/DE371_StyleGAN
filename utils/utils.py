@@ -35,7 +35,6 @@ def load_batch_from_timestamp(
         ):
 
     df0 = dataframe[(dataframe['Date']==date) & (dataframe['LeadTime']==lt)]
-
     Nb = len(df0)
 
     batch = np.zeros((Nb,) + tuple(Shape))
