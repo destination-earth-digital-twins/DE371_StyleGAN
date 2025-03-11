@@ -50,7 +50,7 @@ if __name__=="__main__" :
     parser.add_argument("--lr0",type=float, default=0.001)
     parser.add_argument("--scale_rule",type=str,default='sigmoid')
     parser.add_argument("--pca_cut",type=int,default=10)
-    parser.add_argument("--inflate",type=float, default=1.0)
+    parser.add_argument("--inflate",type=float, default=0.2)
     parser.add_argument("--start",type=str, default="ones")
     parser.add_argument("--lambda_bias",type=float, default=1.0)
     parser.add_argument("--lambda_spectrum",type=float, default=0.0)

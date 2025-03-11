@@ -75,8 +75,10 @@ if __name__=="__main__" :
     parser.add_argument('--base_dir', type=str, default='/project/home/p200177/DE_371/datasets/dataset_Meteo_France/grandEnsemble/AROME/')
     parser.add_argument('--GAN_sample_dir', type=str, default='/project/home/p200177/DE_371/experiments_WP1/Grand_Ensemble/Perturbation/')
     parser.add_argument('--output_dir', type=str, default='/project/home/p200177/DE_371/experiments_WP1/Grand_Ensemble/Scores/test_test')
+    parser.add_argument('--exp_name', type=str, default='Hybrid')
     parser.add_argument('--leadtimes', type=str2intlist, default=[6,12,18,24,30,36,42]) # echeance de la prevision, n'importe quelle valeur entre 0 et 45h est disponible (par pas de 1h)
     parser.add_argument('--inv_step', type=int, default=1000)
+
     parser.add_argument('--unbias', action="store_true")
     args = parser.parse_args()
 
@@ -93,7 +95,7 @@ if __name__=="__main__" :
     nbrandinit = 50
     nameGAN = ["stochastic_['1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '0', '0', '0', '0']_False/"]
     GANfilenames = ['genFsemble_']
-    GANnameout = ['Optim_MSE'] 
+    GANnameout = [args.exp_name]
     plot_id_nbrandinit = 0
     os.makedirs(args.output_dir, exist_ok=True)
 

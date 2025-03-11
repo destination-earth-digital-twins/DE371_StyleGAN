@@ -12,7 +12,7 @@ parser.add_argument('--output_dir',type = str, default ='')
 parser.add_argument('--num_member',type = int, default = 875)
 parser.add_argument("--leadtimes", type=utils.str2intlist, default=[6,12,18,24,30,36,42])
 parser.add_argument("--var_indices", type=utils.str2intlist, default=[1,2,3])
-parser.add_argument("--inv_step", type=int, default=1000, help='step of inversion to load w')
+parser.add_argument("--inv_step", type=int, default=250, help='step of inversion to load w')
 
 params = parser.parse_args()
 
