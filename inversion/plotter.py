@@ -1,8 +1,11 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from PIL import Image
+import matplotlib.colors as colors
+
 # var_dict = {'rr': 0, 'u': 1, 'v': 2, 't2m': 3, 'orog': 4, 'z500': 5, 't850': 6, 'tpw850': 7}
 
+cmapRR = colors.ListedColormap(["white","mediumpurple","blue","dodgerblue","darkseagreen","seagreen","greenyellow","yellow", "navajowhite","sandybrown","darkorange","red","darkred","black"], name='from_list', N=None)
 
 def create_frame(fig): 
     r"""Create frames for frame mode
@@ -81,7 +84,7 @@ def online_inv_temporal_plot(
           invsample, crop=[0,-1,0,-1],
           mem_idx=0,
           nb_timesteps=15,
-          var_names=['u','v','t2m'],
+          var_names=['rr','u','v','t2m'],
           figtitle=" ",
           figname="inv.png",
           colormap_var=['viridis','viridis','coolwarm']
@@ -128,13 +131,15 @@ def online_pert_plot(
           mem_idx=0, 
           mem_pert_idx=0,figtitle=" ", 
           figname="inv.png",  
-          var_names=['u','v','t2m'], 
-          dict_var={'u': 0, 'v': 1, 't2m': 2},
-          colormap_var=['viridis','viridis','coolwarm']
+          var_names=['rr','u','v','t2m'], 
+          dict_var={'rr':0,'u': 1, 'v': 2, 't2m': 3},
+          colormap_var=[cmapRR,'viridis','viridis','coolwarm']
           ):
+        print("FIGSIZE",len(var_names))
 
         fig, ax = plt.subplots(figsize=(15,5*len(var_names)), nrows=3, ncols=len(var_names))
         for id, var in enumerate(var_names):
+            print(var_names,id)
             var_id = dict_var[var]
 
             vmin = np.min([np.min(packsample[:,var_id,crop[0]:crop[1],crop[2]:crop[3]])])
