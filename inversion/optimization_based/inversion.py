@@ -12,6 +12,7 @@ from inversion.perceptual_loss.perceptual_loss import PerceptualLoss
 from inversion.plotter import online_inv_plot, online_inv_plot, create_frame, latent_evolution_plot
 from inversion.experimental_loss.ssim import ssim, ms_ssim, SSIM, MS_SSIM
 from inversion.perceptual_loss.lpips.lpips import LPIPS
+from inversion.psd_loss.spectral_loss import SpectralLoss
 import utils.utils as utils
 from copy import deepcopy
 import time
@@ -86,7 +87,7 @@ def feature_noise(feature, strength):
     noise = torch.randn_like(feature) * strength
     return feature + noise
 
-def optimize(Ens_r, g_ema, init_latent, device, params, Means, Maxs, Mins, features_in=None, hybrid=False, apply_log_transform=False):
+def optimize(Ens_r, g_ema, init_latent, device, params, Means, Maxs, Mins, features_in=None, hybrid=False, apply_log_transform=False, mean_latent_encoder=False):
 
     """
 
@@ -116,9 +117,13 @@ def optimize(Ens_r, g_ema, init_latent, device, params, Means, Maxs, Mins, featu
     init_latent = init_latent.to(device) # torch.Size([512])
     if hybrid : 
         if len(init_latent.shape) == 2 :
-            latent_in = init_latent.detach().clone().unsqueeze(0).repeat(Ens_r.shape[0], 1) # (B, 512)
-            latent_in = latent_in.unsqueeze(1).repeat(1, g_ema.n_latent, 1) # (B, 14, 512)
-            latent_in.requires_grad = True
+            if mean_latent_encoder : # (14, 512)
+                latent_in = init_latent.detach().clone().unsqueeze(0).repeat(Ens_r.shape[0], 1, 1) # (B, 14,512)
+                latent_in.requires_grad = True
+            else :
+                latent_in = init_latent.detach().clone().unsqueeze(0).repeat(Ens_r.shape[0], 1) # (B, 512)
+                latent_in = latent_in.unsqueeze(1).repeat(1, g_ema.n_latent, 1) # (B, 14, 512)
+                latent_in.requires_grad = True
         else :
             latent_in = init_latent
             latent_in.requires_grad = True
@@ -175,6 +180,10 @@ def optimize(Ens_r, g_ema, init_latent, device, params, Means, Maxs, Mins, featu
 
     latent_path = []
 
+    #### Spectral Loss ####
+    if params.lambda_spectral_loss>0:
+        spectral_loss_class = SpectralLoss()
+    
     #### Perceptual Loss ####
     if params.lambda_perceptual_loss>0:
         perceptual_loss_class = PerceptualLoss(
@@ -227,8 +236,6 @@ def optimize(Ens_r, g_ema, init_latent, device, params, Means, Maxs, Mins, featu
         else :
             img_gen, features_out, _ = g_ema([latent_n], input_is_latent=True, return_features=True, noise=None, features_in=features_in, feature_scale=params.feature_scale)
 
-        batch, channel, height, width = img_gen.shape
-        # print('img_gen shape :', img_gen.shape)
         if params.noise_optimize:
             noise_loss = noise_regularize(noises)
             loss+=noise_loss*params.lambda_noise
@@ -267,6 +274,12 @@ def optimize(Ens_r, g_ema, init_latent, device, params, Means, Maxs, Mins, featu
             ms_ssim_loss = 1 - ms_ssim_module((img_gen+1)/2, (Ens_r+1)/2)
             loss += ms_ssim_loss*params.lambda_ms_ssim
 
+        # spectral loss
+        spectral_loss = torch.tensor(0.).to(device)
+        if params.lambda_spectral_loss>0:
+            spectral_loss = spectral_loss_class(Ens_r, img_gen)
+            loss += spectral_loss*params.lambda_spectral_loss
+        
         # mae/mse/amse/wamse pixel loss
         if params.pixel_loss_type=='mse' :
             t0 = time.time()
@@ -308,6 +321,8 @@ def optimize(Ens_r, g_ema, init_latent, device, params, Means, Maxs, Mins, featu
             display += f" || ms_ssim_loss: {ms_ssim_loss.item():.6f}"
         if params.lambda_perceptual_loss>0. : 
             display += f" || perceptual_loss: {perceptual_loss.item():.6f}"
+        if params.lambda_spectral_loss>0. : 
+            display += f" || spectral_loss: {spectral_loss.item():.6f}"
         if params.lambda_lpips_loss>0. :
             display += f" || lpips_loss: {lpips_loss.item():.6f}"
         if params.feature_optimize:

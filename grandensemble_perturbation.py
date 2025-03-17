@@ -18,7 +18,6 @@ import pickle
 from collections import OrderedDict
 print('importing network')
 from gan.model.stylegan2 import Generator
-import metrics4arome as metrics
 import utils.utils as utils
 import perturbation.smpca as smpca
 from inversion.plotter import online_pert_plot
@@ -62,7 +61,7 @@ def compute_generate_save(G, params, metrics_list, Means, Maxs, scale):
         sample_rule=params.sample_rule,
         betas=betas,
         alphas=alphas,
-        verbose=params.verbose,
+        verbose=False,
         Whitening=Whitening,
         Coloring=Coloring,
         w0=w0
@@ -70,7 +69,7 @@ def compute_generate_save(G, params, metrics_list, Means, Maxs, scale):
     
     gen0 = utils.rescale(gen, Means, Maxs, 1/0.95)
     Ens_r = utils.rescale(Ens_r, Means, Maxs, 1/0.95)
-    inv_ens = utils.rescale(inv_ens, Means, Maxs, 1/0.95)
+    # inv_ens = utils.rescale(inv_ens, Means, Maxs, 1/0.95)
     gen = utils.rescale(gen, Means, Maxs, 1/0.95)
     online_pert_plot(
         packsample=Ens_r, 
@@ -79,25 +78,25 @@ def compute_generate_save(G, params, metrics_list, Means, Maxs, scale):
         crop=[0,-1,0,-1],
         mem_idx=0, 
         figtitle=f"Generated samples for GrandEnsemble", 
-        figname=params.output_dir + f"/samples/genFsemble_{params.mb}.png"
+        figname=params.output_dir + f"/samples/genFsemble_{params.mb}_{params.lt_index}_{params.inv_step}.png"
     )
 
-    if params.runtime_metrics:
-        print('############### Evaluating metrics ###############')
+    # if params.runtime_metrics:
+    #     print('############### Evaluating metrics ###############')
         
-        dic_metrics = {}
+    #     dic_metrics = {}
         
-        for m in metrics_list :
-            print(m)
-            metr = getattr(metrics,m)
-            if m in metrics.standalone_metrics :
-                dic_metrics[m] = metr(gen0)
-            elif m in metrics.distance_metrics :
-                dic_metrics[m] = metr(Ens_r, gen0)
-            else:
-                raise ValueError('Metric unknown')
+    #     for m in metrics_list :
+    #         print(m)
+    #         metr = getattr(metrics,m)
+    #         if m in metrics.standalone_metrics :
+    #             dic_metrics[m] = metr(gen0)
+    #         elif m in metrics.distance_metrics :
+    #             dic_metrics[m] = metr(Ens_r, gen0)
+    #         else:
+    #             raise ValueError('Metric unknown')
 
-            pickle.dump(dic_metrics,open(params.output_dir + f'/log/metrics_{params.draw_index}_{params.lt_index}_{params.inv_step}.p', 'wb'))
+    #         pickle.dump(dic_metrics,open(params.output_dir + f'/log/metrics_{params.draw_index}_{params.lt_index}_{params.inv_step}.p', 'wb'))
 
     np.save(params.output_dir + f'/samples/genFsemble_{params.draw_index}_{params.lt_index}_{params.inv_step}.npy', gen0)
 
@@ -165,14 +164,11 @@ if __name__=="__main__" :
         os.mkdir(params.output_dir)
         os.mkdir(params.output_dir + '/samples/')
         os.mkdir(params.output_dir + '/log/')
-        # source_readme = root_dir + 'ReadMe_0.txt'
-        # target_readme = params.output_dir + 'ReadMe_0.txt'
-        # copyfile(source_readme, target_readme)
     
-    
+
     ################ loading network #################
 
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    device = params.device
 
     G = Generator(params.Shape[1], 512,n_mlp=8,nb_var=params.Shape[0])
 
