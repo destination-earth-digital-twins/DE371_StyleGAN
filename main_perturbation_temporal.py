@@ -63,8 +63,8 @@ def compute_generate_save(G, params, metrics_list, Means, Mins, Maxs, apply_log_
         betas = torch.tensor(np.load(os.path.join(params.scale_dir_init,"ema_scale.npy")).astype(np.float32)[params.scale_interp_step], device=params.device)
         alphas = torch.tensor(np.load(os.path.join(params.scale_dir_init,"ema_interp.npy")).astype(np.float32)[params.scale_interp_step], device=params.device)
 
-        thetas = torch.tensor(np.load(os.path.join(params.scale_dir,"ema_scale.npy")).astype(np.float32)[params.scale_interp_step], device=params.device)
-        gammas = torch.tensor(np.load(os.path.join(params.scale_dir,"ema_interp.npy")).astype(np.float32)[params.scale_interp_step], device=params.device)
+        thetas = torch.tensor(np.load(os.path.join(params.scale_dir,"ema_interp.npy")).astype(np.float32)[params.scale_interp_step], device=params.device)
+        gammas = torch.tensor(np.load(os.path.join(params.scale_dir,"ema_scale.npy")).astype(np.float32)[params.scale_interp_step], device=params.device)
 
         title = f'{params.date_index}_{lt}_{params.inv_step}_{params.N_conditioners}'
 
@@ -97,7 +97,8 @@ def compute_generate_save(G, params, metrics_list, Means, Mins, Maxs, apply_log_
                 verbose=params.verbose,
                 Whitening=Whitening,
                 Coloring=Coloring,
-                w0=w0
+                w0=w0,
+                dt=1
             )
         
 
