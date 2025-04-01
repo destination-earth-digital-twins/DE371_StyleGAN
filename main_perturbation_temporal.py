@@ -66,7 +66,8 @@ def compute_generate_save(G, params, metrics_list, Means, Mins, Maxs, apply_log_
         thetas = torch.tensor(np.load(os.path.join(params.scale_dir,"ema_interp.npy")).astype(np.float32)[params.scale_interp_step], device=params.device)
         gammas = torch.tensor(np.load(os.path.join(params.scale_dir,"ema_scale.npy")).astype(np.float32)[params.scale_interp_step], device=params.device)
 
-        title = f'{params.date_index}_{lt}_{params.inv_step}_{params.N_conditioners}'
+        title_t = f'{params.date_index}_{lt}_{params.inv_step}_{params.N_conditioners}'
+        title_t_next = f'{params.date_index}_{lt+params.dt}_{params.inv_step}_{params.N_conditioners}'
 
         if lt_id == 0 :
             gen, _ = smpca.sm_pca(
@@ -161,14 +162,14 @@ def compute_generate_save(G, params, metrics_list, Means, Mins, Maxs, apply_log_
         
         if params.save_normalized_sample:
             if lt_id == 0 :
-                np.save(params.output_dir + f'/samples/genFsemble_{title}.npy', gen)
+                np.save(params.output_dir + f'/samples/genFsemble_{title_t}.npy', gen)
             else :
-                np.save(params.output_dir + f'/samples/genFsemble_{title}.npy', gen_next)
+                np.save(params.output_dir + f'/samples/genFsemble_{title_t_next}.npy', gen_next)
         else:
             if lt_id==0:
-                np.save(params.output_dir + f'/samples/genFsemble_{title}.npy', gen_denorm)
+                np.save(params.output_dir + f'/samples/genFsemble_{title_t}.npy', gen_denorm)
             else :
-                np.save(params.output_dir + f'/samples/genFsemble_{title}.npy', gen_next_denorm)
+                np.save(params.output_dir + f'/samples/genFsemble_{title_t_next}.npy', gen_next_denorm)
         
 
         online_pert_plot(
@@ -177,8 +178,8 @@ def compute_generate_save(G, params, metrics_list, Means, Mins, Maxs, apply_log_
             pert_sample=gen_denorm,
             crop=[0,-1,0,-1],
             mem_idx=0 if params.N_conditioners>1 else cond_indices, 
-            figtitle=f"Generated samples for {title}", 
-            figname=params.output_dir + f"/samples/genFsemble_{title}.png"
+            figtitle=f"Generated samples for {title_t}", 
+            figname=params.output_dir + f"/samples/genFsemble_{title_t}.png"
         )
         if lt_id > 0 :
             online_pert_plot(
@@ -187,8 +188,8 @@ def compute_generate_save(G, params, metrics_list, Means, Mins, Maxs, apply_log_
                 pert_sample=gen_next_denorm - gen_denorm,
                 crop=[0,-1,0,-1],
                 mem_idx=0 if params.N_conditioners>1 else cond_indices, 
-                figtitle=f"Generated samples for {title}", 
-                figname=params.output_dir + f"/samples/tempDiffgenFsemble_{title}.png",
+                figtitle=f"Generated samples for {title_t_next}", 
+                figname=params.output_dir + f"/samples/tempDiffgenFsemble_{title_t_next}.png",
                 colormap_var=['RdYlGn','RdYlGn','RdYlGn'],
                 clim_global=(-10,10),
                 axis_title_global='delta'

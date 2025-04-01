@@ -10,6 +10,7 @@ from collections import OrderedDict
 import yaml
 import pandas as pd
 import utils.utils as utils
+from gan.model.stylegan2 import Discriminator
 
 if __name__=="__main__" :
     
@@ -21,7 +22,7 @@ if __name__=="__main__" :
                         default='/project/home/p200177/DE_371/datasets/dataset_Meteo_France/IS_1_1.0_0_0_0_0_0_256_large_lt_done/')
     # Output Directory - PATH where the output of the inversion will be saved
     parser.add_argument('--output_dir',type = str, 
-                        default ='/project/scratch/p200177/DE_371/victorsanchez/results/saliency_map/vgg16/')
+                        default ='/project/scratch/p200177/DE_371/victorsanchez/results/saliency_map/discriminator_trained/')
     parser.add_argument("--var_indices", type=utils.str2intlist, default=[1,2,3])
     parser.add_argument("--Shape", type=tuple, default=(3,256,256), help='size of the samples')
     parser.add_argument("--crop_indices", type=int, nargs='+', default=[0,256,0,256])
@@ -38,7 +39,7 @@ if __name__=="__main__" :
     parser.add_argument("--dates_file", type=str, default = 'Large_lt_test_labels.csv')
     parser.add_argument("--date_start", type=str, default = "2021-07-01")
     parser.add_argument("--date_stop", type=str, default = "2021-07-02")
-    parser.add_argument("--leadtimes", type=utils.str2intlist, default=[3]) # ,6,9,12,15,18,21,24,27,30,33,36,39,42,45
+    parser.add_argument("--leadtimes", type=utils.str2intlist, default=[3,6,9,12,15,18,21,24,27,30,33,36,39,42,45]) # ,6,9,12,15,18,21,24,27,30,33,36,39,42,45
     
     parser.add_argument("--seed", type=int, default=42)
     
@@ -75,15 +76,27 @@ if __name__=="__main__" :
        raise ValueError(f"Unknown normalization: {params.normalization}")
 
     #load pretrained resnet model
-    model = torchvision.models.vgg16(weights=None).to(params.device)
-    model.load_state_dict(torch.load('/project/home/p200177/DE_371/resources/network_for_perceptual_loss/vgg16_trained.pth'))
-    feature_layers = [4,9,16,23,30] 
-    blocks = []
-    blocks.append(model.features[:feature_layers[0]].eval())
-    for id in range(len(feature_layers)-1):
-        blocks.append(model.features[:feature_layers[id+1]].eval())
-    blocks = nn.Sequential(*blocks)
-
+    model_type = 'discriminator'
+    if model_type=='vgg16':
+        model = torchvision.models.vgg16(weights=None).to(params.device)
+        model.load_state_dict(torch.load('/project/home/p200177/DE_371/resources/network_for_perceptual_loss/vgg16_trained.pth'))
+        feature_layers = [4,9,16,23,30] 
+        blocks = []
+        blocks.append(model.features[:feature_layers[0]].eval())
+        for id in range(len(feature_layers)-1):
+            blocks.append(model.features[:feature_layers[id+1]].eval())
+        blocks = nn.Sequential(*blocks)
+    elif model_type=='discriminator':
+        model = Discriminator(size=256).to(params.device)
+        ckpt = torch.load("/project/home/p200177/DE_371/resources/models/trained_generator/000024.pt")["d"]
+        if 'module' in list(ckpt.items())[0][0]: #juglling with Pytorch versioning and different module packaging
+            ckpt_adapt = OrderedDict()
+            for k in ckpt.keys():
+                k0 = k[7:]
+                ckpt_adapt[k0] = ckpt[k]
+            model.load_state_dict(ckpt_adapt)
+        else:
+            model.load_state_dict(ckpt)
     #################### main loop ##################
     for date_ in list_dates:
         print(date_)
@@ -103,7 +116,7 @@ if __name__=="__main__" :
                 if len(df0)==0:
                     print("# samples: 0")
                     continue
-                Ens_r = utils.load_batch_from_timestamp(
+                _, Ens_r = utils.load_batch_from_timestamp(
                     df_extract, 
                     date_, 
                     lt-1, 
@@ -118,7 +131,7 @@ if __name__=="__main__" :
                 ) #, crop_indices=params.crop_indices)
 
             else : 
-                Ens_r = utils.load_batch_sequence_from_date(
+                _, Ens_r = utils.load_batch_sequence_from_date(
                     df_extract,
                     date_,
                     params.real_data_dir,
@@ -133,52 +146,49 @@ if __name__=="__main__" :
                 )
 
             x = Ens_r[0].to(params.device).unsqueeze(0)
-            # for i, block in enumerate(blocks):
-            #     x.requires_grad = True
-            #     #forward pass to calculate predictions
-            #     x = block((x+1)/2)
-            #     score, indices = torch.max(x, 1)
-            #     
-            #     #backward pass to get gradients of score predicted class w.r.t. input image
-            #     score.backward()
-            #     #get max along channel axis
-            #     slc, _ = torch.max(torch.abs(x.grad[0]), dim=0)
-            #     #normalize to [0..1]
-            #     slc = (slc - slc.min())/(slc.max()-slc.min())
-
-            #     fig, ax = plt.subplots(figsize=(18,10), nrows=2, ncols=3)
-            #     ax[0][0].imshow(x[0].detach().numpy(), origin="lower")
-            #     ax[0][1].imshow(x[1].detach().numpy(), origin="lower")
-            #     ax[0][2].imshow(x[2].detach().numpy(), origin="lower", cmap="coolwarm")
-            #     ax[1][0].imshow(slc[0].detach().numpy(), origin="lower", cmap=plt.cm.hot)
-            #     ax[1][1].imshow(slc[1].detach().numpy(), origin="lower", cmap=plt.cm.hot)
-            #     ax[1][2].imshow(slc[2].detach().numpy(), origin="lower", cmap=plt.cm.hot)
-            #     figname = params.output_dir+f'saliency_map_layer_{feature_layers[i]}.png'
-            #     fig.savefig(figname, dpi=100)
             x.requires_grad = True
-            for j in range(len(blocks)):
-                saliencies = []
-                #forward pass to calculate predictions
-                for i in range(3):
-                    input = x[:,i,:,:].repeat(1, 3, 1, 1)
-                    preds = blocks[j]((input+1)/2)
-                    score, indices = torch.max(preds, 1)
+            if model_type=='vgg16':
+                for j in range(len(blocks)):
+                    saliencies = []
+                    #forward pass to calculate predictions
+                    for i in range(3):
+                        input = x[:,i,:,:].repeat(1, 3, 1, 1)
+                        preds = blocks[j]((input+1)/2)
+                        score, indices = torch.max(preds, 1)
 
-                    #backward pass to get gradients of score predicted class w.r.t. input image
+                        #backward pass to get gradients of score predicted class w.r.t. input image
+                        score.sum().backward()
+                        
+                        #get max along channel axis
+                        slc, _ = torch.max(torch.abs(x.grad[0]).cpu(), dim=0)
+                        #normalize to [0..1]
+                        slc = (slc - slc.min())/(slc.max()-slc.min())
+                        saliencies.append(slc)
+                    img = x.squeeze(0)
+                    fig, ax = plt.subplots(figsize=(18,10), nrows=2, ncols=3)
+                    ax[0][0].imshow(img[0].cpu().detach().numpy(), origin="lower")
+                    ax[0][1].imshow(img[1].cpu().detach().numpy(), origin="lower")
+                    ax[0][2].imshow(img[2].cpu().detach().numpy(), origin="lower", cmap="coolwarm")
+                    ax[1][0].imshow(saliencies[0].cpu().detach().numpy(), origin="lower", cmap=plt.cm.hot)
+                    ax[1][1].imshow(saliencies[1].cpu().detach().numpy(), origin="lower", cmap=plt.cm.hot)
+                    ax[1][2].imshow(saliencies[2].cpu().detach().numpy(), origin="lower", cmap=plt.cm.hot)
+                    figname = params.output_dir+f'saliency_map_layer_{feature_layers[j]}_trained_{model_type}.png'
+                    fig.savefig(figname, dpi=100)
+            elif model_type=='discriminator':
+                for i in range(3): 
+                    _, list_out = model(x, return_all=True)
+                    preds = list_out[i]
+                    score, _ = torch.max(preds, 1)
                     score.sum().backward()
-                    
-                    #get max along channel axis
-                    slc, _ = torch.max(torch.abs(x.grad[0]), dim=0)
-                    #normalize to [0..1]
+                    slc, _ = torch.max(torch.abs(x.grad), dim=0)
                     slc = (slc - slc.min())/(slc.max()-slc.min())
-                    saliencies.append(slc)
-                img = x.squeeze(0)
-                fig, ax = plt.subplots(figsize=(18,10), nrows=2, ncols=3)
-                ax[0][0].imshow(img[0].cpu().detach().numpy(), origin="lower")
-                ax[0][1].imshow(img[1].cpu().detach().numpy(), origin="lower")
-                ax[0][2].imshow(img[2].cpu().detach().numpy(), origin="lower", cmap="coolwarm")
-                ax[1][0].imshow(saliencies[0].cpu().detach().numpy(), origin="lower", cmap=plt.cm.hot)
-                ax[1][1].imshow(saliencies[1].cpu().detach().numpy(), origin="lower", cmap=plt.cm.hot)
-                ax[1][2].imshow(saliencies[2].cpu().detach().numpy(), origin="lower", cmap=plt.cm.hot)
-                figname = params.output_dir+f'saliency_map_layer_{feature_layers[j]}_trained_vgg16.png'
-                fig.savefig(figname, dpi=100)
+                    img = x.squeeze(0)
+                    fig, ax = plt.subplots(figsize=(18,10), nrows=2, ncols=3)
+                    ax[0][0].imshow(img[0].cpu().detach().numpy(), origin="lower")
+                    ax[0][1].imshow(img[1].cpu().detach().numpy(), origin="lower")
+                    ax[0][2].imshow(img[2].cpu().detach().numpy(), origin="lower", cmap="coolwarm")
+                    ax[1][0].imshow(slc[0].cpu().detach().numpy(), origin="lower", cmap=plt.cm.hot)
+                    ax[1][1].imshow(slc[1].cpu().detach().numpy(), origin="lower", cmap=plt.cm.hot)
+                    ax[1][2].imshow(slc[2].cpu().detach().numpy(), origin="lower", cmap=plt.cm.hot)
+                    figname = params.output_dir+f'saliency_map_layer_trained_{i}_{date_}_{lt}_{model_type}.png'
+                    fig.savefig(figname, dpi=100)
