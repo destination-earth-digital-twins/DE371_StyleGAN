@@ -229,7 +229,7 @@ class PerceptualLoss(torch.nn.Module):
                 feature, style = self._forward_net_single_img(x)
                 features.append(feature)
                 styles.append(style)
-
+        print()
         self.features_memory=features
         self.styles_memory=styles 
 
@@ -336,7 +336,7 @@ class PerceptualLoss(torch.nn.Module):
                             y = y
                         )
         else :
-            if len(self.features_memory) and len(self.styles_memory) :
+            if not (len(self.features_memory) and len(self.styles_memory)) :
                 print('Warning: The features needs to be computed before. To do so call the function : compute_perceptual_features ')
                 raise ValueError
             for id_scaling_factor, scaling_factor in enumerate(self.scaling_factor):

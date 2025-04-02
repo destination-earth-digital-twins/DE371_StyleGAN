@@ -13,7 +13,7 @@ from encoders.configs import data_configs
 from encoders.datasets.arome_dataset import AromeDataset
 from encoders.models.in_domain import inDomain
 from encoders.training.ranger import Ranger
-from inversion.perceptual_loss.perceptual_loss import PerceptualLoss
+from inversion.perceptual_loss.perceptual import PerceptualLoss
 
 from torch import autograd
 from gan.model.op import conv2d_gradfix
@@ -37,7 +37,10 @@ class Coach:
 
 		# Initialize loss
         if self.config.perceptual_lambda > 0 :
-            self.perceptual_loss = PerceptualLoss(config=self.config, device=self.device, multi_scale=self.config.multi_scale_perceptual_loss).to(self.device).eval()
+            self.perceptual_loss = PerceptualLoss(
+                in_channels=3,
+                channel_iterative_mode=True
+            ).to(self.config.device).eval()
        
 		# Initialize optimizer
         self.encoder_optimizer = self.configure_optimizers()

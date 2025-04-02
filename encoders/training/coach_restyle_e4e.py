@@ -17,7 +17,7 @@ from encoders.training.ranger import Ranger
 from encoders.models.e4e_modules.latent_codes_pool import LatentCodesPool
 from encoders.models.e4e_modules.discriminator import LatentCodesDiscriminator
 from encoders.models.encoders.restyle_e4e_encoders import ProgressiveStage
-from inversion.perceptual_loss.perceptual_loss import PerceptualLoss
+from inversion.perceptual_loss.perceptual import PerceptualLoss
 
 
 class Coach:
@@ -49,7 +49,10 @@ class Coach:
 		# Initialize loss
 		
 		if self.config.perceptual_lambda > 0 :
-			self.perceptual_loss = PerceptualLoss(config=self.config, device=self.device, multi_scale=self.config.multi_scale_perceptual_loss).to(self.device).eval()
+			self.perceptual_loss = PerceptualLoss(
+                in_channels=3,
+                channel_iterative_mode=True
+            ).to(self.config.device).eval()
         
 		# Initialize optimizer
 		self.optimizer = self.configure_optimizers()
