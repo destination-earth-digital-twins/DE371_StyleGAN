@@ -84,23 +84,23 @@ def compute_generate_save(G, params, metrics_list, Means, Mins, Maxs, apply_log_
                 Coloring=Coloring,
                 w0=w0
             )
-        else :
-            gen_next, _ = smpca.sm_pca_temporal(
-                Ens_w=w_ens,
-                Ens_w_next=w_ens_next,
-                G=G, 
-                N_samples=N_samples, 
-                sm_ind=params.style_indices,
-                device=params.device, 
-                sample_rule=params.sample_rule, 
-                thetas=thetas,
-                gammas=gammas,
-                verbose=params.verbose,
-                Whitening=Whitening,
-                Coloring=Coloring,
-                w0=w0,
-                dt=1
-            )
+        
+        gen_next, _ = smpca.sm_pca_temporal(
+            Ens_w=w_ens,
+            Ens_w_next=w_ens_next,
+            G=G, 
+            N_samples=N_samples, 
+            sm_ind=params.style_indices,
+            device=params.device, 
+            sample_rule=params.sample_rule, 
+            thetas=thetas,
+            gammas=gammas,
+            verbose=params.verbose,
+            Whitening=Whitening,
+            Coloring=Coloring,
+            w0=w0,
+            dt=1
+        )
         
 
         if params.verbose:
@@ -150,26 +150,23 @@ def compute_generate_save(G, params, metrics_list, Means, Mins, Maxs, apply_log_
                                         Maxs=Maxs,
                                         apply_log_transform=apply_log_transform
                                         )
-        if lt_id > 0 :
-            gen_next_denorm = utils.denormalize(
-                                            data=gen_next,
-                                            normalization_type=params.normalization,
-                                            Means=Means,
-                                            Mins=Mins,
-                                            Maxs=Maxs,
-                                            apply_log_transform=apply_log_transform
-                                            )
+        gen_next_denorm = utils.denormalize(
+                                        data=gen_next,
+                                        normalization_type=params.normalization,
+                                        Means=Means,
+                                        Mins=Mins,
+                                        Maxs=Maxs,
+                                        apply_log_transform=apply_log_transform
+                                        )
         
         if params.save_normalized_sample:
             if lt_id == 0 :
                 np.save(params.output_dir + f'/samples/genFsemble_{title_t}.npy', gen)
-            else :
-                np.save(params.output_dir + f'/samples/genFsemble_{title_t_next}.npy', gen_next)
+            np.save(params.output_dir + f'/samples/genFsemble_{title_t_next}.npy', gen_next)
         else:
             if lt_id==0:
                 np.save(params.output_dir + f'/samples/genFsemble_{title_t}.npy', gen_denorm)
-            else :
-                np.save(params.output_dir + f'/samples/genFsemble_{title_t_next}.npy', gen_next_denorm)
+            np.save(params.output_dir + f'/samples/genFsemble_{title_t_next}.npy', gen_next_denorm)
         
 
         online_pert_plot(
