@@ -810,10 +810,14 @@ class Discriminator(nn.Module):
             EqualLinear(channels[4], 1),
         )
 
-    def forward(self, input):
-        
+    def forward(self, input, return_all=False):
+        if return_all :
+            list_output = []
+
         # print("input ", input.shape)
         out = self.convs(input)
+        if return_all :
+            list_output.append(out)
         # print("before std ", out.shape)
         batch, channel, height, width = out.shape
         group = min(batch, self.stddev_group)
@@ -824,12 +828,18 @@ class Discriminator(nn.Module):
         stddev = stddev.mean([2, 3, 4], keepdims=True).squeeze(2)
         stddev = stddev.repeat(group, 1, height, width)
         out = torch.cat([out, stddev], 1)
+
         # print('std ', out.shape)
         out = self.final_conv(out)
+        if return_all :
+            list_output.append(out)
         # print('final_conv ',out.shape)
         out = out.view(batch, -1)
         # print('out ',out.shape, self.final_linear[0].weight.shape, self.final_linear[1].weight.shape)
         out = self.final_linear(out)
-
-        return out
+        if return_all :
+            list_output.append(out)
+            return out, list_output
+        else :
+            return out
 
