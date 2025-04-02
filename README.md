@@ -35,7 +35,7 @@ Authors: C. Brochet, G. Moldovan, V. Sanchez, A. Bonamy
 
 The dataset comprises 516 AROME ensemble forecasts covering the period from June 15th, 2020, to November 12th, 2021. Each ensemble forecast is composed of 16 members and includes lead times at 1-hour intervals, ranging up to 45 hours. It follows that [516x45x16=371520]() individual samples are available for training if each members of the enseble at a given lead time is considered individually.
 
-The data is restricted to a region encompassing the south and center of France with a resolution of [256x256]. Three variables are here considered: the horizontal (u) and vertical (v) components of the wind speed vector at 10 meters and the temperature at 2 meters (t2m). Each individual sample can be conceptualized as a tensor with 3 channels, a width of 256 and a height of 256 [3, 256, 256].
+The data is restricted to a region encompassing the south and center of France with a resolution of [256x256]. Four variables are here considered: the precipitation (rr) the horizontal (u) and vertical (v) components of the wind speed vector at 10 meters and the temperature at 2 meters (t2m). Each individual sample can be conceptualized as a tensor with 4 channels, a width of 256 and a height of 256 [4, 256, 256].
 
 To efficiently load and organize the dataset, a metadata CSV file is utilized. The file structure is illustrated below:
 

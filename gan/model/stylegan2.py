@@ -561,6 +561,7 @@ class Generator(nn.Module):
 
     def insert_feature(self, x, layer_idx, features_in, feature_scale):
         if features_in is not None and features_in[layer_idx] is not None:
+            # print('insertion of features')
             x = (1 - feature_scale) * x + feature_scale * features_in[layer_idx].type_as(x)
         return x
 
@@ -653,16 +654,18 @@ class Generator(nn.Module):
         for conv1, conv2, noise1, noise2, to_rgb in zip(
             self.convs[::2], self.convs[1::2], noise[1::2], noise[2::2], self.to_rgbs
         ):
-            
+            # print('feature_size before conv1',out.shape)
             out = self.insert_feature(out, i, features_in=features_in, feature_scale=feature_scale)
             # out = conv1(out, latent[:, i], noise=noise1)
             out = conv1(out, latent[:, i], noise=noise1, weights_delta=weights_deltas[weight_idx])
-
+            # print('feature_size after conv1',out.shape)
             outs.append(out)
             # print("From Generator :conv1 gen ", out.shape)
             out = self.insert_feature(out, i + 1, features_in=features_in, feature_scale=feature_scale)
             # out = conv2(out, latent[:, i + 1], noise=noise2)
+            # print('feature_size before conv2',out.shape)
             out = conv2(out, latent[:, i + 1], noise=noise2, weights_delta=weights_deltas[weight_idx + 1])
+            # print('feature_size after conv2',out.shape)
             # print("From Generator :conv2 gen ", out.shape)
             outs.append(out)
             # skip, input_conved, prev_rgb_upsampled, prev_rgb = to_rgb(out, latent[:, i + 2], skip)
@@ -807,10 +810,14 @@ class Discriminator(nn.Module):
             EqualLinear(channels[4], 1),
         )
 
-    def forward(self, input):
-        
+    def forward(self, input, return_all=False):
+        if return_all :
+            list_output = []
+
         # print("input ", input.shape)
         out = self.convs(input)
+        if return_all :
+            list_output.append(out)
         # print("before std ", out.shape)
         batch, channel, height, width = out.shape
         group = min(batch, self.stddev_group)
@@ -821,12 +828,18 @@ class Discriminator(nn.Module):
         stddev = stddev.mean([2, 3, 4], keepdims=True).squeeze(2)
         stddev = stddev.repeat(group, 1, height, width)
         out = torch.cat([out, stddev], 1)
+
         # print('std ', out.shape)
         out = self.final_conv(out)
+        if return_all :
+            list_output.append(out)
         # print('final_conv ',out.shape)
         out = out.view(batch, -1)
         # print('out ',out.shape, self.final_linear[0].weight.shape, self.final_linear[1].weight.shape)
         out = self.final_linear(out)
-
-        return out
+        if return_all :
+            list_output.append(out)
+            return out, list_output
+        else :
+            return out
 

@@ -9,7 +9,7 @@ from torch.utils.data import DataLoader
 import torch.nn.functional as F
 
 from tqdm import tqdm
-from encoders.utils import common, train_utils
+from encoders.utils_encoder import common, train_utils
 from encoders.configs import data_configs
 from encoders.datasets.arome_dataset import AromeDataset
 from encoders.models.e4e import e4e
@@ -48,9 +48,6 @@ class Coach:
 
 		# Initialize loss
 		
-		self.mse_loss = nn.MSELoss().to(self.device).eval()
-		if self.config.moco_lambda > 0:
-			self.moco_loss = moco_loss.MocoLoss(self.device)
 		if self.config.perceptual_lambda > 0 :
 			self.perceptual_loss = PerceptualLoss(config=self.config, device=self.device, multi_scale=self.config.multi_scale_perceptual_loss).to(self.device).eval()
         
@@ -270,8 +267,8 @@ class Coach:
 	def checkpoint_me(self, loss_dict, is_best):
 		save_name = 'best_model.pt' if is_best else 'iteration_{}.pt'.format(self.global_step)
 		save_dict = self.__get_save_dict()
-		checkpoint_path = os.path.join(self.checkpoint_dir, save_name)
-		torch.save(save_dict, checkpoint_path)
+		encoder_checkpoint_dir = os.path.join(self.checkpoint_dir, save_name)
+		torch.save(save_dict, encoder_checkpoint_dir)
 		with open(os.path.join(self.checkpoint_dir, 'timestamp.txt'), 'a') as f:
 			if is_best:
 				f.write('**Best**: Step - {}, Loss - {:.3f} \n{}\n'.format(self.global_step, self.best_val_loss, loss_dict))
@@ -342,12 +339,6 @@ class Coach:
 			loss_l2 = F.mse_loss(y_hat, y)
 			loss_dict['loss_l2'] = float(loss_l2)
 			loss += loss_l2 * self.config.l2_lambda
-
-		if self.config.moco_lambda > 0:
-			loss_moco, sim_improvement, id_logs = self.moco_loss(y_hat, y, x)
-			loss_dict['loss_moco'] = float(loss_moco)
-			loss_dict['id_improve'] = float(sim_improvement)
-			loss += loss_moco * self.config.moco_lambda
         	
 		if self.config.perceptual_lambda > 0 :
 			perceptual_loss = self.perceptual_loss(y_hat, y)
