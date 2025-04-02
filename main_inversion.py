@@ -25,7 +25,6 @@ from encoders.models.e4e import e4e
 from encoders.models.in_domain import inDomain
 from encoders.models.feature_style_encoder.feature_style_module import FeatureStyleModule
 import inversion.optimization_based.inversion as inv
-import test_.inversion_on_pca as inv_pca
 from gan.model.stylegan2 import Generator
 from collections import OrderedDict
 import utils.utils as utils
@@ -93,7 +92,6 @@ if __name__=="__main__" :
     parser.add_argument("--lr_rampdown",type=float, default=0.25,help="duration of the learning rate decay")
     parser.add_argument("--lr", type=float, default=0.1, help="learning rate")
     
-    parser.add_argument("--projection_on_pca_axis", action='store_true', help="Whether to optim on pca axis only")
     parser.add_argument("--num_pca_axis", type=int, default=2, help="num of pca axis")
     parser.add_argument('--w_samples_dir',   type=str, default='') # samples generated with mkl_w_sample.py
 
@@ -230,36 +228,6 @@ if __name__=="__main__" :
         else : 
             lm = np.load(f'{params.output_dir}latent_mean.npy').astype(np.float32)
             latent_mean = torch.tensor(lm, dtype = torch.float32)
-
-    if params.projection_on_pca_axis :
-
-        if not os.path.exists(f'{params.output_dir}sorted_eigenvectors.npy'):
-            w_samples = []
-            files_w = glob.glob(f"{params.w_samples_dir}/w/_w*.npy")
-            print("loading w samples")
-            for f in files_w:
-                w_sample=np.load(f)
-                if w_sample.ndim<3: # (B, 512)
-                    w_samples.append(w_sample[0,:])
-                else: # (B, 14, 512)
-                    w_samples.append(w_sample[0,0,:])
-
-            w_samples_meaned = w_samples - np.mean(w_samples , axis = 0)
-            # Covariance Matrix
-            cov_mat = np.cov(w_samples_meaned , rowvar = False) 
-            # Eigen Values and Eigen Vectors
-            eigen_values , eigen_vectors = np.linalg.eigh(cov_mat)
-            sorted_index = np.argsort(eigen_values)[::-1]
-            sorted_eigenvalue = eigen_values[sorted_index]
-            sorted_eigenvectors = eigen_vectors[:,sorted_index]
-            np.save(f'{params.output_dir}sorted_eigenvectors.npy',sorted_eigenvectors)
-            sorted_eigenvectors = torch.from_numpy(sorted_eigenvectors)
-        else : 
-            lm = np.load(f'{params.output_dir}sorted_eigenvectors.npy').astype(np.float32)
-            sorted_eigenvectors = torch.tensor(lm, dtype = torch.float32)
-        eigenvector_subset = sorted_eigenvectors[:,0:params.num_pca_axis]
-
-        print('eigenvector_subset shape :', eigenvector_subset.shape)
     
     ########### write inversion parameters to file ############
     config_file = params.output_dir + f"{params.inversion_type}_inversion_params.yaml"
@@ -361,32 +329,18 @@ if __name__=="__main__" :
                         np.save(params.pack_dir+f'Rsemble_sequence_{datename}.npy', Ens_r.numpy().astype(np.float32))
 
                 if params.inversion_type == 'optimization':
-                    if not params.projection_on_pca_axis :
-                        inv.optimize(
-                                Ens_r=Ens_r_norm,
-                                g_ema=G,
-                                init_latent=latent_mean,
-                                device=params.device,
-                                params=params,
-                                Means=Means,
-                                Maxs=Maxs,
-                                Mins=Mins,
-                                apply_log_transform=True if params.Shape[0]==4 else False
-                            )
-                    else :
-                            inv_pca.optimize(
-                                Ens_r=Ens_r_norm,
-                                g_ema=G,
-                                init_latent=latent_mean,
-                                device=params.device,
-                                params=params,
-                                Means=Means,
-                                Maxs=Maxs,
-                                Mins=Mins,
-                                eigenvector_subset=eigenvector_subset,
-                                num_pca_axis=params.num_pca_axis,
-                                apply_log_transform=True if params.Shape[0]==4 else False
-                            )
+                    inv.optimize(
+                            Ens_r=Ens_r_norm,
+                            g_ema=G,
+                            init_latent=latent_mean,
+                            device=params.device,
+                            params=params,
+                            Means=Means,
+                            Maxs=Maxs,
+                            Mins=Mins,
+                            apply_log_transform=True if params.Shape[0]==4 else False
+                        )
+                   
 
                 elif params.inversion_type == 'encoder':
                     if params.encoder_framework_type  in ['restyle-pSp', "restyle-e4e"]:

@@ -8,10 +8,14 @@ import torch.nn.functional as F
 import numpy as np
 import pickle
 from tqdm import tqdm
-from inversion.plotter import online_inv_plot, online_inv_plot, create_frame
-from inversion.experimental_loss.ssim import ssim, ms_ssim, SSIM, MS_SSIM
+from inversion.plotter import online_inv_plot, online_inv_plot
+from inversion.experimental_loss.ssim import MS_SSIM
+from inversion.experimental_loss.spectral_loss import SpectralLoss
 from inversion.perceptual_loss.perceptual import PerceptualLoss, LPIPS
 import time
+from copy import deepcopy
+from inversion.plotter import latent_evolution_plot
+import utils.utils as utils
 
 def noise_regularize(noises):
     r'''
@@ -183,13 +187,20 @@ def optimize(Ens_r, g_ema, init_latent, device, params, Means, Maxs, Mins, featu
     
     #### Perceptual Loss ####
     if params.lambda_perceptual_loss>0:
-        perceptual_loss_class = PerceptualLoss().to(device).eval()
-        perceptual_loss_class.compute_perceptual_features(Ens_r)
+        perceptual_loss_class = PerceptualLoss(
+            in_channels=3,
+            channel_iterative_mode=True
+            ).to(device).eval()
+        print(Ens_r.min, Ens_r.mean, Ens_r.max)
+        perceptual_loss_class.compute_perceptual_features((Ens_r+1)/2)
     
     if params.lambda_lpips_loss>0:
-        lpips_loss_class = LPIPS().to(device).eval()
+        lpips_loss_class = LPIPS(
+            in_channels=3,
+            channel_iterative_mode=True
+            ).to(device).eval()
+        
     # MS-SSIM module for MS-SSIM loss
-    # ssim_module = SSIM(data_range=1, size_average=True, channel=1)
     if params.lambda_ms_ssim :
         ms_ssim_module = MS_SSIM(data_range=1, size_average=True, channel=3)
 
@@ -243,7 +254,7 @@ def optimize(Ens_r, g_ema, init_latent, device, params, Means, Maxs, Mins, featu
         perceptual_loss = torch.tensor(0.).to(device)
         if params.lambda_perceptual_loss>0:
             t0 = time.time()
-            perceptual_loss = perceptual_loss_class(img_gen)
+            perceptual_loss = perceptual_loss_class((img_gen+1)/2)
             list_time_to_compute_vgg_loss.append(time.time()-t0)
             list_perceptual_loss.append(perceptual_loss.cpu().detach().numpy())
             loss += perceptual_loss*params.lambda_perceptual_loss
