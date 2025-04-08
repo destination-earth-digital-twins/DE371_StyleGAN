@@ -80,7 +80,7 @@ class ISDataset(Dataset):
 
 
         if self.config.multi_timestep_mode :
-            self.nb_leadtime_in_dataset = 45 # Change or add to config if needed
+            #self.nb_leadtime_in_dataset = 45 # Change or add to config if needed
             self.nb_members = 16 # Change or add to config if needed
             self.cursor_incomplete_date = 0
 
@@ -108,15 +108,15 @@ class ISDataset(Dataset):
                 raise ValueError(f"Provided crop indexes ({self.CI}) should match crop size ({self.config.crop_size})")
 
     def __len__(self):
-        if self.config.multi_timestep_mode :
+        #if self.config.multi_timestep_mode :
             # We stack all the samples over timesteps
             # Dataset is of size : Ndays * Nleadtimes * Nmembers
             # Here we want all the leadtimes but stacked so the number of possible iteration is Ndays * Nmembers
-            length =  len(self.labels) // (self.nb_leadtime_in_dataset)
-        else :
-            length = len(self.labels)
+            #length =  len(self.labels) // (self.nb_leadtime_in_dataset)
+        #else :
+        length = len(self.labels)
 
-        print(f'Dataset contain {length} samples which corresponds to {len(self.labels) // (self.nb_leadtime_in_dataset)} days')
+        #print(f'Dataset contain {length} samples which corresponds to {len(self.labels) // (self.nb_leadtime_in_dataset)} days')
         return length
 
     def __getitem__(self, idx):
@@ -138,19 +138,19 @@ class ISDataset(Dataset):
                 #           ((self.nb_leadtime_in_dataset-1)*16)*((idx)//16)
                 # 16 being the number of members 
                 
-                _idx = idx + self.nb_members*self.config.timestep_period*leadtime_id + self.cursor_incomplete_date*self.nb_leadtime_in_dataset*self.nb_members
-                if self.config.cutoff_dataset_leadtimes :
+                #_idx = idx + self.nb_members*self.config.timestep_period*leadtime_id + self.cursor_incomplete_date*self.nb_leadtime_in_dataset*self.nb_members
+                #if self.config.cutoff_dataset_leadtimes :
                     # To consider always the same leadtime per sequence
                     # ex : if cutoff_dataset_leadtimes is True we obtain 3/6/9 everytime we call the get item
                     # Else we obtain 3/6/9 and then 4/7/10 and then 5/8/11
-                    _idx += ((self.nb_leadtime_in_dataset-1)*self.nb_members)*((idx)//self.nb_members)
+                    #_idx += ((self.nb_leadtime_in_dataset-1)*self.nb_members)*((idx)//self.nb_members)
                 
                 if self.labels.iloc[_idx]['Date'] in ['2021-02-13T21:00:00Z', '2021-08-15T21:00:00Z', '2021-09-29T21:00:00Z', '2021-05-30T21:00:00Z']:
                     print(f"Warning : Incomplete Date : {self.labels.iloc[_idx]['Date']}, switching to next sample day")
                     self.cursor_incomplete_date += 1 # switching to next day
                     _idx = idx + 16*self.config.timestep_period*leadtime_id + self.cursor_incomplete_date*45*16
-                    if self.config.cutoff_dataset_leadtimes :
-                        _idx += ((self.nb_leadtime_in_dataset-1)*16)*((idx)//16)
+                    #if self.config.cutoff_dataset_leadtimes :
+                        #_idx += ((self.nb_leadtime_in_dataset-1)*16)*((idx)//16)
                 # print(f"Date : {self.labels.iloc[_idx]['Date']} Member : {self.labels.iloc[_idx]['Member']} Leadtime : {self.labels.iloc[_idx]['LeadTime']}")
                 
                 sample_path = os.path.join(self.config.data_dir, self.labels.iloc[_idx]["Name"])
