@@ -18,8 +18,12 @@ if __name__=="__main__" :
     # Real Data Directory - PATH to samples of the dataset
     parser.add_argument('--real_data_dir', type = str,  default='/project/home/p200177/DE_371/datasets/dataset_Meteo_France/IS_1_1.0_0_0_0_0_0_256_large_lt_done/')
     # Output Directory - PATH where the output of the inversion will be saved
-    parser.add_argument('--output_dir',type = str, default ='/project/home/p200177/DE_371/experiments_WP1/temporal_diff_samples/fixed_perturbation/')
-    parser.add_argument('--gen_sample_dir',type = str, default ="/project/home/p200177/DE_371/experiments_WP1/temporal_diff_samples/fixed_perturbation/stochastic_['1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '0', '0', '0', '0']_False_-1_16_/samples/")
+    parser.add_argument('--output_dir',type = str, default ='/project/home/p200177/DE_371/experiments_WP1/temporal_diff_samples/sequence_comparison/')
+    parser.add_argument('--gen_sample_dir',type = utils.str2intlist, default =[
+        "/project/home/p200177/DE_371/experiments_WP1/temporal_diff_samples/fixed_perturbation/stochastic_['1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '0', '0', '0', '0']_False_-1_16_/samples/",
+        "/project/home/p200177/DE_371/experiments_WP1/temporal_diff_samples/different_perturbation/stochastic_['1', '1', '1', '1', '1', '1', '1', '1', '1', '1', '0', '0', '0', '0']_False_-1_16_/samples/"
+        ]
+    )    
     parser.add_argument("--Shape", type=tuple, default=(3,256,256), help='size of the samples')
     # Dataset information
     parser.add_argument("--normalization", type=str, default="", choices=["minmax", "meanmax", ""])
@@ -38,7 +42,7 @@ if __name__=="__main__" :
     ########################## CONTROL of Data to invert ######################
     parser.add_argument("--dates_file", type=str, default = 'Large_lt_test_labels.csv')
     parser.add_argument("--date_start", type=str, default = "2021-10-01")
-    parser.add_argument("--date_stop", type=str, default = "2021-10-02")
+    parser.add_argument("--date_stop", type=str, default = "2021-10-03")
     parser.add_argument("--leadtimes", type=utils.str2intlist, default=[3,6,9,12,15,18,21,24,27,30,33,36,39,42])
     
     parser.add_argument("--seed", type=int, default=42)
@@ -68,7 +72,7 @@ if __name__=="__main__" :
     Maxs=None
     Mins=None
 
-    display_temporal_difference = True
+    display_temporal_difference = False
     #################### main loop ##################
     for date_ in list_dates:
         # Importing True samples
@@ -80,27 +84,32 @@ if __name__=="__main__" :
             dt=params.timestep_period,
             Shape=params.Shape,
             var_indices=params.var_indices,
-            normalization=params.normalization,
+            normalization="",
             Means=Means,
             Mins=Mins,
             Maxs=Maxs
         ).numpy()
         # Importing Generated Samples
-        Ens_gen = []
+        nb_gen_to_plot = len(params.gen_sample_dir)
+        Ens_gen = [[] for _ in range(nb_gen_to_plot)]
         date_=str(date_)[:10]
         for lt in params.leadtimes :
             try :
-                path_to_sample = params.gen_sample_dir + f"genFsemble_{date_}_{lt}_{params.invstep}_16.npy"   
-                Ens_gen.append(np.load(path_to_sample))
+                for id_gen_to_plot in range(nb_gen_to_plot):
+                    path_to_sample = params.gen_sample_dir[id_gen_to_plot] + f"genFsemble_{date_}_{lt}_{params.invstep}_16.npy"    
+                    Ens_gen[id_gen_to_plot].append(np.load(path_to_sample))
             except :
                 print(f"File 'genFsemble_{date_}_{lt}_{params.invstep}_16.npy' Not Found")
+        for gen in Ens_gen:
+            gen = np.array(gen)
+        
         Ens_gen = np.array(Ens_gen)
-
-        Nb_cond_member = int(ceil(Ens_gen.shape[1] / Ens_r.shape[1]))
+        Nb_cond_member = int(ceil(Ens_gen[0].shape[1] / Ens_r.shape[1]))
         print(f'There are {Nb_cond_member} Child member per Parent member')
-
-        nb_generated_member_to_plot = 3
-        for member_id in range(5):
+        list_name_gen = ['F', 'D']
+        nb_generated_member_to_plot_per_gen = 1
+        nb_generated_member_to_plot = nb_generated_member_to_plot_per_gen * nb_gen_to_plot
+        for member_id in range(10):
             fig0, ax0 = plt.subplots(nrows=nb_generated_member_to_plot+1, ncols=14, figsize=(200,50))
             fig1, ax1 = plt.subplots(nrows=nb_generated_member_to_plot+1, ncols=14, figsize=(200,50))
             fig2, ax2 = plt.subplots(nrows=nb_generated_member_to_plot+1, ncols=14, figsize=(200,50))
@@ -147,42 +156,42 @@ if __name__=="__main__" :
                     ax2dt[0][t].set_ylabel(f'PM:{member_id}-t+{1+t*3}', fontsize=45)
                     ax2dt[0][t].set_xticks([])
                     ax2dt[0][t].set_yticks([])
+                for id_gen, gen in enumerate(Ens_gen):
+                    for offset_id in range(0, nb_generated_member_to_plot_per_gen):
+                        Generated_member = gen[t][offset_id+Nb_cond_member*member_id]
 
-                for offset_id in range(0, nb_generated_member_to_plot):
-                    Generated_member = Ens_gen[t][offset_id+Nb_cond_member*member_id]
+                        im0=ax0[1+offset_id+id_gen][t].imshow(Generated_member[0], origin="lower", cmap="viridis", vmin=vmin[0], vmax=vmax[0])
+                        ax0[1+offset_id+id_gen][t].set_ylabel(f'CM-{list_name_gen[id_gen]}:{offset_id+Nb_cond_member*member_id}-t+{1+t*3}', fontsize=45)
+                        ax0[1+offset_id+id_gen][t].set_xticks([])
+                        ax0[1+offset_id+id_gen][t].set_yticks([])
 
-                    im0=ax0[1+offset_id][t].imshow(Generated_member[0], origin="lower", cmap="viridis", vmin=vmin[1], vmax=vmax[1])
-                    ax0[1+offset_id][t].set_ylabel(f'CM:{offset_id+Nb_cond_member*member_id}-t+{1+t*3}', fontsize=45)
-                    ax0[1+offset_id][t].set_xticks([])
-                    ax0[1+offset_id][t].set_yticks([])
+                        im1=ax1[1+offset_id+id_gen][t].imshow(Generated_member[1], origin="lower", cmap="viridis", vmin=vmin[1], vmax=vmax[1])
+                        ax1[1+offset_id+id_gen][t].set_ylabel(f'CM-{list_name_gen[id_gen]}:{offset_id+Nb_cond_member*member_id}-t+{1+t*3}', fontsize=45)
+                        ax1[1+offset_id+id_gen][t].set_xticks([])
+                        ax1[1+offset_id+id_gen][t].set_yticks([])
 
-                    im1=ax1[1+offset_id][t].imshow(Generated_member[1], origin="lower", cmap="viridis", vmin=vmin[1], vmax=vmax[1])
-                    ax1[1+offset_id][t].set_ylabel(f'CM:{offset_id+Nb_cond_member*member_id}-t+{1+t*3}', fontsize=45)
-                    ax1[1+offset_id][t].set_xticks([])
-                    ax1[1+offset_id][t].set_yticks([])
+                        im2=ax2[1+offset_id+id_gen][t].imshow(Generated_member[2], origin="lower", cmap="coolwarm", vmin=vmin[2], vmax=vmax[2])
+                        ax2[1+offset_id+id_gen][t].set_ylabel(f'CM-{list_name_gen[id_gen]}:{offset_id+Nb_cond_member*member_id}-t+{1+t*3}', fontsize=45)
+                        ax2[1+offset_id+id_gen][t].set_xticks([])
+                        ax2[1+offset_id+id_gen][t].set_yticks([])
+                    
+                        if display_temporal_difference and t < params.nb_timesteps-1:
+                            Generated_member_dt = gen[t+1][offset_id*member_id+member_id] - gen[t][offset_id*member_id+member_id]
+                            
+                            im0dt=ax0dt[1+offset_id+id_gen][t].imshow(Generated_member_dt[0], origin="lower", cmap="RdYlGn", vmin=vmin_dt[0], vmax=vmax_dt[0])
+                            ax0dt[1+offset_id+id_gen][t].set_ylabel(f'CM-{list_name_gen[id_gen]}:{offset_id+Nb_cond_member*member_id}-t+{1+t*3}', fontsize=45)
+                            ax0dt[1+offset_id+id_gen][t].set_xticks([])
+                            ax0dt[1+offset_id+id_gen][t].set_yticks([])
 
-                    im2=ax2[1+offset_id][t].imshow(Generated_member[2], origin="lower", cmap="coolwarm", vmin=vmin[2], vmax=vmax[2])
-                    ax2[1+offset_id][t].set_ylabel(f'CM:{offset_id+Nb_cond_member*member_id}-t+{1+t*3}', fontsize=45)
-                    ax2[1+offset_id][t].set_xticks([])
-                    ax2[1+offset_id][t].set_yticks([])
-                
-                    if display_temporal_difference and t < params.nb_timesteps-1:
-                        Generated_member_dt = Ens_gen[t+1][offset_id*member_id+member_id] - Ens_gen[t][offset_id*member_id+member_id]
-                        
-                        im0dt=ax0dt[1+offset_id][t].imshow(Generated_member_dt[0], origin="lower", cmap="RdYlGn", vmin=vmin_dt[0], vmax=vmax_dt[0])
-                        ax0dt[1+offset_id][t].set_ylabel(f'CM:{offset_id+Nb_cond_member*member_id}-t+{1+t*3}', fontsize=45)
-                        ax0dt[1+offset_id][t].set_xticks([])
-                        ax0dt[1+offset_id][t].set_yticks([])
+                            im1dt=ax1dt[1+offset_id+id_gen][t].imshow(Generated_member_dt[1], origin="lower", cmap="RdYlGn", vmin=vmin_dt[1], vmax=vmax_dt[1])
+                            ax1dt[1+offset_id+id_gen][t].set_ylabel(f'CM-{list_name_gen[id_gen]}:{offset_id+Nb_cond_member*member_id}-t+{1+t*3}', fontsize=45)
+                            ax1dt[1+offset_id+id_gen][t].set_xticks([])
+                            ax1dt[1+offset_id+id_gen][t].set_yticks([])
 
-                        im1dt=ax1dt[1+offset_id][t].imshow(Generated_member_dt[1], origin="lower", cmap="RdYlGn", vmin=vmin_dt[1], vmax=vmax_dt[1])
-                        ax1dt[1+offset_id][t].set_ylabel(f'CM:{offset_id+Nb_cond_member*member_id}-t+{1+t*3}', fontsize=45)
-                        ax1dt[1+offset_id][t].set_xticks([])
-                        ax1dt[1+offset_id][t].set_yticks([])
-
-                        im2dt=ax2dt[1+offset_id][t].imshow(Generated_member_dt[2], origin="lower", cmap="RdYlGn", vmin=vmin_dt[2], vmax=vmax_dt[2])
-                        ax2dt[1+offset_id][t].set_ylabel(f'CM:{offset_id+Nb_cond_member*member_id}-t+{1+t*3}', fontsize=45)
-                        ax2dt[1+offset_id][t].set_xticks([])
-                        ax2dt[1+offset_id][t].set_yticks([])
+                            im2dt=ax2dt[1+offset_id+id_gen][t].imshow(Generated_member_dt[2], origin="lower", cmap="RdYlGn", vmin=vmin_dt[2], vmax=vmax_dt[2])
+                            ax2dt[1+offset_id+id_gen][t].set_ylabel(f'CM-{list_name_gen[id_gen]}:{offset_id+Nb_cond_member*member_id}-t+{1+t*3}', fontsize=45)
+                            ax2dt[1+offset_id+id_gen][t].set_xticks([])
+                            ax2dt[1+offset_id+id_gen][t].set_yticks([])
                         
                 
                 if t==0 :

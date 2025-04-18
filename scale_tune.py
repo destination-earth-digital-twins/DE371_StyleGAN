@@ -95,6 +95,7 @@ if __name__=="__main__" :
 
     output_dir = f"{args.output_dir}interp_scale_pca_{args.pca_cut}_{args.inflate_random}_{args.inflate}_bias_{args.start}_{args.lambda_bias}_spread_{args.lambda_spread}_ff_{args.convert_ff_t}_{args.invert_step}/"
     os.makedirs(output_dir, exist_ok=True)
+    print("JE SUIS OUTPUT DIR")
     instances = len(glob(output_dir + "Instance_*/"))
     print("instances already existing", instances)
     os.makedirs(output_dir + f"Instance_{instances+1}/",exist_ok=True)

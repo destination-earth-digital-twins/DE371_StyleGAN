@@ -9,7 +9,7 @@ from time import time
 from inversion.encoder_based.encoder_utils import log_images_diff
 
 
-def inversion_restyle(params, network, Ens_r):
+def inversion_restyle(params, network, Ens_r, Means, Mins, Maxs, apply_log_transform=False):
     y_hat, latent = None, None
 
     y_hats = {idx: [] for idx in range(Ens_r.shape[0])}
@@ -45,7 +45,11 @@ def inversion_restyle(params, network, Ens_r):
             if iter+1 in params.n_iters_per_batch_checkpoint :
                 print("--saving inverted samples :", params.output_dir+'w_{}_{}_{}.npy'.format(params.date_index,params.lt_index, iter+1))
                 np.save(params.output_dir+'w_{}_{}_{}.npy'.format(params.date_index,params.lt_index, iter+1),latent.cpu().detach().numpy())
-                np.save(params.output_dir+'invertFsemble_{}_{}_{}.npy'.format(params.date_index,params.lt_index, iter+1),y_hat.cpu().detach().numpy())
+                if params.save_normalized_sample:
+                    np.save(params.output_dir+'invertFsemble_{}_{}_{}.npy'.format(params.date_index,params.lt_index, iter+1),y_hat.cpu().detach().numpy())
+                else :
+                    denorm_y_hat = utils.denormalize(y_hat.cpu().detach(), params.normalization, Means, Mins, Maxs, apply_log_transform=apply_log_transform)
+                    np.save(params.output_dir+'invertFsemble_{}_{}_{}.npy'.format(params.date_index,params.lt_index,iter+1), denorm_y_hat)
                 if params.plot_checkpoint:
                     print("--plotting inverted samples :", params.output_dir+'w_{}_{}.npy'.format(params.date_index,params.lt_index))
                     log_images_diff(

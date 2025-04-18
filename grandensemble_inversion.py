@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-This script performs ensemble forecast inversion using a pre-trained StyleGAN2 model.
+Created on Tue Mar 28 16:21:37 2023
 
-The code uses command-line arguments for setting directories, inversion parameters, and data control parameters.
-The inversion is performed for a specified set of dates and lead times, generating latent code representations for real-ensemble data and saving the results.
+@author: brochetc
 
-Please make sure to configure the directory paths, parameters, and other settings based on your specific environment before running the script.
+Main pod sampling script
 
 """
 import torch
@@ -27,12 +26,13 @@ from encoders.models.feature_style_encoder.feature_style_module import FeatureSt
 import inversion.optimization_based.inversion as inv
 from gan.model.stylegan2 import Generator
 from collections import OrderedDict
-import inversion.optimization_based.inversion as inv
 import utils.utils as utils
 from ast import literal_eval as make_tuple
 torch.manual_seed(42) #reproducibility of runs
 
 if __name__=="__main__" :
+
+
     
     parser = argparse.ArgumentParser()
     
@@ -57,16 +57,14 @@ if __name__=="__main__" :
     parser.add_argument('--n_iters_per_batch_checkpoint', type=utils.str2intlist, default=[1,5,10], help='Number of forward passes per batch during training')
     
     ########################### Directories ###########################
-
     # Real Data Directory - PATH to samples of the dataset
     parser.add_argument('--real_data_dir', type = str,default='')
     # Output Directory - PATH where the output of the inversion will be saved
     parser.add_argument('--output_dir',type = str, default='')
+    
     # Pack Directory - PATH where the packed ensembles will be saved
-
     parser.add_argument("--pack_dir", type=str, default = '') # storing "packed" (normalized) real data
     parser.add_argument('--ckpt_dir', type = str, default ='')
- 
 
     # Dataset information
     parser.add_argument("--normalization", type=str, default="minmax", choices=["minmax", "meanmax"])
@@ -99,14 +97,14 @@ if __name__=="__main__" :
     parser.add_argument("--lambda_features", type=float, default=1, help="weight of the noise regularization")
 
     # Noise optimization and loss noise parameter
-    parser.add_argument("--noise_optimize", action='store_true', help=" joint optimization of noise and latent code (1) or latent code optimization only (0)?")
+    parser.add_argument("--noise_optimize", action='store_true', help="joint optimization of noise and latent code (1) or latent code optimization only (0)?")
     parser.add_argument("--lambda_noise", type=float, default=1e5, help="weight of the noise regularization")
     # In case noise_optimize=0, the lambda_noise is not taken into account in the loss computation
     parser.add_argument("--fixed_noise", action='store_true', help="Fixing the noise during optimization")
 
     # Parameter related to pixel loss 
-    parser.add_argument('--pixel_loss_type', type=str, default='amse', choices = ['mse', 'mae','amse','wamse','wmse'])
-    parser.add_argument("--lambda_pixel", type=float, default=10.0, help="weight of the (mae/mse) pixel loss")
+    parser.add_argument('--pixel_loss_type', type=str, default='mse', choices = ['mse', 'mae','amse','wamse','wmse'])
+    parser.add_argument("--lambda_pixel", type=float, default=0.0, help="weight of the (mae/mse) pixel loss")
     
         
     # Focal Frequency Loss
@@ -138,17 +136,16 @@ if __name__=="__main__" :
     parser.add_argument("--var_indices", type=utils.str2intlist, default=[0,1,2,3])
     parser.add_argument("--Shape", type=make_tuple, default=(4,256,256), help='size of the samples')
     parser.add_argument("--crop_indices", type=int, nargs='+', default=[0,256,0,256])
+    parser.add_argument("--seed", type=int, default=42)
 
     ########################## CONTROL of Data to invert ######################
-    parser.add_argument("--dates_file", type=str, help='csv file')
-    parser.add_argument("--date_start", type=str, default = "2020-07-01")
-    parser.add_argument("--date_stop", type=str, default = "2021-07-02")
-    parser.add_argument("--leadtimes", type=utils.str2intlist, default=[3,6,9,12,15,18,21,24,27,30,33,36,39,42,45])
-    
-    parser.add_argument("--seed", type=int, default=42)
-    
+    parser.add_argument('--start_member', type=int, default=0)
+    parser.add_argument('--stop_member', type=int, default=874)
+    parser.add_argument("--leadtimes", type=utils.str2intlist, default=[6,12,18,24,30,36,42])
     params = parser.parse_args()
 
+
+    list_members = range(params.start_member, params.stop_member, 16)
 
     # fix some of the inputs
     params.Shape = tuple(params.Shape)
@@ -164,13 +161,6 @@ if __name__=="__main__" :
     seed = params.seed
     torch.manual_seed(seed)
 
-    ################## loading dates and file names ##
-    df = pd.read_csv(params.real_data_dir + params.dates_file)
-    df_date = df.copy()
-    df_date['Date'] = pd.to_datetime(df_date['Date'])
-    df_extract = df_date[(df_date['Date']>=params.date_start) & (df_date['Date']<=params.date_stop)]
-
-    list_dates = df_extract['Date'].unique()
     Means=None
     Maxs=None
     Mins=None
@@ -241,87 +231,57 @@ if __name__=="__main__" :
         print(f"{key}: {value}")
 
     #################### main loop ##################
-    for date_ in list_dates:
-        print(date_)
-        datename = date_.strftime('%Y-%m-%d')
-        print("\n===========================")
+
+    for j,stmb in enumerate(list_members):
+
+        start = stmb 
+        if j<len(list_members)-1:
+            stop = list_members[j+1] - 1
+        else :
+            stop = params.stop_member
+        
         for lt in params.leadtimes:
-            params.date_index = datename
+            print(start, stop, lt)
+            params.date_index = f'{start}_{stop}'
             params.lt_index = lt
             
             # Check if the files already exists (to qave computation time)
             already_exist = []
             if params.pack_dir != '' :
-                if os.path.isfile(params.pack_dir+f'Rsemble_{datename}_{lt}.npy'):
-                    print(params.pack_dir+f'Rsemble_{datename}_{lt}.npy' + ' Pack already Exist')
+                if os.path.isfile(params.pack_dir+f'Rsemble_{start}_{stop}_{lt}.npy'):
+                    print(params.pack_dir+f'Rsemble_{start}_{stop}_{lt}.npy' + ' Pack already Exist')
                     already_exist.append(True)
                 else :
-                    print(params.pack_dir+f'Rsemble_{datename}_{lt}.npy' + ' Pack do not Exist')
+                    print(params.pack_dir+f'Rsemble_{start}_{stop}_{lt}.npy' + ' Pack do not Exist')
                     already_exist.append(False)
             for invstep in params.inv_checkpoints:
-                if os.path.isfile(params.output_dir+'w_{}_{}_{}.npy'.format(params.date_index,lt, invstep)):
-                    print(params.output_dir+'w_{}_{}_{}.npy'.format(params.date_index,lt, invstep) + ' already Exist')
+                if os.path.isfile(params.output_dir+'w_{}_{}_{}_{}.npy'.format(start, stop, lt, invstep)):
+                    print(params.output_dir+'w_{}_{}_{}_{}.npy'.format(start, stop, lt, invstep) + ' already Exist')
                     already_exist.append(True)
                 else :
-                    print(params.output_dir+'w_{}_{}_{}.npy'.format(params.date_index,lt, invstep) + ' do not Exist')
+                    print(params.output_dir+'w_{}_{}_{}_{}.npy'.format(start, stop, lt, invstep) + ' do not Exist')
                     already_exist.append(False)
-                if os.path.isfile(params.output_dir+'invertFsemble_{}_{}_{}.npy'.format(params.date_index,lt, invstep)):
-                    print(params.output_dir+'invertFsemble_{}_{}_{}.npy'.format(params.date_index,lt, invstep) +' already Exist')
+                if os.path.isfile(params.output_dir+'invertFsemble_{}_{}_{}_{}.npy'.format(start, stop, lt, invstep)):
+                    print(params.output_dir+'invertFsemble_{}_{}_{}_{}.npy'.format(start, stop, lt, invstep) +' already Exist')
                     already_exist.append(True)
                 else :
-                    print(params.output_dir+'invertFsemble_{}_{}_{}.npy'.format(params.date_index,lt, invstep) + ' do not Exist')
+                    print(params.output_dir+'invertFsemble_{}_{}_{}_{}.npy'.format(start, stop, lt, invstep) + ' do not Exist')
                     already_exist.append(False)
 
             if np.all(already_exist) :
-                print('The inversion was already done for the date {} with leadtime {} and invstepps :{}. This sample is skipped.'.format(datename,lt,params.invstep))
+                print('The inversion was already done for the date {} with leadtime {} and invstepps :{}. This sample is skipped.'.format(params.date_index,lt,params.invstep))
             else :
+                print('Launching inversion process for member {} to member {} with leadtime {}.'.format(start,stop,lt))
+
+                Ens_r = utils.collate_ensemble(params.real_data_dir, start, stop, lt, params.var_indices)
+                Ens_r_norm = torch.tensor(0.95 * (Ens_r - Means) / Maxs, dtype = torch.float32)
                 
-                if not params.multi_timestep_mode :
-                    print('Launching inversion process for the date {} with leadtime {}.'.format(datename,lt))
-                    df0 = df_extract[(df_extract['Date']==date_) & (df_extract['LeadTime']==lt-1)]
-                    if len(df0)==0:
-                        print("# samples: 0")
-                        continue
-                    
-                    Ens_r, Ens_r_norm = utils.load_batch_from_timestamp(
-                        df_extract, 
-                        date_, 
-                        lt-1, 
-                        params.real_data_dir, 
-                        Shape=params.Shape, 
-                        var_indices=params.var_indices,
-                        normalization=params.normalization,
-                        Means=Means,
-                        Mins=Mins,
-                        Maxs=Maxs,
-                        apply_log_transform=True if params.Shape[0]==4 else False
-                        
-                    ) #, crop_indices=params.crop_indices)                   
-                    if params.pack_dir != "" :
-                        if params.save_normalized_sample:
-                            np.save(params.pack_dir+f'Rsemble_{datename}_{lt}.npy', Ens_r_norm.numpy().astype(np.float32))
-                        else :    
-                            np.save(params.pack_dir+f'Rsemble_{datename}_{lt}.npy', Ens_r.numpy().astype(np.float32))
+                if params.pack_dir != "" :
+                    if params.save_normalized_sample:
+                        np.save(params.pack_dir+f'Rsemble_{start}_{stop}_{lt}.npy', Ens_r.numpy().astype(np.float32))
+                    else :    
+                        np.save(params.pack_dir+f'Rsemble_{start}_{stop}_{lt}.npy', Ens_r_norm.numpy().astype(np.float32))
 
-
-                else : 
-                    # add normalization as above
-                    Ens_r = utils.load_batch_sequence_from_date(
-                        df_extract,
-                        date_,
-                        params.real_data_dir,
-                        concatenate_variable_and_time=params.stack_sample_along_time_and_variable,
-                        dt=params.timestep_period,
-                        Shape=params.Shape,
-                        var_indices=params.var_indices,
-                        normalization=params.normalization,
-                        Means=Means,
-                        Mins=Mins,
-                        Maxs=Maxs,
-                        apply_log_transform=True if params.Shape[0]==4 else False
-                    )
-                    if params.pack_dir :
-                        np.save(params.pack_dir+f'Rsemble_sequence_{datename}.npy', Ens_r.numpy().astype(np.float32))
 
                 if params.inversion_type == 'optimization':
                     inv.optimize(
@@ -335,44 +295,6 @@ if __name__=="__main__" :
                             Mins=Mins,
                             apply_log_transform=True if params.Shape[0]==4 else False
                         )
-                if params.inversion_type == 'optimization_amse_vgg':
-                    init_latent_amse = latent_mean.clone().detach()
-                    init_latent_vgg = latent_mean.clone().detach()
-                    
-                    params.output_dir = params.output_dir+'amse/'
-                    params.lambda_perceptual_loss = 0
-                    params.pixel_loss_type = 'amse'
-                    inv.optimize(
-                            Ens_r=Ens_r_norm,
-                            g_ema=G,
-                            init_latent=init_latent_amse,
-                            device=params.device,
-                            params=params,
-                            Means=Means,
-                            Maxs=Maxs,
-                            Mins=Mins,
-                            apply_log_transform=True if params.Shape[0]==4 else False
-                        )
-                    params.output_dir = '/project/scratch/p200177/DE_371/angeliquebonamy/results/dates/GOOD_DATA/amse_vgg/inv_norm/'
-                    params.lambda_perceptual_loss = 1
-                    params.lambda_pixel = 0
-                    params.output_dir = params.output_dir+'vgg/'
-                    inv.optimize(
-                            Ens_r=Ens_r_norm,
-                            g_ema=G,
-                            init_latent=init_latent_vgg,
-                            device=params.device,
-                            params=params,
-                            Means=Means,
-                            Maxs=Maxs,
-                            Mins=Mins,
-                            apply_log_transform=True if params.Shape[0]==4 else False
-                        )
-                    params.output_dir = '/project/scratch/p200177/DE_371/angeliquebonamy/results/dates/GOOD_DATA/amse_vgg/inv_norm/'
-
-                    
-                    
-
 
                 elif params.inversion_type == 'encoder':
                     if params.encoder_framework_type  in ['restyle-pSp', "restyle-e4e"]:
@@ -420,14 +342,3 @@ if __name__=="__main__" :
                         Mins=Mins,
                         apply_log_transform=True if params.Shape[0]==4 else False
                     )
-                
-
-
-
-
-
-
-
-
-
-

@@ -116,9 +116,9 @@ if __name__=="__main__" :
     AROME_temporal_difference = np.zeros((3, params.nb_timesteps-2, nb_sample_total))
     AROME_absolute_temporal_difference = np.zeros((3, params.nb_timesteps-2, nb_sample_total))
     
-    nb_child_member = 3
-    if 50//16 < nb_child_member:
-        nb_child_member = 50//16
+    nb_child_member = 7
+    if 112//16 < nb_child_member:
+        nb_child_member = 112//16
     nb_sample_total_gen = len(list_dates)*16*nb_child_member
     gen_diurnal_cycle = np.zeros((len(pixel_coordinate_dict), 2, params.nb_timesteps-2, nb_sample_total_gen))
     gen_pearsons_first_to_each_leadtime_img = np.zeros((3, params.nb_timesteps-2, nb_sample_total_gen))
@@ -199,9 +199,9 @@ if __name__=="__main__" :
                     for key_id, key in enumerate(pixel_coordinate_dict):
                         pixel_coordinate=pixel_coordinate_dict[key]
                         # Diurnal Cycle for perturbated sample
-                        u = Ens_gen[gen_member_id][t+1][0][pixel_coordinate[0]][pixel_coordinate[1]]
-                        v = Ens_gen[gen_member_id][t+1][1][pixel_coordinate[0]][pixel_coordinate[1]]
-                        t2m = Ens_gen[gen_member_id][t+1][2][pixel_coordinate[0]][pixel_coordinate[1]]
+                        u = Ens_gen[gen_member_id][t][0][pixel_coordinate[0]][pixel_coordinate[1]]
+                        v = Ens_gen[gen_member_id][t][1][pixel_coordinate[0]][pixel_coordinate[1]]
+                        t2m = Ens_gen[gen_member_id][t][2][pixel_coordinate[0]][pixel_coordinate[1]]
 
                         gen_diurnal_cycle[key_id, 0, t, gen_member_id+16*id_date*nb_child_member] = np.sqrt(u**2+v**2)
                         gen_diurnal_cycle[key_id, 1, t, gen_member_id+16*id_date*nb_child_member] = t2m
@@ -217,13 +217,13 @@ if __name__=="__main__" :
 
                             
                             gen_pearsons_sliding_img[var_id, t, gen_member_id+16*id_date*nb_child_member] = scipy.stats.pearsonr(
-                                                                            Ens_gen[gen_member_id][t+1][var_id].flatten(),
-                                                                            Ens_gen[gen_member_id][t+2][var_id].flatten()
+                                                                            Ens_gen[gen_member_id][t][var_id].flatten(),
+                                                                            Ens_gen[gen_member_id][t+1][var_id].flatten()
                             ).statistic
                         
                         if t < params.nb_timesteps-2:
-                            gen_temporal_difference[var_id, t, gen_member_id+16*id_date*nb_child_member] = torch.mean(Ens_gen[gen_member_id][t+2][var_id] - Ens_gen[gen_member_id][t+1][var_id])
-                            gen_absolute_temporal_difference[var_id, t, gen_member_id+16*id_date*nb_child_member] = torch.mean(np.abs(Ens_gen[gen_member_id][t+2][var_id] - Ens_gen[gen_member_id][t+1][var_id]))
+                            gen_temporal_difference[var_id, t, gen_member_id+16*id_date*nb_child_member] = torch.mean(Ens_gen[gen_member_id][t+1][var_id] - Ens_gen[gen_member_id][t][var_id])
+                            gen_absolute_temporal_difference[var_id, t, gen_member_id+16*id_date*nb_child_member] = torch.mean(np.abs(Ens_gen[gen_member_id][t+1][var_id] - Ens_gen[gen_member_id][t][var_id]))
                             
     
     list_ticks = np.array(params.leadtimes)
@@ -350,7 +350,7 @@ if __name__=="__main__" :
     for i in ax :
         i.legend()
 
-    fig.suptitle('Absolute Temporal Difference for Each Leadtime : ∆X = |X(t+1) - X(t)|', size=30)
+    fig.suptitle('Absolute Temporal Difference for Each Leadtime : ∆X = X(t+1) - X(t)', size=30)
     output_dir_temporal_difference = output_dir_plots + 'Temporal_Difference/'
     if not os.path.exists(output_dir_temporal_difference):
         os.makedirs(output_dir_temporal_difference)
@@ -375,7 +375,7 @@ if __name__=="__main__" :
     for i in ax :
         i.legend()
 
-    fig.suptitle('Temporal Difference for Each Leadtime : ∆X = X(t+1) - X(t)', size=30)
+    fig.suptitle('Temporal Difference for Each Leadtime : ∆X = |X(t+1) - X(t)|', size=30)
     fig.savefig(output_dir_temporal_difference+f'Temporal_Difference_over_{nb_sample_total}_samples_{params.nb_timesteps}_nb_var_{len(params.var_names)}.pdf') 
       
             
