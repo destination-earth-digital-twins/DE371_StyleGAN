@@ -111,7 +111,7 @@ def set_alexnet(self):
     self.size_resize=[224,224]
     network = torchvision.models.alexnet(weights=None).to(self.device)
     load_or_save_weight(network, dir=self.config.network_dir, type='alexnet', pre_trained=self.config.pre_trained)
-    feature_layers = [0, 4, 7, 9, 11]
+    feature_layers = [1, 4, 7, 9, 11]
     return set_blocks_from_direct_features(config=self.config, network=network, feature_layers=feature_layers)
 
 

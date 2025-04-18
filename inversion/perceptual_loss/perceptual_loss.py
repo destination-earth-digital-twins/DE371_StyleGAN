@@ -25,7 +25,6 @@ class MultiPerceptualLoss(torch.nn.Module):
         perceptual_loss_total = 0
         for id, perceptual_loss in enumerate(self.perceptual_losses) :
             loss =  perceptual_loss(img_gen, input_img, normalize)
-            # print(perceptual_loss.config.network_type, loss)
             perceptual_loss_total += loss
 
         return perceptual_loss_total
@@ -145,17 +144,17 @@ class PerceptualLoss(torch.nn.Module):
             
         features = []
         styles= []
-
-        # the samples have to be in range [0, 1] and normalized using
-        # mean = [0.485, 0.456, 0.406] and std = [0.229, 0.224, 0.225]
-        if self.config.channel_computation != 'sol5' :
-            x = (input_img-self.mean) / self.std
-        else :
-            # grayscale imagenet's train dataset mean and standard deviation 
+        x = input_img
+        # # the samples have to be in range [0, 1] and normalized using
+        # # mean = [0.485, 0.456, 0.406] and std = [0.229, 0.224, 0.225]
+        # if self.config.channel_computation != 'sol5' :
+        #     x = (input_img-self.mean) / self.std
+        # else :
+        #     # grayscale imagenet's train dataset mean and standard deviation 
             
-            grayscale_mean = 0.44531356896770125
-            grayscale_std = 0.2692461874154524
-            x = (input_img-grayscale_mean) / grayscale_std
+        #     grayscale_mean = 0.44531356896770125
+        #     grayscale_std = 0.2692461874154524
+        #     x = (input_img-grayscale_mean) / grayscale_std
 
         for i, block in enumerate(self.blocks):
             x = block(x)
@@ -171,7 +170,7 @@ class PerceptualLoss(torch.nn.Module):
         
         return features, styles
     
-    def compute_perceptual_features(self, img, compute_all_features=True, normalize=True):
+    def compute_perceptual_features(self, img, compute_all_features=True, normalize=True, return_features=False):
         r''' Compute the features of a single image with respect to the chosen solution and save them in the memory '''
         features = []
         styles = []
@@ -216,9 +215,12 @@ class PerceptualLoss(torch.nn.Module):
                             )
 
 
-        self.features_input_img=features
-        # print('self.features_input_img length :', len(self.features_input_img))
-        self.styles_input_img=styles 
+        if not return_features:
+            self.features_input_img=features
+            # print('self.features_input_img length :', len(self.features_input_img))
+            self.styles_input_img=styles 
+        else :
+            return features, styles
 
     
     def perceptual_loss_given_features_and_target(self, target_img, feature_layers=[0,1,2,3,4], features_input_img=None, style_layers=[], styles_input_img=None, alpha_feature=1.0, alpha_style=0.01, normalize=True):

@@ -12,22 +12,12 @@ gan/configs/*
 *run*
 *.pth
 *.code-workspace
-*plotter/
 gan_2_ae/*
 *.sif
 .vscode/
 /test_*.py
 *.log
-init_*.sh
-!init_inversion.sh
-!init_training_encoder.sh
-!init_training.sh
-!init_perturbation.sh
-!init_scaling_perturbation.sh
-!init_training_temporal.sh
-!init_encoder_inversion.sh
-!init_encoder_inversion_parallel.sh
-inversion/PerceptualSimilarity
+scripts/
 test_
 gan/model/2d_stylegan2-ada_nvidia.py
 gan/model/3d_stylegan2-ada_nvidia.py
@@ -40,10 +30,10 @@ gan/model/op_3d/*
 gan/model/stylegan2_3d_kernel.py
 gan/model/stylegan2_t_conditionned.py
 gan/model/test_stylegan2_3d.py
-inversion/hd_vgg_perceptual_loss.py
 gan/model/op_3d_other/*
 FeatureStyleEncoder
 idinvert_pytorch
+scripts/*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

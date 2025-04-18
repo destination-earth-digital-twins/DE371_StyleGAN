@@ -1,5 +1,5 @@
 from argparse import ArgumentParser
-import perturbation.utils as utils
+from utils import utils
 
 class TrainOptions:
 
@@ -41,16 +41,16 @@ class TrainOptions:
         self.parser.add_argument("--features_after_relu", action='store_true')
         self.parser.add_argument("--channel_computation", type=str, default='sol2', choices = ['sol1', 'sol2', 'sol3', 'sol4', 'sol5'], 
                         help="Either we compute layer by layer and member per member but we have to triple th einput to make it rgb or all in one (naive)")
-        self.parser.add_argument("--network_dir", type=str, default='/project/scratch/p200177/DE_371/resources/network_for_perceptual_loss/', help="Insert a path")
+        self.parser.add_argument("--network_dir", type=str, default='/project/home/p200177/DE_371/resources/network_for_perceptual_loss/', help="Insert a path")
         self.parser.add_argument("--style_layers", type=utils.str2intlist, default=[], help="style layers to include in vgg loss computation")
         self.parser.add_argument("--feature_layers", type=utils.str2intlist, default=[0,1,2,3], help="feature layers to include in vgg computation")
         self.parser.add_argument("--alpha_feature", type=float, default=1.0, help="weight of the feature/content loss")
         self.parser.add_argument("--alpha_style", type=float, default=0.01, help="weight of the style loss")
         
         # weights and checkpoint paths
-        self.parser.add_argument('--stylegan_weights', default='/project/scratch/p200177/DE_371/victorsanchez/models/trained_generator/000024.pt', type=str,help='Path to StyleGAN model weights')
+        self.parser.add_argument('--stylegan_weights', default='/project/home/p200177/DE_371/resources/models/trained_generator/000024.pt', type=str,help='Path to StyleGAN model weights')
         self.parser.add_argument('--random_resnet', action='store_true')
-        self.parser.add_argument('--checkpoint_path', default=None, type=str, help='Path to ReStyle model checkpoint')
+        self.parser.add_argument('--encoder_checkpoint_dir', default=None, type=str, help='Path to ReStyle model checkpoint')
         self.parser.add_argument('--resume_step', default=0, type=int,help='step number to resume from')
 
         # intervals for logging, validation, and saving

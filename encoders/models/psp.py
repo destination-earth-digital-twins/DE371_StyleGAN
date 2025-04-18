@@ -8,7 +8,8 @@ from torch import nn
 from gan.model.stylegan2 import Generator
 from encoders.configs.paths_config import model_paths
 from encoders.models.encoders import fpn_encoders, restyle_psp_encoders
-from encoders.utils.model_utils import RESNET_MAPPING
+from encoders.models.w_encoder import WEncoder
+from encoders.utils_encoder.model_utils import RESNET_MAPPING
 from collections import OrderedDict
 
 class pSp(nn.Module):
@@ -22,7 +23,7 @@ class pSp(nn.Module):
         self.decoder = Generator(self.config.output_size, 512, 8, channel_multiplier=2)
 
         self.restyle_mode = restyle_mode
-        # torch.save(self.encoder.state_dict(), '/project/scratch/p200177/DE_371/resources/pretrained_models/resnet34_random.pth')
+        # torch.save(self.encoder.state_dict(), '/project/home/p200177/DE_371/resources/pretrained_models/resnet34_random.pth')
         # raise NotImplementedError
 
         # Load weights if needed
@@ -37,14 +38,16 @@ class pSp(nn.Module):
             encoder = restyle_psp_encoders.BackboneEncoder(50, 'ir_se', self.n_styles, self.config)
         elif self.config.encoder_type == 'ResNetBackboneEncoder':
             encoder = restyle_psp_encoders.ResNetBackboneEncoder(self.n_styles, self.config)
+        elif self.config.encoder_type in ['SharedWeightsHyperNetResNet', 'SharedWeightsHyperNetResNetSeparable']:
+            encoder = WEncoder(50, 'ir_se', self.config)
         else:
             raise Exception(f'{self.config.encoder_type} is not a valid encoders')
         return encoder
 
     def load_weights(self):
-        if self.config.checkpoint_path is not None:
-            print(f'Loading ReStyle pSp from checkpoint: {self.config.checkpoint_path}')
-            ckpt = torch.load(self.config.checkpoint_path, map_location='cpu')
+        if self.config.encoder_checkpoint_dir is not None:
+            print(f'Loading ReStyle pSp from checkpoint: {self.config.encoder_checkpoint_dir}')
+            ckpt = torch.load(self.config.encoder_checkpoint_dir, map_location='cpu')
             self.encoder.load_state_dict(self.__get_keys(ckpt, 'encoder'), strict=False)
             self.decoder.load_state_dict(self.__get_keys(ckpt, 'decoder'), strict=True)
             self.__load_latent_avg(ckpt)
@@ -72,7 +75,8 @@ class pSp(nn.Module):
                 input_code=False,
                 randomize_noise=True,
                 return_latents=False, 
-                average_code=False
+                average_code=False,
+                return_code=False
                 ):
         
         if input_code:
@@ -106,28 +110,14 @@ class pSp(nn.Module):
                                              return_latents=return_latents
                                              )
 
-        
-        if not self.restyle_mode and self.config.training_on_fake_samples :
-            # generate fake images
-            z = torch.randn((x.shape[0], 512), device=self.config.device).detach()
-            fake_img, fake_w, _ = self.decoder([z], return_latents=True, randomize_noise=False)
-            
-            estimated_fake_w = self.encoder(fake_img)
-            estimated_fake_img, _, _ = self.decoder([estimated_fake_w],
-                                                input_is_latent=input_is_latent,
-                                                randomize_noise=randomize_noise,
-                                                return_latents=return_latents
-                                            )
-            if return_latents:
-                return images, result_latent, fake_img, fake_w, estimated_fake_img, estimated_fake_w
-            else:
-                return images
-        
+        if return_latents and not return_code:
+            return images, result_latent
+        elif return_code and not return_latents:
+            return images, codes
+        elif return_code and return_latents :
+            return images, result_latent, codes
         else :
-            if return_latents:
-                return images, result_latent
-            else:
-                return images
+            return images
 
     def set_config(self, config):
         self.config = config

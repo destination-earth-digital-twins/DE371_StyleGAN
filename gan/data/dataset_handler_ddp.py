@@ -16,16 +16,15 @@ import pandas as pd
 
 import numpy as np
 import pandas as pd
-import scipy.ndimage
 import yaml
 from filelock import FileLock
-from torch import Tensor, from_numpy
 from torch.utils.data import DataLoader, Dataset
 from torch.utils.data.distributed import DistributedSampler
-from torchvision.transforms import ToTensor, Normalize, Compose
-from gan.data.statsMasked import normalizeUnderMask
+from torchvision.transforms import ToTensor, Compose
 from gan.data.normalize_funcs import MultiOptionNormalize
 from multiprocessing import Manager
+
+# TODO : The part on multi time steps needs to be reviewed by an other person than Victor (ex : @clement))
 
 ################ reference dictionary to know what variables to sample where
 ################ do not modify unless you know what you are doing 
@@ -80,11 +79,10 @@ class ISDataset(Dataset):
         self.labels = pd.read_csv(f"{self.config.data_dir}{self.config.id_file}")
 
 
-        # TODO : Add these to the config instead 
-        self.nb_leadtime_in_dataset=45
-        self.nb_members=16
-        ####################
-        self.cursor_incomplete_date = 0
+        if self.config.multi_timestep_mode :
+            self.nb_leadtime_in_dataset = 45 # Change or add to config if needed
+            self.nb_members = 16 # Change or add to config if needed
+            self.cursor_incomplete_date = 0
 
         
         self.cache = DatasetCache(use_cache=use_cache)
@@ -118,7 +116,7 @@ class ISDataset(Dataset):
         else :
             length = len(self.labels)
 
-        print(f'Dataset contain {length} samples which corresponds to {len(self.labels) // (self.nb_leadtime_in_dataset*self.nb_members)} days')
+        print(f'Dataset contain {length} samples which corresponds to {len(self.labels) // (self.nb_leadtime_in_dataset)} days')
         return length
 
     def __getitem__(self, idx):
@@ -140,14 +138,12 @@ class ISDataset(Dataset):
                 #           ((self.nb_leadtime_in_dataset-1)*16)*((idx)//16)
                 # 16 being the number of members 
                 
-                _idx = idx + 16*self.config.timestep_period*leadtime_id + self.cursor_incomplete_date*45*16
+                _idx = idx + self.nb_members*self.config.timestep_period*leadtime_id + self.cursor_incomplete_date*self.nb_leadtime_in_dataset*self.nb_members
                 if self.config.cutoff_dataset_leadtimes :
-                    _idx += ((self.nb_leadtime_in_dataset-1)*16)*((idx)//16)
-                # print('sample id', _idx)
-                # print('Batch id: ', idx)
-                # print('Leadtime h', leadtime_id*self.config.timestep_period)
-                # print('Day num', _idx//((self.nb_leadtime_in_dataset)*16))
-                # print('Member num', idx)
+                    # To consider always the same leadtime per sequence
+                    # ex : if cutoff_dataset_leadtimes is True we obtain 3/6/9 everytime we call the get item
+                    # Else we obtain 3/6/9 and then 4/7/10 and then 5/8/11
+                    _idx += ((self.nb_leadtime_in_dataset-1)*self.nb_members)*((idx)//self.nb_members)
                 
                 if self.labels.iloc[_idx]['Date'] in ['2021-02-13T21:00:00Z', '2021-08-15T21:00:00Z', '2021-09-29T21:00:00Z', '2021-05-30T21:00:00Z']:
                     print(f"Warning : Incomplete Date : {self.labels.iloc[_idx]['Date']}, switching to next sample day")
@@ -207,34 +203,11 @@ class ISDataset(Dataset):
         ## transpose to get off with transform.Normalize builtin transposition
 
         if not self.config.multi_timestep_mode :
-
-            # print(f'\n stat before normalization : \
-            #       (var) (min) (mean) (max) \n \
-            #       t2m{sample.min()} {sample.mean()} {sample.max()} \n\  ')
-            
             sample = sample.transpose((1,2,0))  
             sample = self.transform(sample)
-            
-            # print(f'\n stat after normalization : \
-            #       (var) (min) (mean) (max)\n \
-            #       t2m{sample.min()} {sample.mean()} {sample.max()} \n\  ')
         else :
-            # print(f'\n stat before normalization (shape : {np.shape(sample)}): \n \
-            #       (var) (min) (mean) (max) \n \
-            #        u {sample[0].min()} {sample[0].mean()} {sample[0].max()} \n \
-            #        v {sample[1].min()} {sample[1].mean()} {sample[1].max()} \n \
-            #        t2m {sample[2].min()} {sample[2].mean()} {sample[2].max()} \n')
             sample = sample.transpose(2,3,1,0)
-            # print('after T', np.shape(sample))
             sample = np.array([self.transform(sample[:,:,:,t]) for t in range(self.config.nb_timesteps)])
-            # print('after', np.shape(sample))
-            
-            # print(f'\n stat after normalization (shape : {np.shape(sample)}): \n \
-            #       (var) (min) (mean) (max)\n \
-            #       u{sample[:,:,:,0].min()} {sample[:,:,:,0].mean()} {sample[:,:,:,0].max()} \n \
-            #       v{sample[:,:,:,1].min()} {sample[:,:,:,1].mean()} {sample[:,:,:,1].max()} \n \
-            #       t2m{sample[:,:,:,2].min()} {sample[:,:,:,2].mean()} {sample[:,:,:,2].max()} \n \
-            #             ')
             
             # By default sample has a shape (T, V, H, W) : [[U0, V0, T0], [U1, V1, T1], ... ]
             if self.config.variable_first :
@@ -246,8 +219,6 @@ class ISDataset(Dataset):
                 # sample = np.vstack(sample)
                 # sample should now be : (Nb_leatime*N_var, H, W)
 
-             
-        
         # print('shape of sample :', np.shape(sample))
         if not self.config.timestep_labelling :
             self.cache.cache(idx, sample, importance, position)

@@ -11,7 +11,7 @@ from collections import OrderedDict
 import yaml
 import pandas as pd
 
-import perturbation.utils as utils
+import utils.utils as utils
 
 # TODO : Saliency map with discriminator
 
@@ -84,7 +84,7 @@ if __name__=="__main__" :
 
     #load pretrained resnet model
     model = torchvision.models.vgg16(weights=None).to(params.device)
-    model.load_state_dict(torch.load('/project/scratch/p200177/DE_371/resources/network_for_perceptual_loss/vgg16_random.pth'))
+    model.load_state_dict(torch.load('/project/home/p200177/DE_371/resources/network_for_perceptual_loss/vgg16_random.pth'))
     feature_layers = [4,9,16,23,30]
     feature_weighting = [100,100,50,10,10] 
     blocks = []

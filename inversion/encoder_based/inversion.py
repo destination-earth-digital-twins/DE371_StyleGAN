@@ -1,22 +1,20 @@
 import torch
 import numpy as np
-from encoders.utils import common, train_utils
+from encoders.utils_encoder import common, train_utils
 import matplotlib.pyplot as plt
 import matplotlib
 matplotlib.use('Agg')
-import perturbation.utils as utils
-from generate_sample import humanbytes
+import utils.utils as utils
 from time import time
-from inversion.encoder_based.utils import log_images_diff
+from inversion.encoder_based.encoder_utils import log_images_diff
 
 
-def inversion_restyle(params, network, Ens_r):
+def inversion_restyle(params, network, Ens_r, Means, Mins, Maxs, apply_log_transform=False):
     y_hat, latent = None, None
-    # latent_complete = torch.empty((Ens_r.shape[0], 14, 512))
-    # y_hat_complete = torch.empty(Ens_r.shape)
+
     y_hats = {idx: [] for idx in range(Ens_r.shape[0])}
     mem_cuda = torch.cuda.memory_allocated(device=params.device)
-    print('memory_allocated {}'.format(humanbytes(mem_cuda)))
+    # print('memory_allocated {}'.format(humanbytes(mem_cuda)))
     # get the image corresponding to the latent average
     avg_sample = network(
         network.latent_avg.unsqueeze(0),
@@ -28,7 +26,7 @@ def inversion_restyle(params, network, Ens_r):
         avg_sample = avg_sample.to(params.device).float()                
         Ens_r = Ens_r.to(params.device)
         mem_cuda = torch.cuda.memory_allocated(device=params.device)
-        print('memory_allocated {}'.format(humanbytes(mem_cuda)))
+        # print('memory_allocated {}'.format(humanbytes(mem_cuda)))
         t0 = time()
         # Restyle-Encoder Loop
         for iter in range(params.n_iters_per_batch):
@@ -47,7 +45,11 @@ def inversion_restyle(params, network, Ens_r):
             if iter+1 in params.n_iters_per_batch_checkpoint :
                 print("--saving inverted samples :", params.output_dir+'w_{}_{}_{}.npy'.format(params.date_index,params.lt_index, iter+1))
                 np.save(params.output_dir+'w_{}_{}_{}.npy'.format(params.date_index,params.lt_index, iter+1),latent.cpu().detach().numpy())
-                np.save(params.output_dir+'invertFsemble_{}_{}_{}.npy'.format(params.date_index,params.lt_index, iter+1),y_hat.cpu().detach().numpy())
+                if params.save_normalized_sample:
+                    np.save(params.output_dir+'invertFsemble_{}_{}_{}.npy'.format(params.date_index,params.lt_index, iter+1),y_hat.cpu().detach().numpy())
+                else :
+                    denorm_y_hat = utils.denormalize(y_hat.cpu().detach(), params.normalization, Means, Mins, Maxs, apply_log_transform=apply_log_transform)
+                    np.save(params.output_dir+'invertFsemble_{}_{}_{}.npy'.format(params.date_index,params.lt_index,iter+1), denorm_y_hat)
                 if params.plot_checkpoint:
                     print("--plotting inverted samples :", params.output_dir+'w_{}_{}.npy'.format(params.date_index,params.lt_index))
                     log_images_diff(
@@ -67,7 +69,7 @@ def inversion_psp_e4e(params, network, Ens_r):
     y_hat, latent = None, None
 
     mem_cuda = torch.cuda.memory_allocated(device=params.device)
-    print('memory_allocated {}'.format(humanbytes(mem_cuda)))
+    # print('memory_allocated {}'.format(humanbytes(mem_cuda)))
 
     with torch.no_grad():             
         Ens_r = Ens_r.to(params.device)
@@ -88,7 +90,7 @@ def inversion_inDomain(params, network, Ens_r):
     y_hat, latent = None, None
 
     mem_cuda = torch.cuda.memory_allocated(device=params.device)
-    print('memory_allocated {}'.format(humanbytes(mem_cuda)))
+    # print('memory_allocated {}'.format(humanbytes(mem_cuda)))
 
     with torch.no_grad():             
         Ens_r = Ens_r.to(params.device)
@@ -109,7 +111,7 @@ def inversion_featureStyle(params, network, Ens_r):
     y_hat, latent = None, None
 
     mem_cuda = torch.cuda.memory_allocated(device=params.device)
-    print('memory_allocated {}'.format(humanbytes(mem_cuda)))
+    # print('memory_allocated {}'.format(humanbytes(mem_cuda)))
 
     with torch.no_grad():             
         Ens_r = Ens_r.to(params.device)

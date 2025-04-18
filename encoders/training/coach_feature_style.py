@@ -8,16 +8,12 @@ from torch import nn
 from torch.utils.data import DataLoader
 import torch.nn.functional as F
 from tqdm import tqdm
-from encoders.utils import common, train_utils
-from encoders.criteria import w_norm, moco_loss, scattering_loss
-from encoders.criteria.SWD_loss import SwdLoss
+from encoders.utils_encoder import common, train_utils
 from encoders.configs import data_configs
 from encoders.datasets.arome_dataset import AromeDataset
-from encoders.criteria.lpips.lpips import LPIPS
 from encoders.models.feature_style_encoder.feature_style_module import FeatureStyleModule
 from encoders.training.ranger import Ranger
 from inversion.perceptual_loss.perceptual_loss import PerceptualLoss
-from inversion.focal_frequency_loss import FocalFrequencyLoss
 
 import numpy as np
 
@@ -42,8 +38,6 @@ class Coach:
         self.mse_loss = nn.MSELoss().to(self.device).eval()
         if self.config.perceptual_lambda > 0 :
             self.perceptual_loss = PerceptualLoss(config=self.config, device=self.device, multi_scale=self.config.multi_scale_perceptual_loss).to(self.device).eval()
-        if self.config.ffl_lambda > 0 :
-            self.ffl_loss = FocalFrequencyLoss().to(self.device)
                             
 		# Initialize optimizer
         self.optimizer = self.configure_optimizers()
@@ -188,8 +182,8 @@ class Coach:
     def checkpoint_me(self, loss_dict, is_best):
         save_name = 'best_model.pt' if is_best else 'iteration_{}.pt'.format(self.global_step)
         save_dict = self.__get_save_dict()
-        checkpoint_path = os.path.join(self.checkpoint_dir, save_name)
-        torch.save(save_dict, checkpoint_path)
+        encoder_checkpoint_dir = os.path.join(self.checkpoint_dir, save_name)
+        torch.save(save_dict, encoder_checkpoint_dir)
         with open(os.path.join(self.checkpoint_dir, 'timestamp.txt'), 'a') as f:
             if is_best:
                 f.write('**Best**: Step - {}, Loss - {:.3f} \n{}\n'.format(self.global_step, self.best_val_loss, loss_dict))
@@ -270,11 +264,6 @@ class Coach:
             # print('perceptual_loss', perceptual_loss)
             loss_dict['perceptual_loss_concat_img_y_hat_y_hat'] = float(perceptual_loss)
             loss += perceptual_loss * self.config.perceptual_lambda
-
-        if self.config.ffl_lambda > 0 :
-            ffl_loss = self.ffl_loss(img, y_hat)
-            loss_dict['ffl_loss'] = float(ffl_loss)
-            loss += ffl_loss * self.config.ffl_lambda
 
         if option != 'train' :
             if self.config.l2_lambda==0 :

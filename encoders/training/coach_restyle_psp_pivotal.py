@@ -8,11 +8,9 @@ from torch import nn
 from torch.utils.data import DataLoader
 import torch.nn.functional as F
 
-from encoders.utils import common, train_utils
-from encoders.criteria import w_norm, moco_loss, scattering_loss
+from encoders.utils_encoder import common, train_utils
 from encoders.configs import data_configs
 from encoders.datasets.arome_dataset import AromeDataset
-from encoders.criteria.lpips.lpips import LPIPS
 from encoders.models.psp import pSp
 from encoders.training.ranger import Ranger
 import numpy as np
@@ -231,8 +229,8 @@ class Coach:
     def checkpoint_me(self, loss_dict, is_best):
         save_name = 'best_model.pt' if is_best else 'iteration_{}.pt'.format(self.global_step)
         save_dict = self.__get_save_dict()
-        checkpoint_path = os.path.join(self.checkpoint_dir, save_name)
-        torch.save(save_dict, checkpoint_path)
+        encoder_checkpoint_dir = os.path.join(self.checkpoint_dir, save_name)
+        torch.save(save_dict, encoder_checkpoint_dir)
         with open(os.path.join(self.checkpoint_dir, 'timestamp.txt'), 'a') as f:
             if is_best:
                 f.write('**Best**: Step - {}, Loss - {:.3f} \n{}\n'.format(self.global_step, self.best_val_loss, loss_dict))

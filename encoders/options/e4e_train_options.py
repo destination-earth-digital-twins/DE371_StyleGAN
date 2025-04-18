@@ -1,5 +1,5 @@
 from encoders.options.train_options import TrainOptions
-import perturbation.utils as utils
+import utils.utils as utils
 
 class e4eTrainOptions(TrainOptions):
 
@@ -39,7 +39,6 @@ def createNamesFromLosses(config) :
     name ='loss_train'
     
     config_dict = vars(config)
-    mspl = ''
 
     for arg, value in config_dict.items() :
         
@@ -52,18 +51,7 @@ def createNamesFromLosses(config) :
         
         if 'network_type' in arg :
             network_type = value
-
-        if 'n_iters_per_batch' in arg :
-            suffix = str(value)
-
-        if 'random_resnet' in arg :
-            if value :
-                resnet = 'random'
-            else :
-                resnet = 'trained'
         
-        if 'multi_scale_perceptual_loss' in arg :
-            mspl = '_multi_scale_PL'
-    name = f'{name}_resnet={resnet}_network_type={network_type}{mspl}_{suffix}_iter/'
+    name = f'{name}_network_type={network_type}/'
     
     return name

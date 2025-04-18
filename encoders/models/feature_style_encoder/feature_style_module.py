@@ -20,15 +20,19 @@ class FeatureStyleModule(nn.Module):
         self.idx_k = 6 # See paper https://arxiv.org/pdf/2202.02183 Instance 1 - 7 / Instance 2 - 6
         self.encoder = fs_encoder(n_styles=self.n_styles)
         self.decoder = Generator(self.config.output_size, 512, 8, channel_multiplier=2)
+        if 'fake_image_on_batch' not in self.config:
+            self.config.fake_image_on_batch=False
+        if 'start_from_latent_avg' not in self.config:
+            self.config.start_from_latent_avg=True
 
         # Load weights if needed
         self.load_weights()
 
 
     def load_weights(self):
-        if self.config.checkpoint_path is not None:
-            print(f'Loading Encoder and Generator from checkpoint: {self.config.checkpoint_path}')
-            ckpt = torch.load(self.config.checkpoint_path, map_location='cpu')
+        if self.config.encoder_checkpoint_dir is not None:
+            print(f'Loading Encoder and Generator from checkpoint: {self.config.encoder_checkpoint_dir}')
+            ckpt = torch.load(self.config.encoder_checkpoint_dir, map_location='cpu')
             self.encoder.load_state_dict(self.__get_keys(ckpt, 'encoder'), strict=False)
             self.decoder.load_state_dict(self.__get_keys(ckpt, 'decoder'), strict=True)
             self.__load_latent_avg(ckpt)

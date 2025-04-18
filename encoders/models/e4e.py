@@ -8,7 +8,7 @@ from torch import nn
 from gan.model.stylegan2 import Generator
 from encoders.configs.paths_config import model_paths
 from encoders.models.encoders import restyle_e4e_encoders
-from encoders.utils.model_utils import RESNET_MAPPING
+from encoders.utils_encoder.model_utils import RESNET_MAPPING
 from collections import OrderedDict
 
 class e4e(nn.Module):
@@ -20,7 +20,6 @@ class e4e(nn.Module):
         # Define architecture
         self.encoder = self.set_encoder()
         self.decoder = Generator(self.config.output_size, 512, 8, channel_multiplier=2)
-        self.face_pool = torch.nn.AdaptiveAvgPool2d((256, 256))
         # Load weights if needed
         self.load_weights()
 
@@ -34,9 +33,9 @@ class e4e(nn.Module):
         return encoder
 
     def load_weights(self):
-        if self.config.checkpoint_path is not None:
-            print(f'Loading ReStyle e4e from checkpoint: {self.config.checkpoint_path}')
-            ckpt = torch.load(self.config.checkpoint_path, map_location='cpu')
+        if self.config.encoder_checkpoint_dir is not None:
+            print(f'Loading ReStyle e4e from checkpoint: {self.config.encoder_checkpoint_dir}')
+            ckpt = torch.load(self.config.encoder_checkpoint_dir, map_location='cpu')
             self.encoder.load_state_dict(self.__get_keys(ckpt, 'encoder'), strict=False)
             self.decoder.load_state_dict(self.__get_keys(ckpt, 'decoder'), strict=True)
             self.__load_latent_avg(ckpt)
@@ -89,9 +88,6 @@ class e4e(nn.Module):
                                              input_is_latent=input_is_latent,
                                              randomize_noise=randomize_noise,
                                              return_latents=return_latents)
-
-        if resize:
-            images = self.face_pool(images)
 
         if return_latents:
             return images, result_latent

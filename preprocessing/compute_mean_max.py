@@ -78,13 +78,13 @@ def new_database_mean_pert(data_orig_path, new_data_path, vars=['z500']):
 if __name__=='__main__':
     mode='mean_pert' # can be either 8_vars, mean_0 or mean_pert
 
-    data_path = "/scratch/mrmn/poulainauzeaul/Exp_StyleGAN/IS_1_1.0_0_0_0_0_0_256_done_with_8_var/"
+    data_path = ""
     
     if mode=='mean_0':
-        new_data_path = "/scratch/mrmn/poulainauzeaul/Exp_StyleGAN/IS_1_1.0_0_0_0_0_0_256_mean_0/"
+        new_data_path = ""
     
     if mode=="mean_pert":
-        new_data_path = "/scratch/mrmn/poulainauzeaul/Exp_StyleGAN/IS_1_1.0_0_0_0_0_0_256_mean_pert/"
+        new_data_path = ""
     
     if not os.path.isdir(new_data_path):
         os.mkdir(new_data_path)
