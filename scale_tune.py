@@ -25,7 +25,6 @@ from glob import glob
 from scipy.stats import wasserstein_distance
 
 
-
 def huber_loss(input, target, delta=1.0, reduction='mean'):
     return F.huber_loss(input, target, delta=delta, reduction=reduction)
 
@@ -38,47 +37,6 @@ def quantile_loss(q,y_pred, target) :
     losses = 2 * torch.cat(losses, dim=-1).mean()
 
     return losses
-
-# def huber_loss2(y_pred,target):
-#     abs_error = torch.abs(target - y_pred)
-#     # delta = torch.median(abs_error).item()
-#     delta = 1.0
-#     huber_loss = torch.where(
-#             abs_error < delta,
-#             0.5 * abs_error.pow(2),  # Partie quadratique (MSE)
-#             delta * (abs_error - 0.5 * delta)  # Partie linéaire (MAE)
-#         )
-#     return(huber_loss.mean())
-# def quantile_loss(q,  y,y_pred):
-
-#     batch_size, n_variables, height, width = y_pred.shape
-        
-#     total_loss = 0.0
-#         losses=[]
-#         total_loss_var = 0.0
-#             # Boucle sur chaque quantile
-#         for i, quan in enumerate(q):
-#             losses=[]
-#             errors = var_target - var_pred
-#             losses.append(torch.max((quan - 1) * errors, quan * errors).unsqueeze(-1))
-#             losses = 2 * torch.cat(losses, dim=-1).mean()
-#             total_loss_var+=losses.item()
-#     #        print("je suis la shape avant le torchcat",losses,total_loss)#, len(losses),losses[0].shape)
-#         total_loss += total_loss_var
-   # print("je suis avant tout", total_loss,total_loss_var,total_loss/((len(q) * n_variables)))
-        
-    # return torch.tensor(total_loss/((len(q) * n_variables)),requires_grad=True)
-        # for i, quantile in enumerate(q):
-        #     errors = var_target - var_pred
-            # losses.append(torch.max((quantile - 1) * errors, quantile * errors).unsqueeze(-1))
-        #     losses = 2 * torch.cat(losses, dim=-1).mean()
-        #     print(i,quantile,losses)
-        #         Calculer la perte quantile pour chaque pixel et chaque quantile
-        #         loss = torch.mean(torch.max((quantile - 1) * errors, quantile * errors))  # Moyenne des erreurs pour chaque quantile
-        #         total_loss += loss  # Ajouter la perte au total
-
-        # Retourner la perte totale divisée par le nombre de quantiles et de variables
-        # return total_loss / (len(self.quantiles) * n_variables)
 
 def add_noise(scale,sig,device):
    noise = torch.empty(scale.shape).normal_()
@@ -131,17 +89,17 @@ if __name__=="__main__" :
                         default='/project/scratch/p200177/DE_371/angeliquebonamy/test_scale_tune/Eigenvalues/')
     parser.add_argument("--output_dir", type=str, 
                         default='/project/scratch/p200177/DE_371/angeliquebonamy/test_scale_tune/vgg/sigmoid_stdmean_rruvt/')
+    
+    parser.add_argument('--scale_tune_loss',type =str, ["scale_tune_loss_quantile","scale_tune_loss_quantile_adaptive_rr","scale_tune_loss_mean_std_adaptive_rr"] )
     args = parser.parse_args()
 
     output_dir = f"{args.output_dir}interp_scale_pca_{args.pca_cut}_{args.inflate_random}_{args.inflate}_bias_{args.start}_{args.lambda_bias}_spread_{args.lambda_spread}_ff_{args.convert_ff_t}_{args.invert_step}/"
     os.makedirs(output_dir, exist_ok=True)
-    print("JE SUIS OUTPUT DIR")
     instances = len(glob(output_dir + "Instance_*/"))
     print("instances already existing", instances)
     os.makedirs(output_dir + f"Instance_{instances+1}/",exist_ok=True)
     output_dir = output_dir + f"Instance_{instances+1}/"
-    # df = pd.read_csv(args.real_data_dir + 'Large_lt_val_labels.csv') #Large_lt_val_labels
-    df = pd.read_csv('/home/users/u101957/DE371_StyleGAN/IS_boostrap_no_duplicate_rr_cumul_correct_valid_copy.csv')
+    df = pd.read_csv(args.real_data_dir + 'Large_lt_val_labels.csv') 
     df_date = df.copy()
 
     liste_dates = df_date['Date'].unique().tolist()
@@ -242,62 +200,43 @@ if __name__=="__main__" :
                 if args.convert_ff_t:
                     gen, batch_y = convert_uvt2fft(gen, batch_y)
                 if args.optim_criterion == 'distrib_matching':
-                    quan_loss_rr = quantile_loss([0.9,0.1,0.5,0.75,0.25,0.05,0.95],batch_y[:,0,:,:],gen[:,0,:,:])
-                    # hub_loss_rr = huber_loss(batch_y[:,0,:,:],gen[:,0,:,:])
-                    # mean_loss_rr = F.l1_loss(gen[:,0,:,:].mean(dim=0), batch_y[:,0,:,:].mean(dim=0))
-                    # inflation = args.inflate if not args.inflate_random else (1.0 + uniform(0,args.inflate))
-                    # print('JE SUIS INFLATION',inflate)
-                    # std_loss_rr = F.l1_loss(torch.std(gen[:,0,:,:],dim=0, unbiased=True), inflation * torch.std(batch_y[:,0,:,:],dim=0, unbiased=True))
                     
-                    mean_loss_uvt = F.l1_loss(gen[:,1:,:,:].mean(dim=0), batch_y[:,1:,:,:].mean(dim=0))
-                    inflation = args.inflate if not args.inflate_random else (1.0 + uniform(0,args.inflate))
-                    std_loss_uvt = F.l1_loss(torch.std(gen[:,1:,:,:],dim=0, unbiased=True), inflation * torch.std(batch_y[:,1:,:,:],dim=0, unbiased=True))
-                    # for i,delta in enumerate([0.1,0.2,0.3,0.4,0.6,1,5,10]):
-                    #     test = F.smooth_l1_loss(batch_y,gen,beta=delta, reduction='mean')
-                    #     test_1 = F.smooth_l1_loss(batch_y,gen,beta=delta, reduction='sum')
-                    #     # print(f'SHAPE POUR DELTA = {delta}',batch_y[:,0,:,:].mean(dim=0).shape,gen[:,0,:,:].mean(dim=0).shape,mean_loss.item(),torch.abs((gen[:,1:,:,:].mean(dim=0)-batch_y[:,1:,:,:].mean(dim=0))).mean(),torch.abs((gen[:,1:,:,:].mean(dim=0)-batch_y[:,1:,:,:].mean(dim=0))).shape)
-                    #     print(f"Comparaison des loss pour delta={delta}", quan_loss_pluie,test,test_1,mean_loss,std_loss)
+                    scale_loss_type = args.scale_tune_loss
+                    inflation = args.inflate if not args.inflate_random else (1.0 + uniform(0, args.inflate))
 
-                    # huber_loss_pluie = huber_loss(0.4,batch_y[:,0,:,:].mean(dim=0),gen[:,0,:,:].mean(dim=0))
-                    # huber_loss_pluie_1 = huber_loss(0.04,batch_y[:,0,:,:],gen[:,0,:,:])
-                    # huber_loss_pluie_2 = huber_loss(0.1,batch_y[:,0,:,:],gen[:,0,:,:])
-
-                    # print("Coomparaisond es loss", quan_loss_pluie,huber_loss_pluie,huber_loss_pluie_1,huber_loss_pluie_2,mean_loss,std_loss)
-
-                   # print(batch_y.shape,gen.shape, 'JE SUIS LES DEUX SHAPES DEMANDEES')
-                  #  print('MIN_MAX_batch_gen',torch.min(batch_y[0][0]),torch.min(gen[0][0]),torch.max(batch_y[0][0]),torch.max(gen[0][0]) )
-                    mean_loss = F.l1_loss(gen.mean(dim=0), batch_y.mean(dim=0))
-                    # inflation = args.inflate if not args.inflate_random else (1.0 + uniform(0,args.inflate))
-                    # std_loss = F.l1_loss(torch.std(gen,dim=0, unbiased=True), inflation * torch.std(batch_y,dim=0, unbiased=True))
-                    # quan_loss = quantile_loss([0.9,0.1,0.5,0.75,0.25,0.05,0.95],batch_y,gen)
-                    # hub_loss = huber_loss(batch_y,gen)
-                    # print("Coomparaisond es loss",hub_loss2,hub_loss1,mean_loss,std_loss)
-                    # q90= quan(batch_y.mean(dim=0),gen.mean(dim=0))
-                    # q10= QuantileLoss(batch_y,gen,0.1)
-                    # q50=QuantileLoss(batch_y,gen,0.5)
-                    # q25=QuantileLoss(batch_y,gen,0.25)
-                    # q75=QuantileLoss(batch_y,gen,0.75)
-                    # q5=QuantileLoss(batch_y,gen,0.05)
-                    # q95=QuantileLoss(batch_y,gen,0.95)
-                 #   print("je suis iterm",mean_loss.item())
-                    if args.lambda_spectrum>0.0:
-                        #spl = specLoss(batch_y,gen)
-                        loss = args.lambda_bias * mean_loss + args.lambda_spread * std_loss# \
-                        #            + args.lambda_spectrum * spl
-                    
+                    if scale_loss_type == 'scale_tune_loss_quantile_adaptive_rr':
+                        quan_loss_rr = quantile_loss([0.9, 0.1, 0.5, 0.75, 0.25, 0.05, 0.95], batch_y[:,0,:,:], gen[:,0,:,:])
+                        mean_loss_uvt = F.l1_loss(gen[:,1:,:,:].mean(dim=0), batch_y[:,1:,:,:].mean(dim=0))
+                        std_loss_uvt = F.l1_loss(torch.std(gen[:,1:,:,:], dim=0, unbiased=True), 
+                                                inflation * torch.std(batch_y[:,1:,:,:], dim=0, unbiased=True))
+                        
+                    elif scale_loss_type == 'scale_tune_loss_mean_std_rr':
+                        mean_loss_rr = F.l1_loss(gen[:,0,:,:].mean(dim=0), batch_y[:,0,:,:].mean(dim=0))
+                        std_loss_rr = F.l1_loss(torch.std(gen[:,0,:,:], dim=0, unbiased=True), 
+                                                inflation * torch.std(batch_y[:,0,:,:], dim=0, unbiased=True))
+                        
+                        mean_loss_uvt = F.l1_loss(gen[:,1:,:,:].mean(dim=0), batch_y[:,1:,:,:].mean(dim=0))
+                        std_loss_uvt = F.l1_loss(torch.std(gen[:,1:,:,:], dim=0, unbiased=True), 
+                                                inflation * torch.std(batch_y[:,1:,:,:], dim=0, unbiased=True))
                     else:
-                        #with torch.no_grad():
-                        #    spl = specLoss(batch_y,gen)
-                        # loss= hub_loss
-                        # loss = hub_loss_rr + args.lambda_bias * mean_loss_uvt + args.lambda_spread * std_loss_uvt
-                        loss = quan_loss_rr + args.lambda_bias * mean_loss_uvt + args.lambda_spread * std_loss_uvt
+                        mean_loss = F.l1_loss(gen.mean(dim=0), batch_y.mean(dim=0))
+                        std_loss = F.l1_loss(torch.std(gen, dim=0, unbiased=True), 
+                                            inflation * torch.std(batch_y, dim=0, unbiased=True))
 
-                        # loss = quan_loss_rr + args.lambda_bias * mean_loss_rr + args.lambda_spread * std_loss_rr
-                        # loss = args.lambda_bias * mean_loss + args.lambda_spread * std_loss
-                        # loss= args.lambda_bias * mean_loss_rr + args.lambda_spread * std_loss_rr +args.lambda_bias * mean_loss_uvt + args.lambda_spread * std_loss_uvt
-                       # print("JE PASSE PAR ICI PARCE QUE LAMBDA SPECTRUM ")
-                        # loss = args.lambda_bias * wasserstein_loss_mean + args.lambda_spread * std_loss
-                        # loss = args.lambda_bias * wasserstein_loss_mean + args.lambda_spread * wasserstein_loss_std
+                    # Final loss computation
+                    if args.lambda_spectrum > 0.0:
+                        # spl = specLoss(batch_y, gen)  # décommenter si besoin
+                        loss = args.lambda_bias * mean_loss + args.lambda_spread * std_loss
+                    elif scale_loss_type == 'scale_tune_loss_quantile_adaptive_rr':
+                        loss = quan_loss_rr + args.lambda_bias * mean_loss_uvt + args.lambda_spread * std_loss_uvt
+                    elif scale_loss_type == 'scale_tune_loss_mean_std_rr':
+                        loss = (args.lambda_bias * mean_loss_rr + args.lambda_spread * std_loss_rr +
+                                args.lambda_bias * mean_loss_uvt + args.lambda_spread * std_loss_uvt)
+                    else:
+                        loss = args.lambda_bias * mean_loss + args.lambda_spread * std_loss
+
+                    
+                        
                 elif args.optim_criterion == 'exchangeability':
                     # TODO : Not operationnal at all, need to be tested
                     # Naïve version
@@ -319,6 +258,7 @@ if __name__=="__main__" :
                     
                     # loss = loss_batch_y - 2 * loss_inter + loss_gen
                     raise NotImplementedError
+                
                 optimizer.zero_grad()
                 loss.backward()
                 optimizer.step()
@@ -333,8 +273,6 @@ if __name__=="__main__" :
 
                 with torch.no_grad():
                     emabias = mean_loss.item() * 0.1 + 0.9 * emabias if idx>0 else mean_loss.item()
-                    # emabias = mean_loss.item() * 0.1 + 0.9 * emabias if idx>0 else mean_loss.item()
-                    # emabias = loss.item() * 0.1 + 0.9 * emabias if idx>0 else quan.item()
                 pbar.set_description(
                     f"t : {t:.3f}, ema loss (0.9) : {emaloss:.4f}, ema spec {ema_spec:.4f} ema bias (0.9) : {emabias:.4f}, lr {learning_rate(t,args.lr0):.4f}, sigma : {sigma(t,epoch):.4f}"
                 )
