@@ -112,6 +112,7 @@ def optimize(Ens_r, g_ema, init_latent, device, params, Means, Maxs, Mins, featu
 
 
     """
+    print(params.output_dir)
     Ens_r = Ens_r.to(device) # torch.Size([B, CH, 256, 256])
     init_latent = init_latent.to(device) # torch.Size([512])
     if hybrid : 

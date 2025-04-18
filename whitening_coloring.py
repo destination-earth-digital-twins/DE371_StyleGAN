@@ -88,11 +88,11 @@ def test_white(G, Whitening, w0=None,N_samples=10000, device='cuda:0'):
 
 if __name__=="__main__":
 
-    ckpt_dir = '/scratch/mrmn/brochetc/GAN_2D/Exp_StyleGAN_final/Set_1/stylegan2_stylegan_dom_256_lat-dim_512_bs_4_0.002_0.002_ch-mul_2_vars_u_v_t2m_noise_True/Instance_14/models/000024.pt'
-    output_dir = '/scratch/mrmn/brochetc/GAN_2D/Exp_StyleGAN_final/Eigenvalues/'
+    ckpt_dir = '/project/scratch/p200177/DE_371/angeliquebonamy/GAN_training/gan_training_new_dataset/exp_train_ep_with_Noise_Injection/models/102000.pt'
+    output_dir = '/project/scratch/p200177/DE_371/angeliquebonamy/test_scale_tune/Eigenvalues/'
     device = 'cuda:0'
 
-    G = Generator(256, 512,n_mlp=8,nb_var=3)
+    G = Generator(256, 512,n_mlp=8,nb_var=4)
 
     #print('###########################################"##################################################################################################################')
     ckpt = torch.load(ckpt_dir, map_location='cpu')['g_ema']

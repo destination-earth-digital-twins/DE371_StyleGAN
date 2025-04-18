@@ -26,6 +26,9 @@ from scipy.stats import wasserstein_distance
 
 
 
+def huber_loss(input, target, delta=1.0, reduction='mean'):
+    return F.huber_loss(input, target, delta=delta, reduction=reduction)
+
 def quantile_loss(q,y_pred, target) :
     # calculate quantile loss
     losses = []
@@ -36,12 +39,16 @@ def quantile_loss(q,y_pred, target) :
 
     return losses
 
-def huber_loss(delta,y_pred,target):
-    if torch.abs(target-y_pred)<=delta:
-        return((0.5*(target-y_pred)**2))
-    else:
-        return((delta*(torch.abs(target-y_pred)-0.5*delta)))
-
+# def huber_loss2(y_pred,target):
+#     abs_error = torch.abs(target - y_pred)
+#     # delta = torch.median(abs_error).item()
+#     delta = 1.0
+#     huber_loss = torch.where(
+#             abs_error < delta,
+#             0.5 * abs_error.pow(2),  # Partie quadratique (MSE)
+#             delta * (abs_error - 0.5 * delta)  # Partie linéaire (MAE)
+#         )
+#     return(huber_loss.mean())
 # def quantile_loss(q,  y,y_pred):
 
 #     batch_size, n_variables, height, width = y_pred.shape
@@ -101,7 +108,7 @@ if __name__=="__main__" :
     parser.add_argument("--lr0",type=float, default=0.001)
     parser.add_argument("--scale_rule",type=str,default='sigmoid')
     parser.add_argument("--pca_cut",type=int,default=10)
-    parser.add_argument("--inflate",type=float, default=1.0)
+    parser.add_argument("--inflate",type=float, default=1.3)
     parser.add_argument("--start",type=str, default="ones")
     parser.add_argument("--lambda_bias",type=float, default=1.0)
     parser.add_argument("--lambda_spectrum",type=float, default=0.0)
@@ -123,7 +130,7 @@ if __name__=="__main__" :
     parser.add_argument("--eigendir", type=str, 
                         default='/project/scratch/p200177/DE_371/angeliquebonamy/test_scale_tune/Eigenvalues/')
     parser.add_argument("--output_dir", type=str, 
-                        default='/project/scratch/p200177/DE_371/angeliquebonamy/test_scale_tune/vgg/sigmoid_rr_uvt_stdmean/')
+                        default='/project/scratch/p200177/DE_371/angeliquebonamy/test_scale_tune/vgg/sigmoid_stdmean_rruvt/')
     args = parser.parse_args()
 
     output_dir = f"{args.output_dir}interp_scale_pca_{args.pca_cut}_{args.inflate_random}_{args.inflate}_bias_{args.start}_{args.lambda_bias}_spread_{args.lambda_spread}_ff_{args.convert_ff_t}_{args.invert_step}/"
@@ -236,10 +243,11 @@ if __name__=="__main__" :
                     gen, batch_y = convert_uvt2fft(gen, batch_y)
                 if args.optim_criterion == 'distrib_matching':
                     quan_loss_rr = quantile_loss([0.9,0.1,0.5,0.75,0.25,0.05,0.95],batch_y[:,0,:,:],gen[:,0,:,:])
-                    
-                    mean_loss_rr = F.l1_loss(gen[:,0,:,:].mean(dim=0), batch_y[:,0,:,:].mean(dim=0))
-                    inflation = args.inflate if not args.inflate_random else (1.0 + uniform(0,args.inflate))
-                    std_loss_rr = F.l1_loss(torch.std(gen[:,0,:,:],dim=0, unbiased=True), inflation * torch.std(batch_y[:,0,:,:],dim=0, unbiased=True))
+                    # hub_loss_rr = huber_loss(batch_y[:,0,:,:],gen[:,0,:,:])
+                    # mean_loss_rr = F.l1_loss(gen[:,0,:,:].mean(dim=0), batch_y[:,0,:,:].mean(dim=0))
+                    # inflation = args.inflate if not args.inflate_random else (1.0 + uniform(0,args.inflate))
+                    # print('JE SUIS INFLATION',inflate)
+                    # std_loss_rr = F.l1_loss(torch.std(gen[:,0,:,:],dim=0, unbiased=True), inflation * torch.std(batch_y[:,0,:,:],dim=0, unbiased=True))
                     
                     mean_loss_uvt = F.l1_loss(gen[:,1:,:,:].mean(dim=0), batch_y[:,1:,:,:].mean(dim=0))
                     inflation = args.inflate if not args.inflate_random else (1.0 + uniform(0,args.inflate))
@@ -259,11 +267,11 @@ if __name__=="__main__" :
                    # print(batch_y.shape,gen.shape, 'JE SUIS LES DEUX SHAPES DEMANDEES')
                   #  print('MIN_MAX_batch_gen',torch.min(batch_y[0][0]),torch.min(gen[0][0]),torch.max(batch_y[0][0]),torch.max(gen[0][0]) )
                     mean_loss = F.l1_loss(gen.mean(dim=0), batch_y.mean(dim=0))
-                    inflation = args.inflate if not args.inflate_random else (1.0 + uniform(0,args.inflate))
-                    std_loss = F.l1_loss(torch.std(gen,dim=0, unbiased=True), inflation * torch.std(batch_y,dim=0, unbiased=True))
+                    # inflation = args.inflate if not args.inflate_random else (1.0 + uniform(0,args.inflate))
+                    # std_loss = F.l1_loss(torch.std(gen,dim=0, unbiased=True), inflation * torch.std(batch_y,dim=0, unbiased=True))
                     # quan_loss = quantile_loss([0.9,0.1,0.5,0.75,0.25,0.05,0.95],batch_y,gen)
-                    # hub_loss = huber_loss(0.4,batch_y,gen)
-                    # print("Coomparaisond es loss", quan_loss,hub_loss,mean_loss,std_loss)
+                    # hub_loss = huber_loss(batch_y,gen)
+                    # print("Coomparaisond es loss",hub_loss2,hub_loss1,mean_loss,std_loss)
                     # q90= quan(batch_y.mean(dim=0),gen.mean(dim=0))
                     # q10= QuantileLoss(batch_y,gen,0.1)
                     # q50=QuantileLoss(batch_y,gen,0.5)
@@ -280,10 +288,13 @@ if __name__=="__main__" :
                     else:
                         #with torch.no_grad():
                         #    spl = specLoss(batch_y,gen)
-                        # loss= quan 
+                        # loss= hub_loss
+                        # loss = hub_loss_rr + args.lambda_bias * mean_loss_uvt + args.lambda_spread * std_loss_uvt
+                        loss = quan_loss_rr + args.lambda_bias * mean_loss_uvt + args.lambda_spread * std_loss_uvt
+
                         # loss = quan_loss_rr + args.lambda_bias * mean_loss_rr + args.lambda_spread * std_loss_rr
                         # loss = args.lambda_bias * mean_loss + args.lambda_spread * std_loss
-                        loss= args.lambda_bias * mean_loss_rr + args.lambda_spread * std_loss_rr +args.lambda_bias * mean_loss_uvt + args.lambda_spread * std_loss_uvt
+                        # loss= args.lambda_bias * mean_loss_rr + args.lambda_spread * std_loss_rr +args.lambda_bias * mean_loss_uvt + args.lambda_spread * std_loss_uvt
                        # print("JE PASSE PAR ICI PARCE QUE LAMBDA SPECTRUM ")
                         # loss = args.lambda_bias * wasserstein_loss_mean + args.lambda_spread * std_loss
                         # loss = args.lambda_bias * wasserstein_loss_mean + args.lambda_spread * wasserstein_loss_std

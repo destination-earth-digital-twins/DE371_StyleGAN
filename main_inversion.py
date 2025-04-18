@@ -36,7 +36,7 @@ if __name__=="__main__" :
     
     parser = argparse.ArgumentParser()
     
-    parser.add_argument('--inversion_type', default='optimization', type=str, choices=["optimization","encoder","hybrid"], help='Type of inversion')
+    parser.add_argument('--inversion_type', default='optimization', type=str, choices=["optimization","encoder","hybrid","optimization_amse_vgg"], help='Type of inversion')
 
     ########################### Encoder-related parameters ###########################
     parser.add_argument('--encoder_framework_type', default='FeatureStyle', type=str, choices=["pSp", "e4e", "restyle-pSp", "restyle-e4e", "FeatureStyle", "inDomain"], help='Type of encoder')
@@ -99,14 +99,14 @@ if __name__=="__main__" :
     parser.add_argument("--lambda_features", type=float, default=1, help="weight of the noise regularization")
 
     # Noise optimization and loss noise parameter
-    parser.add_argument("--noise_optimize", action='store_true', help="joint optimization of noise and latent code (1) or latent code optimization only (0)?")
+    parser.add_argument("--noise_optimize", action='store_true', help=" joint optimization of noise and latent code (1) or latent code optimization only (0)?")
     parser.add_argument("--lambda_noise", type=float, default=1e5, help="weight of the noise regularization")
     # In case noise_optimize=0, the lambda_noise is not taken into account in the loss computation
     parser.add_argument("--fixed_noise", action='store_true', help="Fixing the noise during optimization")
 
     # Parameter related to pixel loss 
     parser.add_argument('--pixel_loss_type', type=str, default='amse', choices = ['mse', 'mae','amse','wamse','wmse'])
-    parser.add_argument("--lambda_pixel", type=float, default=0.0, help="weight of the (mae/mse) pixel loss")
+    parser.add_argument("--lambda_pixel", type=float, default=10.0, help="weight of the (mae/mse) pixel loss")
     
         
     # Focal Frequency Loss
@@ -335,6 +335,44 @@ if __name__=="__main__" :
                             Mins=Mins,
                             apply_log_transform=True if params.Shape[0]==4 else False
                         )
+                if params.inversion_type == 'optimization_amse_vgg':
+                    init_latent_amse = latent_mean.clone().detach()
+                    init_latent_vgg = latent_mean.clone().detach()
+                    
+                    params.output_dir = params.output_dir+'amse/'
+                    params.lambda_perceptual_loss = 0
+                    params.pixel_loss_type = 'amse'
+                    inv.optimize(
+                            Ens_r=Ens_r_norm,
+                            g_ema=G,
+                            init_latent=init_latent_amse,
+                            device=params.device,
+                            params=params,
+                            Means=Means,
+                            Maxs=Maxs,
+                            Mins=Mins,
+                            apply_log_transform=True if params.Shape[0]==4 else False
+                        )
+                    params.output_dir = '/project/scratch/p200177/DE_371/angeliquebonamy/results/dates/GOOD_DATA/amse_vgg/inv_norm/'
+                    params.lambda_perceptual_loss = 1
+                    params.lambda_pixel = 0
+                    params.output_dir = params.output_dir+'vgg/'
+                    inv.optimize(
+                            Ens_r=Ens_r_norm,
+                            g_ema=G,
+                            init_latent=init_latent_vgg,
+                            device=params.device,
+                            params=params,
+                            Means=Means,
+                            Maxs=Maxs,
+                            Mins=Mins,
+                            apply_log_transform=True if params.Shape[0]==4 else False
+                        )
+                    params.output_dir = '/project/scratch/p200177/DE_371/angeliquebonamy/results/dates/GOOD_DATA/amse_vgg/inv_norm/'
+
+                    
+                    
+
 
                 elif params.inversion_type == 'encoder':
                     if params.encoder_framework_type  in ['restyle-pSp', "restyle-e4e"]:

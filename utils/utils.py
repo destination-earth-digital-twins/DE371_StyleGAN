@@ -307,6 +307,9 @@ def denormalize(data, normalization_type, Means=None, Mins=None, Maxs=None, appl
         Returns:
             torch.Tensor: The denormalized data.
     """
+    if isinstance(data, np.ndarray):
+        data = torch.from_numpy(data).float()  # Convert NumPy array to tensor
+
     denormalized_data = deepcopy(data)
 
     #Inverser la normalisation

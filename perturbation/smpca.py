@@ -16,17 +16,16 @@ import torch.nn.functional as F
 from copy import deepcopy
 import perturbation.pca_stylegan as pca
 
-
 def sm_pca(
     Ens_w,
     G,
     N_samples,
+    betas=1.0,
+    alphas=0.0,
     sm_ind=[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
     device="cuda:0",
     sample_rule="stochastic",
     N_seeds=16,
-    betas=1.0,
-    alphas=0.0,
     verbose=False,
     Whitening=None,
     Coloring=None,
@@ -47,11 +46,12 @@ def sm_pca(
     temporal_noises=[]
 
 ):
-
+    betas = 2*betas
+    print('JE SUIS BETAS DANS SMPCA',betas,alphas,Whitening)
     N, R, D = Ens_w.shape
     per_cond = int(ceil(N_samples / N_seeds))
-
-    Ens_final = np.zeros((N * per_cond, 3, 256, 256), dtype="float32")
+    print("N,R,D, PER_COND, N_SAMPLES, N_SEEDS",N,R,D,per_cond, N_samples,N_seeds)
+    Ens_final = np.zeros((N * per_cond, 4, 256, 256), dtype="float32")
     w_final = np.zeros((N * per_cond, R, D))
 
     if Ens_feature is not None:
@@ -109,7 +109,7 @@ def sm_pca(
                         (w - w.mean(dim=0)).unsqueeze(-1),
                     )  # diff of shape N_samples  x D
                     new_w = torch.einsum("abc, dc-> dab", K, diff.squeeze(dim=-1))
-
+                    print('JE SUIS NEWW', K, diff.squeeze(dim=-1),new_w)
                 w_start = (
                     alphas.view(1, 14, 1) * Ens_w1.mean(dim=0)
                     + (1.0 - alphas).view(1, 14, 1) * Ens_w1[k]
@@ -119,10 +119,18 @@ def sm_pca(
                 else:
                     if not temporal_consistency :
                         if (R - n_styles_pert) > 0:
+                            print("JE PASSSSEEEE LAAAAAAAAAAA1")
+
                             z = torch.empty((per_cond, 512)).normal_().to(device)
+                            print('JE SUIS Z',z)
                             with torch.no_grad():
                                 w_nopca = G.style(z)
+                                print('WNOPCA   ',w_nopca, w_nopca.shape, w_nopca.mean(dim=0),(w_nopca - w_nopca.mean(dim=0)))
                             if n_styles_pert > 0:
+                                print("JE PASSSSEEEE LAAAAAAAAAAA11")
+                                print('TEST EQUATION',torch.mean(new_w),torch.mean((w_nopca - w_nopca.mean(dim=0))
+                                        .unsqueeze(1)
+                                        .repeat(1, (R - n_styles_pert), 1)))
                                 w_pert = torch.cat(
                                     [
                                         new_w,
@@ -133,12 +141,16 @@ def sm_pca(
                                     dim=1,
                                 )
                             else:
+                                print("JE PASSSSEEEE LAAAAAAAAAAA12")
+
                                 w_pert = (
                                     (w_nopca - w_nopca.mean(dim=0))
                                     .unsqueeze(1)
                                     .repeat(1, (R - n_styles_pert), 1)
                                 )
                         else:
+                            print("JE PASSSSEEEE LAAAAAAAAAAA2")
+
                             w_pert = new_w
                     else :
                         if path_perturbation is None:
@@ -149,9 +161,9 @@ def sm_pca(
                         list_temporal_noise = [temporal_noises[current_timestep[0]-k]*(1-theta*dt)**k for k in range(current_timestep[0]+1)]
                         w_pert += sigma * torch.sqrt(torch.tensor(dt)) * torch.from_numpy(np.array(list_temporal_noise)).sum()
 
-      
+                print('JE SUIS ALPHAS ET BETAS', w_start, betas, w_pert,'MOYEB', torch.mean(w_pert))
                 w_new = w_start + betas.view(1, 14, 1) * w_pert
-
+                print('JE SUIS NOUVEAU SAMPLE   ',w_new)
             elif sample_rule == "extrapolation":
                 if save_perturbation or import_perturbation:
                     raise NotImplementedError
@@ -230,7 +242,7 @@ def fast_style_mixing(
     G,
     Whitening,
     device="cpu",
-    beta_rule="linear",
+    beta_rule='sigmoid',
 ):
     """
     Perform style mixing using interpolation coefficients (alpha's) and scale coefficients (beta's)

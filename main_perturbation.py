@@ -16,7 +16,7 @@ import numpy as np
 import pickle
 import pandas as pd
 from collections import OrderedDict
-from gan.model.stylegan2 import Generator
+from gan.model.stylegan2 import Generator 
 from ast import literal_eval as make_tuple
 import utils.utils as utils
 import perturbation.smpca as smpca
@@ -60,9 +60,10 @@ def compute_generate_save(G, params, metrics_list, Means, Mins, Maxs, apply_log_
     Whitening = torch.load(params.eigendir + 'Whitening.pt') if params.sample_rule=='stochastic' else None
     Coloring = torch.load(params.eigendir + 'Coloring.pt') if params.sample_rule=='stochastic' else None
     w0 = torch.load(params.eigendir + 'latent_mean.pt') if params.sample_rule=='stochastic' else None
-    betas = torch.tensor(np.load(os.path.join(params.scale_dir,"ema_scale.npy")).astype(np.float32)[params.scale_interp_step], device=params.device)
+    print('PATH TO BETAS ',os.path.join(params.scale_dir,"ema_scale.npy"))
+    betas = torch.tensor(np.load(os.path.join(params.scale_dir,"ema_scale.npy")).astype(np.float32)[params.scale_interp_step], device=params.device) 
     alphas = torch.tensor(np.load(os.path.join(params.scale_dir,"ema_interp.npy")).astype(np.float32)[params.scale_interp_step], device=params.device)
-
+    print('JE SUIS BETA2', betas)
     title = f'{params.date_index}_{params.lt_index}_{params.inv_step}_{params.N_conditioners}'
 
     path_perturbation=None
@@ -151,7 +152,7 @@ def compute_generate_save(G, params, metrics_list, Means, Mins, Maxs, apply_log_
     else:
         np.save(params.output_dir + f'/samples/genFsemble_{title}.npy', gen_denorm)
     
-
+    print('JE SUSI LES SHAPES',Ens_r_denorm.shape,inv_ens_denorm.shape)
     online_pert_plot(
         packsample=Ens_r_denorm.numpy(), 
         invsample=inv_ens_denorm, 
@@ -162,14 +163,14 @@ def compute_generate_save(G, params, metrics_list, Means, Mins, Maxs, apply_log_
         figname=params.output_dir + f"/samples/genFsemble_{title}.png"
     )
 
-    online_pert_diff_plot(
-        invsample=inv_ens_denorm, 
-        pert_sample=gen_denorm,
-        crop=[0,-1,0,-1],
-        mem_idx=0 if params.N_conditioners>1 else cond_indices, 
-        figtitle=f"Generated samples for {title}", 
-        figname=params.output_dir + f"/samples/diff_genFsemble_{title}.png"
-    )
+    # online_pert_diff_plot(
+    #     invsample=inv_ens_denorm, 
+    #     pert_sample=gen_denorm,
+    #     crop=[0,-1,0,-1],
+    #     mem_idx=0 if params.N_conditioners>1 else cond_indices, 
+    #     figtitle=f"Generated samples for {title}", 
+    #     figname=params.output_dir + f"/samples/diff_genFsemble_{title}.png"
+    # )
 
     if params.runtime_metrics:
         dic = {'Mean' : {'real':Ens_r_denorm.mean(axis=(0,-2,-1)), 'fake':gen_denorm.mean(axis=(0,-2,-1))},
@@ -211,16 +212,16 @@ if __name__=="__main__" :
     parser.add_argument('--feature_id', type=int, default=6, choices=[0,1,2,3,4,5,6,7,8,9,10,11,12,13], help='id of feature to insert')
     
     # Dataset information
-    parser.add_argument("--normalization", type=str, default="meanmax", choices=["minmax", "meanmax", ""])
+    parser.add_argument("--normalization", type=str, default="minmax", choices=["minmax", "meanmax", ""])
     parser.add_argument('--max_file', type=str, default='') # use 'MaxNew_4_var.npy' if AROME data # max_rr_log.npy
     parser.add_argument('--mean_file', type=str, default='') # not used if minmax normalization
     parser.add_argument('--min_file', type=str, default='')  # not used if meanmax normalization
     parser.add_argument('--save_normalized_sample', action='store_true')
 
-    parser.add_argument("--var_indices", type=utils.str2intlist, default=[1,2,3])
-    parser.add_argument("--Shape", type=make_tuple, default=(3,256,256), help='size of the samples')
+    parser.add_argument("--var_indices", type=utils.str2intlist, default=[0,1,2,3])
+    parser.add_argument("--Shape", type=make_tuple, default=(4,256,256), help='size of the samples')
     parser.add_argument("--N_samples", type=int, default=10, help='number of new samples') 
-    parser.add_argument("--N_conditioners",type=int, default=16, help="number of 'seed' samples used for conditioning")
+    parser.add_argument("--N_conditioners",type=int, default=112, help="number of 'seed' samples used for conditioning")
     parser.add_argument("--inv_step", type=int, default=2000, help='step of inversion to load w')
     
     
@@ -246,7 +247,7 @@ if __name__=="__main__" :
     
 
     ########################## CONTROL of Data to perturb ######################
-    parser.add_argument("--dates_file", type=str, default = 'Large_lt_test_labels.csv')
+    parser.add_argument("--dates_file", type=str, default = 'updated_file1_valid.csv')
     parser.add_argument("--date_start", type=str, default = "2021-07-01")
     parser.add_argument("--date_stop", type=str, default = "2021-07-02")
     parser.add_argument("--leadtimes", type=utils.str2intlist, default= [3,6,9,12,15,18,21,24,27,30,33,36,39,42,45])
