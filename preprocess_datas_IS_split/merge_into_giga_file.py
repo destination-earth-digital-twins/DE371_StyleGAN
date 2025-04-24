@@ -1,10 +1,11 @@
 import glob
 import os
 import numpy as np
-from utile import make_save_dir, print_progress, print_progress_bar
+from utils import make_save_dir, print_progress, print_progress_bar
 import pandas as pd
 from time import perf_counter
 import numpy as np 
+from tqdm import tqdm 
 
 def merge_into_gigafiles(datatype, params):
     """Merge the numerous little files in gigafiles to load patches at once and accelerate data computation like importance sampling or cropping
@@ -28,9 +29,11 @@ def merge_into_gigafiles(datatype, params):
         data_dir = f"{params.main_path}/{params.data_directory}{datatype}_{index_string}"
     else:
         data_dir = f"{params.main_path}/{params.data_directory}"
-    save_dir = f"{params.main_path}{params.giga_directory}/"
+    # save_dir = f"{params.main_path}{params.giga_directory}/"
     data_dir += f"/"
+    save_dir=f"/project/scratch/p200177/DE_371/angeliquebonamy/{params.giga_directory}"
     make_save_dir(save_dir, params)
+
     with open(f"{save_dir}labels.csv", "w", encoding="utf8") as file:
         file.write("Name,Date,Leadtime,Member,Gigafile,Localindex\n")
     handle_patch(
@@ -52,7 +55,8 @@ def handle_patch(dataframe, data_dir, save_dir, max_files_loaded, args):
     n_patch = n_files // max_files_loaded + 1
     begin = 0
     end = min(max_files_loaded, n_files)
-    for patch in range(1, n_patch + 1):
+    
+    for patch in tqdm(range(1, n_patch + 1),desc="Processing patches",disable=False):
         if args.verbose >= 2:
             print(f"Patch {patch}/{n_patch}")
         giga = load(dataframe, data_dir, save_dir, begin, end, patch, args)
@@ -85,7 +89,6 @@ def load(dataframe, data_dir, save_dir, beg, end, patch, args):
     start_time = perf_counter()
     for index in range(beg, end):
         row = dataframe.iloc[index]
-        print('ROW',row)
         if args.verbose >= 3 and (index + 1) % (n_tot // args.refresh) == 0:
             print_progress(index - beg, n_tot, start_time)
         data.append(np.load(f"{data_dir}{row['Name']}.npy"))
