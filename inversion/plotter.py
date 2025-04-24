@@ -87,7 +87,7 @@ def online_inv_temporal_plot(
           invsample, crop=[0,-1,0,-1],
           mem_idx=0,
           nb_timesteps=15,
-          var_names=['rr','rr','u','v','t2m'],
+          var_names=['rr','u','v','t2m'],
           figtitle=" ",
           figname="inv.png",
           colormap_var=['viridis','viridis','coolwarm']
