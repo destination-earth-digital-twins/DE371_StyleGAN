@@ -335,43 +335,7 @@ if __name__=="__main__" :
                             Mins=Mins,
                             apply_log_transform=True if params.Shape[0]==4 else False
                         )
-                if params.inversion_type == 'optimization_amse_vgg':
-                    init_latent_amse = latent_mean.clone().detach()
-                    init_latent_vgg = latent_mean.clone().detach()
-                    
-                    params.output_dir = params.output_dir+'amse/'
-                    params.lambda_perceptual_loss = 0
-                    params.pixel_loss_type = 'amse'
-                    inv.optimize(
-                            Ens_r=Ens_r_norm,
-                            g_ema=G,
-                            init_latent=init_latent_amse,
-                            device=params.device,
-                            params=params,
-                            Means=Means,
-                            Maxs=Maxs,
-                            Mins=Mins,
-                            apply_log_transform=True if params.Shape[0]==4 else False
-                        )
-                    params.output_dir = '/project/scratch/p200177/DE_371/angeliquebonamy/results/dates/GOOD_DATA/amse_vgg/inv_norm/'
-                    params.lambda_perceptual_loss = 1
-                    params.lambda_pixel = 0
-                    params.output_dir = params.output_dir+'vgg/'
-                    inv.optimize(
-                            Ens_r=Ens_r_norm,
-                            g_ema=G,
-                            init_latent=init_latent_vgg,
-                            device=params.device,
-                            params=params,
-                            Means=Means,
-                            Maxs=Maxs,
-                            Mins=Mins,
-                            apply_log_transform=True if params.Shape[0]==4 else False
-                        )
-                    params.output_dir = '/project/scratch/p200177/DE_371/angeliquebonamy/results/dates/GOOD_DATA/amse_vgg/inv_norm/'
-
-                    
-                    
+                  
 
 
                 elif params.inversion_type == 'encoder':
