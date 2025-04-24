@@ -45,10 +45,8 @@ def sm_pca(
 
 ):
     betas = 2*betas
-    print('JE SUIS BETAS DANS SMPCA',betas,alphas,Whitening)
     N, R, D = Ens_w.shape
     per_cond = int(ceil(N_samples / N_seeds))
-    print("N,R,D, PER_COND, N_SAMPLES, N_SEEDS",N,R,D,per_cond, N_samples,N_seeds)
     Ens_final = np.zeros((N * per_cond, 4, 256, 256), dtype="float32")
     w_final = np.zeros((N * per_cond, R, D))
 
@@ -88,7 +86,6 @@ def sm_pca(
         if N_seeds < N:
             seeds = random.sample(range(N), N_seeds)
             Ens_w1 = Ens_w[seeds].to(device)
-            print(Ens_w1.shape)
 
     with torch.no_grad():
         
@@ -107,7 +104,6 @@ def sm_pca(
                         (w - w.mean(dim=0)).unsqueeze(-1),
                     )  # diff of shape N_samples  x D
                     new_w = torch.einsum("abc, dc-> dab", K, diff.squeeze(dim=-1))
-                    print('JE SUIS NEWW', K, diff.squeeze(dim=-1),new_w)
                 w_start = (
                     alphas.view(1, 14, 1) * Ens_w1.mean(dim=0)
                     + (1.0 - alphas).view(1, 14, 1) * Ens_w1[k]
@@ -117,16 +113,11 @@ def sm_pca(
                 else:
                     if not temporal_consistency :
                         if (R - n_styles_pert) > 0:
-                            print("JE PASSSSEEEE LAAAAAAAAAAA1")
 
                             z = torch.empty((per_cond, 512)).normal_().to(device)
-                            print('JE SUIS Z',z)
                             with torch.no_grad():
                                 w_nopca = G.style(z)
-                                print('WNOPCA   ',w_nopca, w_nopca.shape, w_nopca.mean(dim=0),(w_nopca - w_nopca.mean(dim=0)))
                             if n_styles_pert > 0:
-                                print("JE PASSSSEEEE LAAAAAAAAAAA11")
-                                print('TEST EQUATION',torch.mean(new_w),torch.mean((w_nopca - w_nopca.mean(dim=0))
                                         .unsqueeze(1)
                                         .repeat(1, (R - n_styles_pert), 1)))
                                 w_pert = torch.cat(
@@ -139,7 +130,6 @@ def sm_pca(
                                     dim=1,
                                 )
                             else:
-                                print("JE PASSSSEEEE LAAAAAAAAAAA12")
 
                                 w_pert = (
                                     (w_nopca - w_nopca.mean(dim=0))
@@ -147,7 +137,6 @@ def sm_pca(
                                     .repeat(1, (R - n_styles_pert), 1)
                                 )
                         else:
-                            print("JE PASSSSEEEE LAAAAAAAAAAA2")
 
                             w_pert = new_w
                     else :
@@ -161,16 +150,13 @@ def sm_pca(
                             list_temporal_noise = [temporal_noises[current_timestep-k]*(1-theta*dt)**k for k in range(current_timestep)]
                             w_pert += sigma * torch.sqrt(torch.tensor(dt)) * torch.from_numpy(np.array(list_temporal_noise)).sum()
 
-                print('JE SUIS ALPHAS ET BETAS', w_start, betas, w_pert,'MOYEB', torch.mean(w_pert))
                 w_new = w_start + betas.view(1, 14, 1) * w_pert
-                print('JE SUIS NOUVEAU SAMPLE   ',w_new)
             elif sample_rule == "extrapolation":
                 if save_perturbation or import_perturbation:
                     raise NotImplementedError
                 w_interm = []
                 for kk in range(k, N_seeds):
                     if k != kk:
-                        print(k, kk)
                         w_interm.append(
                             (Ens_w[k] + 1.5 * (Ens_w[kk] - Ens_w[k])).to(device)
                         )
@@ -193,14 +179,12 @@ def sm_pca(
 
             assert torch.isfinite(w_new).all()
             if verbose:
-                print("wnew", w_new.shape)
             w = w_new
 
             # features for generator
             features_in = None
             if Ens_feature is not None:
                 
-                print('shape w_inv',Ens_w1[k].unsqueeze(0).shape)
                 sample, features_out_inv, _ = G([(Ens_w1[k].unsqueeze(0)).to(device)], input_is_latent=True, return_features=True, noise=noise)
 
                 print('shape features_out_inv',features_out_inv[feature_id].shape)
@@ -439,7 +423,6 @@ def sm_pca_temporal(
                 seeds = random.sample(range(N), N_seeds)
                 Ens_w1 = Ens_w[seeds].to(device)
                 Ens_w1_next = Ens_w_next[seeds].to(device)
-                print(Ens_w1.shape)
 
         with torch.no_grad():
             

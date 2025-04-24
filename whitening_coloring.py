@@ -88,8 +88,8 @@ def test_white(G, Whitening, w0=None,N_samples=10000, device='cuda:0'):
 
 if __name__=="__main__":
 
-    ckpt_dir = '/project/scratch/p200177/DE_371/angeliquebonamy/GAN_training/gan_training_new_dataset/exp_train_ep_with_Noise_Injection/models/102000.pt'
-    output_dir = '/project/scratch/p200177/DE_371/angeliquebonamy/test_scale_tune/Eigenvalues/'
+    ckpt_dir = '.pt'
+    output_dir = '/Eigenvalues/'
     device = 'cuda:0'
 
     G = Generator(256, 512,n_mlp=8,nb_var=4)
