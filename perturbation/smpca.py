@@ -44,7 +44,6 @@ def sm_pca(
     temporal_noises=[]
 
 ):
-    betas = 2*betas
     N, R, D = Ens_w.shape
     per_cond = int(ceil(N_samples / N_seeds))
     Ens_final = np.zeros((N * per_cond, 4, 256, 256), dtype="float32")
