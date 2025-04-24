@@ -41,8 +41,6 @@ def compute_generate_save(G, params, metrics_list, Means, Mins, Maxs, apply_log_
 
     N_samples = params.N_samples
     if params.verbose:
-        print(datename, lt)
-        print(params.date_index, params.lt_index)
 
     Ens_r = torch.tensor(np.load(params.pack_dir+f'Rsemble_{datename}_{lt}.npy'), dtype = torch.float32)
     w_ens = torch.tensor(np.load(params.data_dir + f'w_{params.date_index}_{params.lt_index}_{params.inv_step}.npy').astype(np.float32))
@@ -60,10 +58,8 @@ def compute_generate_save(G, params, metrics_list, Means, Mins, Maxs, apply_log_
     Whitening = torch.load(params.eigendir + 'Whitening.pt') if params.sample_rule=='stochastic' else None
     Coloring = torch.load(params.eigendir + 'Coloring.pt') if params.sample_rule=='stochastic' else None
     w0 = torch.load(params.eigendir + 'latent_mean.pt') if params.sample_rule=='stochastic' else None
-    print('PATH TO BETAS ',os.path.join(params.scale_dir,"ema_scale.npy"))
     betas = torch.tensor(np.load(os.path.join(params.scale_dir,"ema_scale.npy")).astype(np.float32)[params.scale_interp_step], device=params.device) 
     alphas = torch.tensor(np.load(os.path.join(params.scale_dir,"ema_interp.npy")).astype(np.float32)[params.scale_interp_step], device=params.device)
-    print('JE SUIS BETA2', betas)
     title = f'{params.date_index}_{params.lt_index}_{params.inv_step}_{params.N_conditioners}'
 
     path_perturbation=None
@@ -155,7 +151,6 @@ def compute_generate_save(G, params, metrics_list, Means, Mins, Maxs, apply_log_
     else:
         np.save(params.output_dir + f'/samples/genFsemble_{title}.npy', gen_denorm)
     
-    print('JE SUSI LES SHAPES',Ens_r_denorm.shape,inv_ens_denorm.shape)
     online_pert_plot(
         packsample=Ens_r_denorm.numpy(), 
         invsample=inv_ens_denorm, 
