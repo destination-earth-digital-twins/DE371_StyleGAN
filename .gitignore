@@ -1,4 +1,5 @@
-*.pt
+*.sh
+*.pdf
 *.pyc
 *regan*
 .idea

@@ -15,17 +15,16 @@ import torch
 import torch.nn.functional as F
 import perturbation.pca_stylegan as pca
 
-
 def sm_pca(
     Ens_w,
     G,
     N_samples,
+    betas=1.0,
+    alphas=0.0,
     sm_ind=[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
     device="cuda:0",
     sample_rule="stochastic",
     N_seeds=16,
-    betas=1.0,
-    alphas=0.0,
     verbose=False,
     Whitening=None,
     Coloring=None,
@@ -45,11 +44,9 @@ def sm_pca(
     temporal_noises=[]
 
 ):
-
     N, R, D = Ens_w.shape
     per_cond = int(ceil(N_samples / N_seeds))
-
-    Ens_final = np.zeros((N * per_cond, 3, 256, 256), dtype="float32")
+    Ens_final = np.zeros((N * per_cond, 4, 256, 256), dtype="float32")
     w_final = np.zeros((N * per_cond, R, D))
 
     if Ens_feature is not None:
@@ -88,7 +85,6 @@ def sm_pca(
         if N_seeds < N:
             seeds = random.sample(range(N), N_seeds)
             Ens_w1 = Ens_w[seeds].to(device)
-            print(Ens_w1.shape)
 
     with torch.no_grad():
         
@@ -107,7 +103,6 @@ def sm_pca(
                         (w - w.mean(dim=0)).unsqueeze(-1),
                     )  # diff of shape N_samples  x D
                     new_w = torch.einsum("abc, dc-> dab", K, diff.squeeze(dim=-1))
-
                 w_start = (
                     alphas.view(1, 14, 1) * Ens_w1.mean(dim=0)
                     + (1.0 - alphas).view(1, 14, 1) * Ens_w1[k]
@@ -117,10 +112,13 @@ def sm_pca(
                 else:
                     if not temporal_consistency :
                         if (R - n_styles_pert) > 0:
+
                             z = torch.empty((per_cond, 512)).normal_().to(device)
                             with torch.no_grad():
                                 w_nopca = G.style(z)
                             if n_styles_pert > 0:
+                                        .unsqueeze(1)
+                                        .repeat(1, (R - n_styles_pert), 1)))
                                 w_pert = torch.cat(
                                     [
                                         new_w,
@@ -131,12 +129,14 @@ def sm_pca(
                                     dim=1,
                                 )
                             else:
+
                                 w_pert = (
                                     (w_nopca - w_nopca.mean(dim=0))
                                     .unsqueeze(1)
                                     .repeat(1, (R - n_styles_pert), 1)
                                 )
                         else:
+
                             w_pert = new_w
                     else :
                         if path_perturbation is None:
@@ -149,16 +149,13 @@ def sm_pca(
                             list_temporal_noise = [temporal_noises[current_timestep-k]*(1-theta*dt)**k for k in range(current_timestep)]
                             w_pert += sigma * torch.sqrt(torch.tensor(dt)) * torch.from_numpy(np.array(list_temporal_noise)).sum()
 
-      
                 w_new = w_start + betas.view(1, 14, 1) * w_pert
-
             elif sample_rule == "extrapolation":
                 if save_perturbation or import_perturbation:
                     raise NotImplementedError
                 w_interm = []
                 for kk in range(k, N_seeds):
                     if k != kk:
-                        print(k, kk)
                         w_interm.append(
                             (Ens_w[k] + 1.5 * (Ens_w[kk] - Ens_w[k])).to(device)
                         )
@@ -181,14 +178,12 @@ def sm_pca(
 
             assert torch.isfinite(w_new).all()
             if verbose:
-                print("wnew", w_new.shape)
             w = w_new
 
             # features for generator
             features_in = None
             if Ens_feature is not None:
                 
-                print('shape w_inv',Ens_w1[k].unsqueeze(0).shape)
                 sample, features_out_inv, _ = G([(Ens_w1[k].unsqueeze(0)).to(device)], input_is_latent=True, return_features=True, noise=noise)
 
                 print('shape features_out_inv',features_out_inv[feature_id].shape)
@@ -230,7 +225,7 @@ def fast_style_mixing(
     G,
     Whitening,
     device="cpu",
-    beta_rule="linear",
+    beta_rule='sigmoid',
 ):
     """
     Perform style mixing using interpolation coefficients (alpha's) and scale coefficients (beta's)
@@ -427,7 +422,6 @@ def sm_pca_temporal(
                 seeds = random.sample(range(N), N_seeds)
                 Ens_w1 = Ens_w[seeds].to(device)
                 Ens_w1_next = Ens_w_next[seeds].to(device)
-                print(Ens_w1.shape)
 
         with torch.no_grad():
             
