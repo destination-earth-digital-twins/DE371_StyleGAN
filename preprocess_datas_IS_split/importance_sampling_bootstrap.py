@@ -155,11 +155,8 @@ def bootstrap(IS_csv_folder,params):
     # List to stock dataframes 
     dataframes = []
     # Load csv 
-    print('JE SUIS GLOBGLOB',f"{IS_csv_folder}/*.csv",glob.glob(f"{IS_csv_folder}INST1/*.csv"))
     for file in glob.glob(f"{IS_csv_folder}/*.csv"):
-        print('JE SUIS PATH',file)
         df = pd.read_csv(file)
-        # print('JE SUIS PATH',df,file)
         dataframes.append(df)
 
     # Combine all dataframes
