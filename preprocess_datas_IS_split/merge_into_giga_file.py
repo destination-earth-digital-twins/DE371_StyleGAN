@@ -1,7 +1,7 @@
 import glob
 import os
 import numpy as np
-from utils import make_save_dir, print_progress, print_progress_bar
+from utils import make_save_dir, print_progress
 import pandas as pd
 from time import perf_counter
 import numpy as np 
@@ -29,9 +29,8 @@ def merge_into_gigafiles(datatype, params):
         data_dir = f"{params.main_path}/{params.data_directory}{datatype}_{index_string}"
     else:
         data_dir = f"{params.main_path}/{params.data_directory}"
-    # save_dir = f"{params.main_path}{params.giga_directory}/"
+    save_dir = f"{params.main_path}{params.giga_directory}/"
     data_dir += f"/"
-    save_dir=f"/project/scratch/p200177/DE_371/angeliquebonamy/{params.giga_directory}"
     make_save_dir(save_dir, params)
 
     with open(f"{save_dir}labels.csv", "w", encoding="utf8") as file:

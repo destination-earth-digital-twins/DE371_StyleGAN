@@ -28,7 +28,6 @@ def create_dirs(save_dir, param):
             file.write(f"Name,Date,Leadtime,Member,Gigafile,Localindex,Importance\n")
 
 def compute_c(s_rr, q_min, m, l_c):
-    print(s_rr,q_min,m,l_c)
     filter_func = lambda c: m + ((q_min - m) / np.tanh(-s_rr / c)) * np.tanh((1 - s_rr) / c) - 1
     l_c = np.abs(fsolve(filter_func, l_c))
     if np.abs(l_c[0] - l_c[1]) < 0.01:
@@ -125,7 +124,7 @@ def importance_sampling(parameters, dirs, gridshape, variable, param):
             if p_uniform <= p_importance:
                 sample = dataframe_gigafile.iloc[idx_grid]
                 selected_samples.append(sample)
-                if param.verbose >= 3:
+                # if param.verbose >= 3:
 
             # Save the sample from the current instance
             sample_from_instance(save_dir, p_importance, dataframe_gigafile.iloc[idx_grid], param)
@@ -147,7 +146,7 @@ def importance_sampling(parameters, dirs, gridshape, variable, param):
 
 
 
-def bootstrap(IS_csv_folder):
+def bootstrap(IS_csv_folder,params):
     """ takes n csv files and return one csv without duplicated
     Args:
     IS_csv_folder : dir where csv files with importance sampling are saved
@@ -156,8 +155,11 @@ def bootstrap(IS_csv_folder):
     # List to stock dataframes 
     dataframes = []
     # Load csv 
-    for file in glob.glob(f"{IS_csv_folder}INST1/*.csv"):
+    print('JE SUIS GLOBGLOB',f"{IS_csv_folder}/*.csv",glob.glob(f"{IS_csv_folder}INST1/*.csv"))
+    for file in glob.glob(f"{IS_csv_folder}/*.csv"):
+        print('JE SUIS PATH',file)
         df = pd.read_csv(file)
+        # print('JE SUIS PATH',df,file)
         dataframes.append(df)
 
     # Combine all dataframes
@@ -167,6 +169,6 @@ def bootstrap(IS_csv_folder):
     df_unique = df_combined.drop_duplicates(subset=['Name'])
 
     #Save the final Dataframe 
-    df_unique.to_csv(f'{IS_csv_folder}INST1/{params.output_csv}', index=False)
+    df_unique.to_csv(f'{IS_csv_folder}/{params.output_csv}', index=False)
 
     print("The final CSV file without duplicates has been created successfully.")    
