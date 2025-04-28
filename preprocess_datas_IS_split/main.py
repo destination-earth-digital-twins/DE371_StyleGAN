@@ -36,14 +36,15 @@ if __name__ == "__main__":
     parser.add_argument("--old_param", type=str)
     parser.add_argument("--n_bootstrap", type=int, default=4, help="number boostrap")
     parser.add_argument("--bootstrap", action = "store_true", help="apply boostrap or not")
-    parser.add_argument('--method_type', type=str, choices=["importance_sampling","merge_into_giga_file", "complete_members","split_dataset"], help='Type of methods we want to apply ')
+    parser.add_argument('--method_type', type=str, choices=["stat","importance_sampling","merge_into_giga_file", "complete_members","split_dataset"], help='Type of methods we want to apply ')
 
 
 
     params= parser.parse_args()
+    
     ##MERGE INTO GIGAFILE:
-    # if params.method_type=="merge_into_giga_file":
-    #     merge_into_gigafiles( "splitted", params)
+    if params.method_type=="merge_into_giga_file":
+        merge_into_gigafiles( "splitted", params)
         
     
 ##    IMPORTANCE SAMPLING 
@@ -51,9 +52,7 @@ if __name__ == "__main__":
         if params.l_c is None:
             params.l_c = [1, 1.25]
         S_RR, Q_MIN, M = params.default_param
-        print("S_RR, Q_MIN, M ",S_RR, Q_MIN, M )
         C = compute_c(S_RR, Q_MIN, M, params.l_c)
-        print(f"c = {C}")
         
         VARIABLE= f"rr"
         VAR_NAMES = (f"rr", f"u", f"v", f"t2m")
@@ -63,21 +62,19 @@ if __name__ == "__main__":
         GRIDSHAPE = (256, 256)
 
         #### IMPORTANCE SAMPLING ####
-        ## PATH ##
         CSV_DIR = f"{params.main_path}{params.giga_directory}"
-        print(CSV_DIR)
         DATA_giga_DIR = f"{params.main_path}{params.giga_directory}"
         SAVE_DIR= f"{params.main_path}{params.giga_directory}"
         DIRS = (CSV_DIR, DATA_giga_DIR, SAVE_DIR)
 
-        # if not params.bootstrap:
-        #     importance_sampling(PARAMETERS, DIRS, GRIDSHAPE, VARIABLE, params)
-        # else:
-        #     for number_csv in range(params.n_bootstrap):
-        #         params.output_csv=f"IS_labels_{number_csv}.csv"
-        #         importance_sampling(PARAMETERS, DIRS, GRIDSHAPE, VARIABLE, params)
-        #   bootstrap(CSV_DIR,params)
-        # print(f"DONE")
+        if not params.bootstrap:
+            importance_sampling(PARAMETERS, DIRS, GRIDSHAPE, VARIABLE, params)
+        else:
+            for number_csv in range(params.n_bootstrap):
+                params.output_csv=f"IS_labels_{number_csv}.csv"
+                importance_sampling(PARAMETERS, DIRS, GRIDSHAPE, VARIABLE, params)
+          bootstrap(CSV_DIR,params)
+        print(f"DONE")
 
 
 
@@ -85,32 +82,33 @@ if __name__ == "__main__":
     if params.method_type=="complete_members":
         More_than(8,params)
 
-    # SPLIT 
-    # if params.method_type=="split_dataset":
+    #SPLIT 
+    if params.method_type=="split_dataset":
         
-    #     train_start_date="2020-06-15"
-    #     train_end_date="2021-06-01"   
-    #     test_start_date = "2021-06-01"
-    #     test_end_date = "2021-11-12"
+        train_start_date="2020-06-15"
+        train_end_date="2021-06-01"   
+        test_start_date = "2021-06-01"
+        test_end_date = "2021-11-12"
 
-    #     split_csv_with_validation_first(params,train_start_date,test_end_date,test_start_date)
+        split_csv_with_validation_first(params,train_start_date,test_end_date,test_start_date)
 
-#     #COMPUTE AND PLOT AREA PROPORTION FOR GIGAFILES:
-        # l_thresholds = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 15, 20, 30]
-        # l_mean = compute_area_greater_than(0, DATA_giga_DIR, [256, 256],  l_thresholds,params)
-        # # print(l_mean)
-        # np.save(f"{DATA_giga_DIR}area_proportions.npy", l_mean)
-        # l_mean = np.load(f"{DATA_DIR}area_proportions.npy")
-        # plt.plot(l_thresholds, l_mean)
-        # plt.yscale("log")
-        # plt.xlabel("s_rr")
-        # plt.ylabel("Area proportion (log10)")
-        # plt.title("Area proportion for precipitation >= s_rr")
-        # plt.savefig(f"{DATA_DIR}area_proportionslog10.png")
-        # plt.clf()
-        # plt.plot(l_thresholds, l_mean)
-        # plt.xlabel("s_rr")
-        # plt.ylabel("Area proportion (log10)")
-        # plt.title("Area proportion for precipitation >= s_rr")
-        # plt.savefig(f"{DATA_DIR}area_proportions.png")
+    #COMPUTE AND PLOT AREA PROPORTION FOR GIGAFILES:
+    
+    if params.method_type=="stat"
+        l_thresholds = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 15, 20, 30]
+        l_mean = compute_area_greater_than(0, DATA_giga_DIR, [256, 256],  l_thresholds,params)
+        np.save(f"{DATA_giga_DIR}area_proportions.npy", l_mean)
+        l_mean = np.load(f"{DATA_DIR}area_proportions.npy")
+        plt.plot(l_thresholds, l_mean)
+        plt.yscale("log")
+        plt.xlabel("s_rr")
+        plt.ylabel("Area proportion (log10)")
+        plt.title("Area proportion for precipitation >= s_rr")
+        plt.savefig(f"{DATA_DIR}area_proportionslog10.png")
+        plt.clf()
+        plt.plot(l_thresholds, l_mean)
+        plt.xlabel("s_rr")
+        plt.ylabel("Area proportion (log10)")
+        plt.title("Area proportion for precipitation >= s_rr")
+        plt.savefig(f"{DATA_DIR}area_proportions.png")
 

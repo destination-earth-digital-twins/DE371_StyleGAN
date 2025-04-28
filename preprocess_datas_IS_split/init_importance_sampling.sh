@@ -13,15 +13,11 @@ export CUDA_HOME=/usr/local/cuda-12.1
 export NVHPC_CUDA_HOME=/usr/local/cuda-12.1
 export CXX=g++ #the compiler for cpp extensions
 export CC=gcc  #the compiler to access the good cpp standard
-export APPTAINER_BINDPATH="/project/home/p200177/DE_371/datasets:/project/home/p200177/DE_371/datasets/,/project/scratch/p200177/DE_371:/project/scratch/p200177/DE_371/"
+export APPTAINER_BINDPATH="datasets:datasets/,DE_371:/DE_371/"
 module load env/release/2023.1
 module load env/staging/2023.1
 module load Apptainer/1.2.4-GCCcore-12.3.0
 
 
 apptainer exec --nv /apptainer_container/container_quantile_loss.sif  python3  main.py \
-                --method_type=''\
-                --giga_directory='/giga_test/'\
-                --data_directory='IS_rr_debug_1_1.0_0_0_0_0_0_256_large_lt'\
-                # --bootstrap\
-                # --n_bootstrap=2\
+        
