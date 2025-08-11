@@ -41,7 +41,8 @@ def load_batch_from_timestamp(
     batch = np.zeros((Nb,) + tuple(Shape))
 
     for i,s in enumerate(df0['Name']):
-        sn = np.load(f'{data_dir}{s}.npy')[var_indices,:,:].astype(np.float32)
+        #sn = np.load(f'{data_dir}{s}.npy')[var_indices,:,:].astype(np.float32)
+        sn = np.load(f'{data_dir}{s}')[var_indices,:,:].astype(np.float32)
 
         batch[i] = sn
     

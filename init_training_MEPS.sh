@@ -19,13 +19,19 @@ module load env/staging/2023.1
 module load Apptainer/1.2.4-GCCcore-12.3.0
 
 apptainer exec --nv /project/home/p200177/DE_371/resources/apptainer_container/container.sif torchrun --nproc_per_node=4 main_gan.py \
-        --data_dir='/project/home/p200177/DE_371/datasets/dataset_MetNorway/MEPS_samples/' \
-        --config_dir='/project/home/p200177/DE_371/datasets/dataset_MetNorway/MEPS_samples/' \
-        --id_file='train_labels.csv' \
-        --output_dir='/project/home/p200177/DE_371/experiments_WP1/MEPS/training/2025-03-10/' \
-        --g_channels=3 \
-        --d_channels=3 \
-        --epochs_num=30 \
-        --var_names=['u','v','t2m'] \
+        --data_dir='/project/home/p200177/DE_371/datasets/datasets_SMHI/256x256/samples' \
+        --config_dir='/project/home/p200177/DE_371/experiments_WP1/MEPS/training/2025-05-27/' \
+        --max_file='/project/home/p200177/DE_371/datasets/datasets_SMHI/256x256/global_max.npy' \
+        --min_file='/project/home/p200177/DE_371/datasets/datasets_SMHI/256x256/global_min.npy' \
+        --mean_file='/project/home/p200177/DE_371/datasets/datasets_SMHI/256x256/global_mean.npy' \
+        --std_file='/project/home/p200177/DE_371/datasets/datasets_SMHI/256x256/global_std.npy' \
+        --id_file='/project/home/p200177/DE_371/experiments_WP1/MEPS/training/2025-05-27/labels_2023.csv' \
+        --output_dir='/project/home/p200177/DE_371/experiments_WP1/MEPS/training/2025-05-27/' \
+        --g_channels=4 \
+        --d_channels=4 \
+        --epochs_num=25 \
+        --lr_G=0.002 \
+        --lr_D=0.002 \
+        --var_names=['rr','u','v','t2m'] \
         --use_noise='True' \
 

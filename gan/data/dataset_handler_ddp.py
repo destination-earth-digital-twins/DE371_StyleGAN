@@ -76,7 +76,7 @@ class ISDataset(Dataset):
         self.VI = variable_indices
         self.transform = transform
         self.detransform = detransform
-        self.labels = pd.read_csv(f"{self.config.data_dir}{self.config.id_file}")
+        self.labels = pd.read_csv(f"{self.config.id_file}")
 
 
         if self.config.multi_timestep_mode :
@@ -174,7 +174,7 @@ class ISDataset(Dataset):
         else :
             sample_path = os.path.join(self.config.data_dir, self.labels.iloc[idx]["Name"])
             if self.sample_method=='coords':
-                sample = np.float32(np.load(f"{sample_path}.npy"))[self.VI, self.CI[0]:self.CI[1], self.CI[2]:self.CI[3]]
+                sample = np.float32(np.load(f"{sample_path}"))[self.VI, self.CI[0]:self.CI[1], self.CI[2]:self.CI[3]]
                 position = self.CI
             if self.sample_method=='random' :
                 crop_X0 = np.random.randint(0, high = self.config.full_size[0] - self.config.crop_size[0])
@@ -257,10 +257,16 @@ class ISData_Loader():
     def init_normalization(self):
         normalization_type = self.dataset_handler_yaml["normalization"]["type"]
         if normalization_type == "mean":
-            means, stds = self.load_stat_files(normalization_type, "mean", "std")
+            print(f"Loading {self.config.mean_file} and {self.config.std_file}")
+            means = np.load(self.config.mean_file).astype('float32')
+            stds = np.load(self.config.std_file).astype('float32')
+            #means, stds = self.load_stat_files(normalization_type, "mean", "std")
             return None, None, means[self.VI], stds[self.VI]
         elif normalization_type == "minmax":
-            maxs, mins = self.load_stat_files(normalization_type, "max", "min")
+            #maxs, mins = self.load_stat_files(normalization_type, "max", "min")
+            print(f"Loading {self.config.max_file} and {self.config.min_file}")
+            maxs = np.load(self.config.max_file).astype('float32')
+            mins = np.load(self.config.min_file).astype('float32')
             return maxs[self.VI], mins[self.VI], None, None
         elif normalization_type == "quant":
             maxs, mins = self.load_stat_files(normalization_type, "Q99", "Q01")

@@ -639,6 +639,9 @@ class Trainer():
                 loop = enumerate(self.train_dataloader)
             label = None
             for i, batch in loop:
+                #print(batch[0].shape)
+                #if i == 10:
+                #    exit()
 
                 if not self.config.timestep_labelling :
                     img, _, _ = batch

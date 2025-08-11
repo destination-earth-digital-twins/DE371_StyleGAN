@@ -66,10 +66,10 @@ if __name__=="__main__" :
     parser.add_argument('--ckpt_dir', type = str, default ='')
 
     # Dataset information
-    parser.add_argument("--normalization", type=str, default="minmax", choices=["minmax", "meanmax"])
-    parser.add_argument('--max_file', type=str, default='max_rr_log.npy') # use 'MaxNew_4_var.npy' if AROME data # max_rr_log.npy
-    parser.add_argument('--mean_file', type=str, default='mean_rr_log.npy') # not used if minmax normalization
-    parser.add_argument('--min_file', type=str, default='min_rr_log.npy')  # not used if meanmax normalization
+    parser.add_argument("--normalization", type=str, default="meanmax", choices=["minmax", "meanmax"])
+    parser.add_argument('--max_file', type=str, default='global_std.npy') # use 'MaxNew_4_var.npy' if AROME data # max_rr_log.npy
+    parser.add_argument('--mean_file', type=str, default='global_mean.npy') # not used if minmax normalization
+    parser.add_argument('--min_file', type=str, default='global_min.npy')  # not used if meanmax normalization
     parser.add_argument('--save_normalized_sample', action='store_true')
 
     parser.add_argument('--device', type=str, default='cuda')
@@ -118,7 +118,7 @@ if __name__=="__main__" :
     parser.add_argument("--features_after_relu", action='store_true')
     parser.add_argument("--channel_computation", type=str, default='sol2', choices = ['sol1', 'sol2', 'sol3', 'sol4', 'sol5'], 
                     help="Either we compute layer by layer and member per member but we have to triple th einput to make it rgb or all in one (naive)")
-    parser.add_argument("--network_dir", type=str, default='', help="Insert a path")
+    parser.add_argument("--network_dir", type=str, default='/project/home/p200177/DE_371/resources/network_for_perceptual_loss/', help="Insert a path")
     parser.add_argument("--style_layers", type=utils.str2intlist, default=[], help="style layers to include in vgg loss computation")
     parser.add_argument("--feature_layers", type=utils.str2intlist, default=[0,1,2,3], help="feature layers to include in vgg computation")
     parser.add_argument("--alpha_feature", type=float, default=1.0, help="weight of the feature/content loss")
@@ -127,7 +127,7 @@ if __name__=="__main__" :
     parser.add_argument("--multi_scale_perceptual_loss",  action='store_true')
 
     parser.add_argument("--invstep", type=int, default=2000, help="optimize iterations (default is 50 when hybrid-based and 1000 when optimization-based)")
-    parser.add_argument("--inv_checkpoints", type=utils.str2intlist, default=[500,1000, 1500,2000])
+    parser.add_argument("--inv_checkpoints", type=utils.str2intlist, default=[500,1000,1500,2000])
     
     # lambda_ms_ssim
     parser.add_argument("--lambda_ms_ssim", type=float, default=0, help="weight of the MS-SSIM loss")
@@ -153,16 +153,17 @@ if __name__=="__main__" :
 
     # create output and pack directories
     if not os.path.exists(params.output_dir):
-        os.makedirs(params.output_dir)
+        os.makedirs(params.output_dir, exist_ok=True)
     if not os.path.exists(params.pack_dir) and params.pack_dir != '':
-        os.makedirs(params.pack_dir)
+        os.makedirs(params.pack_dir, exist_ok=True)
 
     # set the seed for reproduciibility of runs
     seed = params.seed
     torch.manual_seed(seed)
 
     ################## loading dates and file names ##
-    df = pd.read_csv(params.real_data_dir + params.dates_file)
+    #df = pd.read_csv(params.real_data_dir + params.dates_file)
+    df = pd.read_csv(params.dates_file)
     df_date = df.copy()
     df_date['Date'] = pd.to_datetime(df_date['Date'])
     df_extract = df_date[(df_date['Date']>=params.date_start) & (df_date['Date']<=params.date_stop)]
@@ -172,12 +173,15 @@ if __name__=="__main__" :
     Maxs=None
     Mins=None
     if params.normalization=="meanmax":
-        Means = np.load(f'{params.real_data_dir}{params.mean_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
-        Maxs = np.load(f'{params.real_data_dir}{params.max_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
+        #Means = np.load(f'{params.real_data_dir}{params.mean_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
+        #Maxs = np.load(f'{params.real_data_dir}{params.max_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
+        Means = np.load(f'{params.mean_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
+        Maxs = np.load(f'{params.max_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
     elif params.normalization=="minmax":
-       Mins = np.load(f'{params.real_data_dir}stat_files/{params.min_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
-       Maxs = np.load(f'{params.real_data_dir}stat_files/{params.max_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
-       Means = np.load(f'{params.real_data_dir}stat_files/{params.mean_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
+       Mins = np.load(f'{params.real_data_dir}new_stat_files/{params.min_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
+       Maxs = np.load(f'{params.real_data_dir}new_stat_files/{params.max_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
+       Means = np.load(f'{params.real_data_dir}new_stat_files/{params.mean_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
+
     else:
        raise ValueError(f"Unknown normalization: {params.normalization}")
 

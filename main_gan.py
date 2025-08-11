@@ -253,7 +253,7 @@ def get_expe_parameters():
 
     # Step size
 
-    parser.add_argument('--log_epoch', type=int, default=1000)
+    parser.add_argument('--log_epoch', type=int, default=1)
     # parser.add_argument('--sample_epoch', type=int, default=0)
     parser.add_argument('--plot_epoch', type=int, default=1000)
     parser.add_argument('--save_epoch', type=int, default=1000)
