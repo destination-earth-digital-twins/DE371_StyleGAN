@@ -9,7 +9,7 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader, DistributedSampler
 import torch.distributed as dist
 
-from inversion.perceptual_loss.perceptual_loss import PerceptualLoss
+from inversion.perceptual_loss.perceptual import PerceptualLoss
 import perturbation.utils as utils
 import time_interpolation.models as models
 from time_interpolation.training import combined_loss, load_generator, train_loop, test_loop
@@ -203,10 +203,9 @@ def main():
     perceptual_loss_class = None
     if args.perceptual_loss_weight > 0:
         perceptual_loss_class = PerceptualLoss(
-                                        config=args,
-                                        device=device,
-                                        multi_scale=args.multi_scale_perceptual_loss
-                                        ).to(device).eval()
+                in_channels=3,
+                channel_iterative_mode=True
+            ).to(self.config.device).eval()
         #print("Precomputing the features...")
         #perceptual_loss_class.compute_perceptual_features(img=real_samples)
 

@@ -90,7 +90,9 @@ if __name__=="__main__" :
     parser.add_argument("--lr_rampup",type=float,default=0.05,help="duration of the learning rate warmup")
     parser.add_argument("--lr_rampdown",type=float, default=0.25,help="duration of the learning rate decay")
     parser.add_argument("--lr", type=float, default=0.1, help="learning rate")
-    
+   
+    parser.add_argument("--num_pca_axis", type=int, default=2, help="num of pca axis")
+    parser.add_argument('--w_samples_dir',   type=str, default='') # samples generated with mkl_w_sample.py
     parser.add_argument("--noise_strength", type=float, default=0.005, help="strength of the noise level")
     parser.add_argument("--noise_ramp",type=float,default=0.75,help="duration of the noise level decay")
     parser.add_argument("--feature_optimize", action='store_true', help="to enable optimization of feature map")
@@ -224,7 +226,6 @@ if __name__=="__main__" :
         else : 
             lm = np.load(f'{params.output_dir}latent_mean.npy').astype(np.float32)
             latent_mean = torch.tensor(lm, dtype = torch.float32)
-
     ########### write inversion parameters to file ############
     config_file = params.output_dir + f"{params.inversion_type}_inversion_params.yaml"
     print("writing params config file:", config_file)
@@ -324,23 +325,44 @@ if __name__=="__main__" :
                         np.save(params.pack_dir+f'Rsemble_sequence_{datename}.npy', Ens_r.numpy().astype(np.float32))
 
                 if params.inversion_type == 'optimization':
-                    inv.optimize(
-                            Ens_r=Ens_r_norm,
-                            g_ema=G,
-                            init_latent=latent_mean,
-                            device=params.device,
+                    if not params.projection_on_pca_axis :
+                        inv.optimize(
+                                Ens_r=Ens_r_norm,
+                                g_ema=G,
+                                init_latent=latent_mean,
+                                device=params.device,
+                                params=params,
+                                Means=Means,
+                                Maxs=Maxs,
+                                Mins=Mins,
+                                apply_log_transform=True if params.Shape[0]==4 else False
+                            )
+                    else :
+                          inv_pca.optimize(
+                              Ens_r=Ens_r_norm,
+                              g_ema=G,
+                              init_latent=latent_mean,
+                              device=params.device,
+                              params=params,
+                              Means=Means,
+                              Maxs=Maxs,
+                              Mins=Mins,
+                              eigenvector_subset=eigenvector_subset,
+                              num_pca_axis=params.num_pca_axis,
+                              apply_log_transform=True if params.Shape[0]==4 else False
+                          )
+
+                elif params.inversion_type == 'encoder':
+                    if params.encoder_framework_type  in ['restyle-pSp', "restyle-e4e"]:
+                        y_hat = inversion_restyle(
                             params=params,
+                            network=network,
+                            Ens_r=Ens_r_norm,
                             Means=Means,
                             Maxs=Maxs,
                             Mins=Mins,
                             apply_log_transform=True if params.Shape[0]==4 else False
                         )
-                  
-
-
-                elif params.inversion_type == 'encoder':
-                    if params.encoder_framework_type  in ['restyle-pSp', "restyle-e4e"]:
-                        y_hat = inversion_restyle(params=params, network=network, Ens_r=Ens_r_norm)
                     elif params.encoder_framework_type  in ['e4e', 'pSp']:
                         y_hat = inversion_psp_e4e(params=params, network=network, Ens_r=Ens_r_norm)
                     elif params.encoder_framework_type == 'inDomain':
@@ -370,7 +392,9 @@ if __name__=="__main__" :
                         init_latent, init_feature = init_latent_featureStyle(params=params, network=network, Ens_r=Ens_r_norm)
                     else :
                         raise NotImplementedError
-
+                    if params.mean_latent_encoder:
+                        init_latent = init_latent.mean(dim=(0,1))
+                    print('hybrid latent shape : ', init_latent.shape)
                     inv.optimize(
                         Ens_r=Ens_r_norm,
                         g_ema=network.decoder,
@@ -378,11 +402,12 @@ if __name__=="__main__" :
                         device=params.device,
                         params=params,
                         features_in=init_feature,
-                        hybrid=True,
+                        hybrid=False,
                         Means=Means,
                         Maxs=Maxs,
                         Mins=Mins,
-                        apply_log_transform=True if params.Shape[0]==4 else False
+                        apply_log_transform=True if params.Shape[0]==4 else False,
+                        mean_latent_encoder=False
                     )
                 
 

@@ -13,7 +13,7 @@ from encoders.configs import data_configs
 from encoders.datasets.arome_dataset import AromeDataset
 from encoders.models.psp import pSp
 from encoders.training.ranger import Ranger
-from inversion.perceptual_loss.perceptual_loss import PerceptualLoss
+from inversion.perceptual_loss.perceptual import PerceptualLoss
 from encoders.criteria.w_norm import WNormLoss
 import numpy as np
 
@@ -50,7 +50,10 @@ class Coach:
         
         self.mse_loss = nn.MSELoss().to(self.device).eval()
         if self.config.perceptual_lambda > 0 :
-            self.perceptual_loss = PerceptualLoss(config=self.config, device=self.device, multi_scale=self.config.multi_scale_perceptual_loss).to(self.device).eval()
+            self.perceptual_loss = PerceptualLoss(
+                in_channels=3,
+                channel_iterative_mode=True
+            ).to(self.config.device).eval()
         if self.config.w_norm_lambda > 0 :
             self.w_norm_loss = WNormLoss(start_from_latent_avg=self.config.start_from_latent_avg)
 
