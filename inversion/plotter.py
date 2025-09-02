@@ -1,8 +1,14 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from PIL import Image
+import matplotlib.colors as colors
+
+import matplotlib.colors as colors
+
 # var_dict = {'rr': 0, 'u': 1, 'v': 2, 't2m': 3, 'orog': 4, 'z500': 5, 't850': 6, 'tpw850': 7}
 
+cmapRR = colors.ListedColormap(["white","mediumpurple","blue","dodgerblue","darkseagreen","seagreen","greenyellow","yellow", "navajowhite","sandybrown","darkorange","red","darkred","black"], name='from_list', N=None)
+cmapRR = colors.ListedColormap(["white","mediumpurple","blue","dodgerblue","darkseagreen","seagreen","greenyellow","yellow", "navajowhite","sandybrown","darkorange","red","darkred","black"], name='from_list', N=None)
 
 def create_frame(fig): 
     r"""Create frames for frame mode
@@ -81,7 +87,7 @@ def online_inv_temporal_plot(
           invsample, crop=[0,-1,0,-1],
           mem_idx=0,
           nb_timesteps=15,
-          var_names=['u','v','t2m'],
+          var_names=['rr','u','v','t2m'],
           figtitle=" ",
           figname="inv.png",
           colormap_var=['viridis','viridis','coolwarm']
@@ -128,32 +134,28 @@ def online_pert_plot(
           mem_idx=0, 
           mem_pert_idx=0,figtitle=" ", 
           figname="inv.png",  
-          var_names=['u','v','t2m'], 
-          dict_var={'u': 0, 'v': 1, 't2m': 2},
-          colormap_var=['viridis','viridis','coolwarm'],
-          clim_global=[],
-          axis_title_global=''
+          var_names=['rr','u','v','t2m'], 
+          dict_var={'rr':0,'u': 1, 'v': 2, 't2m': 3},
+          colormap_var=[cmapRR,'viridis','viridis','coolwarm']
           ):
 
         fig, ax = plt.subplots(figsize=(15,5*len(var_names)), nrows=3, ncols=len(var_names))
         for id, var in enumerate(var_names):
             var_id = dict_var[var]
-            if not clim_global :
-                vmin = np.min([np.min(packsample[:,var_id,crop[0]:crop[1],crop[2]:crop[3]])])
-                vmax = np.min([np.max(packsample[:,var_id,crop[0]:crop[1],crop[2]:crop[3]])])
-                clim = (vmin, vmax)
-            else :
-                clim = clim_global
-            ax[0][id].set_title(f"{axis_title_global}{var} real")
-            im = ax[0][id].imshow(packsample[mem_idx,var_id,crop[0]:crop[1],crop[2]:crop[3]], clim=clim, origin="lower", cmap=colormap_var[id])
+
+            vmin = np.min([np.min(packsample[:,var_id,crop[0]:crop[1],crop[2]:crop[3]])])
+            vmax = np.min([np.max(packsample[:,var_id,crop[0]:crop[1],crop[2]:crop[3]])])
+
+            ax[0][id].set_title(f"{var} real")
+            im = ax[0][id].imshow(packsample[mem_idx,var_id,crop[0]:crop[1],crop[2]:crop[3]], clim=(vmin, vmax), origin="lower", cmap=colormap_var[id])
             fig.colorbar(im, ax=ax[0][id], shrink=0.5)
 
-            ax[1][id].set_title(f"{axis_title_global}{var} inv")
-            im = ax[1][id].imshow(invsample[mem_idx,var_id,crop[0]:crop[1],crop[2]:crop[3]], clim=clim, origin="lower", cmap=colormap_var[id])
+            ax[1][id].set_title(f"{var} inv")
+            im = ax[1][id].imshow(invsample[mem_idx,var_id,crop[0]:crop[1],crop[2]:crop[3]], clim=(vmin, vmax), origin="lower", cmap=colormap_var[id])
             fig.colorbar(im, ax=ax[1][id], shrink=0.5)
 
-            ax[2][id].set_title(f"{axis_title_global}{var} perturbated")
-            im = ax[2][id].imshow(pert_sample[mem_pert_idx,var_id,crop[0]:crop[1],crop[2]:crop[3]], clim=clim, origin="lower", cmap=colormap_var[id])
+            ax[2][id].set_title(f"{var} perturbated")
+            im = ax[2][id].imshow(pert_sample[mem_pert_idx,var_id,crop[0]:crop[1],crop[2]:crop[3]], clim=(vmin, vmax), origin="lower", cmap=colormap_var[id])
             fig.colorbar(im, ax=ax[2][id], shrink=0.5)
 
         fig.suptitle(figtitle)

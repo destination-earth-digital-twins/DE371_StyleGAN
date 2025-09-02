@@ -27,10 +27,9 @@ from encoders.models.feature_style_encoder.feature_style_module import FeatureSt
 import inversion.optimization_based.inversion as inv
 from gan.model.stylegan2 import Generator
 from collections import OrderedDict
+import inversion.optimization_based.inversion as inv
 import utils.utils as utils
 from ast import literal_eval as make_tuple
-import glob
-
 torch.manual_seed(42) #reproducibility of runs
 
 if __name__=="__main__" :
@@ -58,14 +57,16 @@ if __name__=="__main__" :
     parser.add_argument('--n_iters_per_batch_checkpoint', type=utils.str2intlist, default=[1,5,10], help='Number of forward passes per batch during training')
     
     ########################### Directories ###########################
+
     # Real Data Directory - PATH to samples of the dataset
     parser.add_argument('--real_data_dir', type = str,default='')
     # Output Directory - PATH where the output of the inversion will be saved
     parser.add_argument('--output_dir',type = str, default='')
-    
     # Pack Directory - PATH where the packed ensembles will be saved
+
     parser.add_argument("--pack_dir", type=str, default = '') # storing "packed" (normalized) real data
     parser.add_argument('--ckpt_dir', type = str, default ='')
+ 
 
     # Dataset information
     parser.add_argument("--normalization", type=str, default="minmax", choices=["minmax", "meanmax"])
@@ -76,8 +77,6 @@ if __name__=="__main__" :
 
     parser.add_argument('--device', type=str, default='cuda')
 
-    parser.add_argument("--mean_latent_encoder",  action='store_true')
-    
     ############################ SEQUENCE PARAMETERS #################    
     parser.add_argument('--multi_timestep_mode', action='store_true')
     parser.add_argument('--nb_timesteps', type=int, default=15)
@@ -91,10 +90,9 @@ if __name__=="__main__" :
     parser.add_argument("--lr_rampup",type=float,default=0.05,help="duration of the learning rate warmup")
     parser.add_argument("--lr_rampdown",type=float, default=0.25,help="duration of the learning rate decay")
     parser.add_argument("--lr", type=float, default=0.1, help="learning rate")
-    
+   
     parser.add_argument("--num_pca_axis", type=int, default=2, help="num of pca axis")
     parser.add_argument('--w_samples_dir',   type=str, default='') # samples generated with mkl_w_sample.py
-
     parser.add_argument("--noise_strength", type=float, default=0.005, help="strength of the noise level")
     parser.add_argument("--noise_ramp",type=float,default=0.75,help="duration of the noise level decay")
     parser.add_argument("--feature_optimize", action='store_true', help="to enable optimization of feature map")
@@ -102,19 +100,19 @@ if __name__=="__main__" :
     parser.add_argument("--feature_scale", type=float, default=1, help="features scale when inserting")
     parser.add_argument("--lambda_features", type=float, default=1, help="weight of the noise regularization")
 
-
     # Noise optimization and loss noise parameter
-    parser.add_argument("--noise_optimize", action='store_true', help="joint optimization of noise and latent code (1) or latent code optimization only (0)?")
+    parser.add_argument("--noise_optimize", action='store_true', help=" joint optimization of noise and latent code (1) or latent code optimization only (0)?")
     parser.add_argument("--lambda_noise", type=float, default=1e5, help="weight of the noise regularization")
     # In case noise_optimize=0, the lambda_noise is not taken into account in the loss computation
     parser.add_argument("--fixed_noise", action='store_true', help="Fixing the noise during optimization")
 
     # Parameter related to pixel loss 
     parser.add_argument('--pixel_loss_type', type=str, default='amse', choices = ['mse', 'mae','amse','wamse','wmse'])
-    parser.add_argument("--lambda_pixel", type=float, default=0.0, help="weight of the (mae/mse) pixel loss")
+    parser.add_argument("--lambda_pixel", type=float, default=10.0, help="weight of the (mae/mse) pixel loss")
     
-    # Spectral Loss
-    parser.add_argument("--lambda_spectral_loss", type=float, default=0.0, help="weight of the spectral loss")
+        
+    # Focal Frequency Loss
+    parser.add_argument("--lambda_focal_frequency_loss", type=float, default=0.0, help="weight of the vgg (perceptual) loss")
 
     # VGG
     parser.add_argument("--lambda_lpips_loss", type=float, default=0.0, help="weight of the LPIPS loss")
@@ -132,7 +130,7 @@ if __name__=="__main__" :
     parser.add_argument("--alpha_style", type=float, default=0.01, help="weight of the style loss")
     parser.add_argument("--split_factor", type=int, default=2, help="splitting factor for patching")
     parser.add_argument("--multi_scale_perceptual_loss",  action='store_true')
-    
+
     parser.add_argument("--invstep", type=int, default=2000, help="optimize iterations (default is 50 when hybrid-based and 1000 when optimization-based)")
     parser.add_argument("--inv_checkpoints", type=utils.str2intlist, default=[500,1000, 1500,2000])
     
@@ -228,7 +226,6 @@ if __name__=="__main__" :
         else : 
             lm = np.load(f'{params.output_dir}latent_mean.npy').astype(np.float32)
             latent_mean = torch.tensor(lm, dtype = torch.float32)
-    
     ########### write inversion parameters to file ############
     config_file = params.output_dir + f"{params.inversion_type}_inversion_params.yaml"
     print("writing params config file:", config_file)
@@ -243,7 +240,6 @@ if __name__=="__main__" :
     print("\n Inversion parameters:")
     for key, value in params.__dict__.items():
         print(f"{key}: {value}")
-
 
     #################### main loop ##################
     for date_ in list_dates:
@@ -329,18 +325,32 @@ if __name__=="__main__" :
                         np.save(params.pack_dir+f'Rsemble_sequence_{datename}.npy', Ens_r.numpy().astype(np.float32))
 
                 if params.inversion_type == 'optimization':
-                    inv.optimize(
-                            Ens_r=Ens_r_norm,
-                            g_ema=G,
-                            init_latent=latent_mean,
-                            device=params.device,
-                            params=params,
-                            Means=Means,
-                            Maxs=Maxs,
-                            Mins=Mins,
-                            apply_log_transform=True if params.Shape[0]==4 else False
-                        )
-                   
+                    if not params.projection_on_pca_axis :
+                        inv.optimize(
+                                Ens_r=Ens_r_norm,
+                                g_ema=G,
+                                init_latent=latent_mean,
+                                device=params.device,
+                                params=params,
+                                Means=Means,
+                                Maxs=Maxs,
+                                Mins=Mins,
+                                apply_log_transform=True if params.Shape[0]==4 else False
+                            )
+                    else :
+                          inv_pca.optimize(
+                              Ens_r=Ens_r_norm,
+                              g_ema=G,
+                              init_latent=latent_mean,
+                              device=params.device,
+                              params=params,
+                              Means=Means,
+                              Maxs=Maxs,
+                              Mins=Mins,
+                              eigenvector_subset=eigenvector_subset,
+                              num_pca_axis=params.num_pca_axis,
+                              apply_log_transform=True if params.Shape[0]==4 else False
+                          )
 
                 elif params.inversion_type == 'encoder':
                     if params.encoder_framework_type  in ['restyle-pSp', "restyle-e4e"]:

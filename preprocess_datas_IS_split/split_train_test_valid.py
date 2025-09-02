@@ -5,19 +5,19 @@ def split_csv_with_validation_first(params,train_start_date,test_end_date,test_s
   """This function split the original csv file in valid/train/split dataframe
   """
   
-  df = pd.read_csv(params.output_csv)
-  df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
-
+  df = pd.read_csv("Large_lt_labels.csv")#params.output_csv)
+  df['Date'] = pd.to_datetime(df['Date'], errors='coerce',utc=True)
+ 
     # Extract one week per month for validation 
   validation_data = df.groupby(df['Date'].dt.to_period("M")).apply(
       lambda x: x[x['Date'].dt.isocalendar().week == x['Date'].dt.isocalendar().week.iloc[0]]
   ).reset_index(drop=True)
-  validation_data['Date'] = validation_data['Date'].dt.strftime('%Y-%m-%dT%H:%M:%SZ')
+
+  validation_data['Date'] = pd.to_datetime(validation_data['Date'], utc=True)
   validation_dates = set(validation_data['Date'])
-    
     #filter validation csv and test and train
 
-  remaining_data = df[~df['Date'].isin(validation_dates)]
+  remaining_data = df.loc[~df['Date'].isin(validation_dates)].copy()
   remaining_data['Date'] = remaining_data['Date'].dt.strftime('%Y-%m-%dT%H:%M:%SZ')
 
   train_data = remaining_data[(remaining_data['Date'] >= train_start_date) & (remaining_data['Date'] <= test_start_date)]
@@ -28,9 +28,9 @@ def split_csv_with_validation_first(params,train_start_date,test_end_date,test_s
   test_data.to_csv(f"{params.main_path}{params.giga_directory}INST1/IS_bootstrap_no_duplicate_rr_cumul_correct_test.csv", index=False)
   validation_data.to_csv(f"{params.main_path}{params.giga_directory}INST1/IS_bootstrap_no_duplicate_rr_cumul_correct_valid.csv", index=False)
 
-  print(f"Validation data saved to {f"{params.main_path}{params.data_directory}/IS_bootstrap_no_duplicate_rr_cumul_correct_valid.csv"}")
-  print(f"Train data saved  {f"{params.main_path}{params.data_directory}/IS_bootstrap_no_duplicate_rr_cumul_correct_train.csv"}")
-  print(f"Test data saved {f"{params.main_path}{params.data_directory}/IS_bootstrap_no_duplicate_rr_cumul_correct_test.csv"}")
+  print(f"Validation data saved to {f"{params.main_path}{params.data_directory}/IS_bootstrap_no_duplicate_rr_cumul_correct_valid.csv")
+  print(f"Train data saved  {f"{params.main_path}{params.data_directory}/IS_bootstrap_no_duplicate_rr_cumul_correct_train.csv")
+  print(f"Test data saved {f"{params.main_path}{params.data_directory}/IS_bootstrap_no_duplicate_rr_cumul_correct_test.csv")
   
 def More_than(n,params):
   
@@ -57,9 +57,11 @@ def More_than(n,params):
           additional_rows = additional_rows[~additional_rows['Member'].isin(current_members)]
           num_needed = 16 - num_current_members
           additional_rows = additional_rows.head(num_needed)
-          group = pd.concat([group, additional_rows])
+
+      group = pd.concat([group, additional_rows])
 
       final_df = pd.concat([final_df, group])
 
   final_df.reset_index(drop=True, inplace=True)
-  final_df.to_csv(f"{params.main_path}{params.giga_directory}INST1/IS_bootstrap_no_duplicate_rr_cumul_correct_164_members.csv")
+  final_df.to_csv(f"{params.main_path}{params.giga_directory}INST1/IS_bootstrap_no_duplicate_rr_cumul_correct_16{n}_members.csv")
+  print(f"File saved at {params.main_path}{params.giga_directory}INST1/IS_bootstrap_no_duplicate_rr_cumul_correct_164_members.csv ")
