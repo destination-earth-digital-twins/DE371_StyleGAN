@@ -19,6 +19,7 @@ gan_2_ae/*
 /test_*.py
 *.log
 scripts/
+scripts_examples/
 test_
 gan/model/2d_stylegan2-ada_nvidia.py
 gan/model/3d_stylegan2-ada_nvidia.py

@@ -91,8 +91,6 @@ if __name__=="__main__" :
     parser.add_argument("--lr_rampdown",type=float, default=0.25,help="duration of the learning rate decay")
     parser.add_argument("--lr", type=float, default=0.1, help="learning rate")
    
-    parser.add_argument("--num_pca_axis", type=int, default=2, help="num of pca axis")
-    parser.add_argument('--w_samples_dir',   type=str, default='') # samples generated with mkl_w_sample.py
     parser.add_argument("--noise_strength", type=float, default=0.005, help="strength of the noise level")
     parser.add_argument("--noise_ramp",type=float,default=0.75,help="duration of the noise level decay")
     parser.add_argument("--feature_optimize", action='store_true', help="to enable optimization of feature map")
@@ -325,33 +323,17 @@ if __name__=="__main__" :
                         np.save(params.pack_dir+f'Rsemble_sequence_{datename}.npy', Ens_r.numpy().astype(np.float32))
 
                 if params.inversion_type == 'optimization':
-                    if not params.projection_on_pca_axis :
-                        inv.optimize(
-                                Ens_r=Ens_r_norm,
-                                g_ema=G,
-                                init_latent=latent_mean,
-                                device=params.device,
-                                params=params,
-                                Means=Means,
-                                Maxs=Maxs,
-                                Mins=Mins,
-                                apply_log_transform=True if params.Shape[0]==4 else False
-                            )
-                    else :
-                          inv_pca.optimize(
-                              Ens_r=Ens_r_norm,
-                              g_ema=G,
-                              init_latent=latent_mean,
-                              device=params.device,
-                              params=params,
-                              Means=Means,
-                              Maxs=Maxs,
-                              Mins=Mins,
-                              eigenvector_subset=eigenvector_subset,
-                              num_pca_axis=params.num_pca_axis,
-                              apply_log_transform=True if params.Shape[0]==4 else False
-                          )
-
+                    inv.optimize(
+                            Ens_r=Ens_r_norm,
+                            g_ema=G,
+                            init_latent=latent_mean,
+                            device=params.device,
+                            params=params,
+                            Means=Means,
+                            Maxs=Maxs,
+                            Mins=Mins,
+                            apply_log_transform=True if params.Shape[0]==4 else False
+                        )
                 elif params.inversion_type == 'encoder':
                     if params.encoder_framework_type  in ['restyle-pSp', "restyle-e4e"]:
                         y_hat = inversion_restyle(
