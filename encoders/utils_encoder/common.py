@@ -82,7 +82,7 @@ def vis_samples_diff(log_hooks, n_vars, single=False):
         for j in range(n_vars):
             real_sample = hooks_dict['input'][j,:,:]
             if single :
-                inv_sample = hooks_dict['output'][-1][j,:,:]
+                inv_sample = hooks_dict['output'][-1][0][j,:,:]
             else :
                 inv_sample = hooks_dict['output'][-1][0][j,:,:]
             diff = real_sample - inv_sample

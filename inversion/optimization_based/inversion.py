@@ -368,24 +368,3 @@ def optimize(Ens_r, g_ema, init_latent, device, params, Means, Maxs, Mins, featu
                             figname = params.output_dir + f"metric_evolution_{params.date_index}_{params.lt_index}.png")
         np.save(params.output_dir+'latent_evolution_{}_{}.npy'.format(params.date_index,params.lt_index),latent_evolution)
         np.save(params.output_dir+'perceptual_loss_evolution_{}_{}.npy'.format(params.date_index,params.lt_index),perceptual_loss_evolution)
-    #     # gif
-    #     if params.plot_gif  :
-    #         if i==0 :
-    #             frames = []
-    #         figname = params.output_dir + f"{params.date_index}_{params.lt_index}_step_{i}.png"
-    #         figtitle = f"{params.date_index}_{params.lt_index}_step_{i+1}"
-    #         fig = online_inv_plot(denorm_Ens_r.cpu().detach().numpy(), denorm_img_gen.cpu().detach().numpy(), figtitle=figtitle, figname=figname, savefig=False)
-    #         frames.append(create_frame(fig))
-
-        
-    # if params.plot_gif:
-    #     # Just for the love of GIFs
-    #     frame_one = frames[0]
-    #     frame_one.save(
-    #         params.output_dir + f"plot_time_step_period_{params.date_index}_{params.lt_index}.gif",
-    #         format="GIF",
-    #         append_images=frames,
-    #         save_all=True,
-    #         duration=params.invstep*20,
-    #         loop=0,
-    #     )

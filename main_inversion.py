@@ -110,8 +110,8 @@ if __name__=="__main__" :
     
         
     # Focal Frequency Loss
-    parser.add_argument("--lambda_focal_frequency_loss", type=float, default=0.0, help="weight of the vgg (perceptual) loss")
-
+    parser.add_argument("--lambda_spectral_loss", type=float, default=0.0, help="weight of the specral loss")
+    
     # VGG
     parser.add_argument("--lambda_lpips_loss", type=float, default=0.0, help="weight of the LPIPS loss")
     parser.add_argument("--lambda_perceptual_loss", type=float, default=1.0, help="weight of the vgg (perceptual) loss")
