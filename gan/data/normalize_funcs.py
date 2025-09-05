@@ -89,8 +89,6 @@ class MultiOptionNormalize(object):
         if sample.ndim < 3:
             raise ValueError(f"Expected sample to be a tensor image of size (..., C, H, W). Got tensor.size() = {sample.size()}.")
         if self.gaussian_std != 0:
-            #TODO : to test 
-            print('Warning : This denorm setting was not tested')
             mask_no_rr = (sample[0].numpy() <= self.gaussian_std)
             sample[0] = sample[0] - from_numpy(self.gaussian_noise * mask_no_rr)
         if self.dataset_handler_yaml["normalization"]["type"] == "mean":

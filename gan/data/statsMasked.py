@@ -5,7 +5,7 @@ Created on Thu May 25 12:58:44 2023
 
 @author: brochetc
 
-Stats on Masked files
+Stats on Masked files # TODO : Add clearer description to the file @clement
 
 """
 
@@ -14,7 +14,6 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import os
 import glob
-
 
 base_path='/cnrm/recyf/NO_SAVE/Data/users/brochetc/float32_t2m_u_v_rr/full_domain/IS_1_1.0_0_0_0_0_0_1024_trial/'
 

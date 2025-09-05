@@ -1,26 +1,24 @@
 import numpy as np
-import random
-import matplotlib.pyplot as plt
-from glob import glob
-import pandas as pd
 import artistic as art
+import argparse
 
-data_dir = '/scratch/mrmn/gandonb/data/source/cropped/'
-Path_out = '/home/brochetc/Bureau/These/' #'/scratch/mrmn/brochetc/Exp_StyleGAN/'
-fake_data_dir = '/scratch/mrmn/gandonb/Exp_StyleGAN/Set_6/stylegan2_stylegan_dom_256_lat-dim_512_bs_32_0.0002_0.0002_ch-mul_2_vars_rr_noise_True/Instance_1/samples/'
-
-
-single_sample = '/cnrm/recyf/NO_SAVE/Data/users/brochetc/rr_u_v_t2m_1-45/showing_map.npy'
-
-CI = (78, 206, 55, 183)
-CI = (0, 256, 0, 256)
-Maxs = 1 #np.load(data_dir+'max_log_rr_imp.npy')[0:1].reshape(1, 1, 1)
-Means = 1 #np.load(data_dir+'mean_log_rr_imp.npy')[0:1].reshape(1, 1, 1)
-
-
-#step = 36000
+# TODO : Not sure we need to keep that file
 
 if __name__ == "__main__":
+
+    parser = argparse.ArgumentParser()
+        
+    parser.add_argument('--fake_data_dir', type = str,  default ='')
+    parser.add_argument('--Path_out', type = str,  default ='')
+    parser.add_argument('--data_dir', type = str, default='/project/home/p200177/DE_371/datasets/dataset_Meteo_France/IS_1_1.0_0_0_0_0_0_256_large_lt_done/')
+    parser.add_argument('--single_sample', type = str, default='')
+    params = parser.parse_args()
+    
+
+    CI = (78, 206, 55, 183)
+    CI = (0, 256, 0, 256)
+    Maxs = 1 #np.load(data_dir+'max_log_rr_imp.npy')[0:1].reshape(1, 1, 1)
+    Means = 1 #np.load(data_dir+'mean_log_rr_imp.npy')[0:1].reshape(1, 1, 1)
 
     #var_names = [('u', 'm/s'), ('v', 'm/s'), ('t2m', 'K')]
 

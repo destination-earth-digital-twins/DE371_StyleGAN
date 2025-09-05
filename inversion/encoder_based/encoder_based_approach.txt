@@ -1,9 +1,0 @@
-Other approach to try and consider depending on the result obtained on the restyle-encoder approach.
-
-- psp approach : Richardson et al.
-    Paper : https://arxiv.org/abs/2008.00951
-    Code  : https://github.com/eladrich/pixel2style2pixel
-
-- e4e approach : Tov et al. : Designing an Encoder for StyleGAN Image Manipulation 
-    Paper : https://arxiv.org/abs/2102.02766 
-    Code  : https://github.com/omertov/encoder4editing/tree/main 

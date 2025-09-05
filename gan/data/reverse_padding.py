@@ -4,6 +4,8 @@ import os
 import numpy as np
 from tqdm import tqdm
 
+# TODO : Add description to the file ? @clement
+
 
 def reflect_padding(image):
     for i in range(len(image)):

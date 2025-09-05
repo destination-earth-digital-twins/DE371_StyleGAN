@@ -1,6 +1,8 @@
 import os
 import sys
 
+# TODO : Might need to be deleted and/or merged with generate_sample.py files
+
 HOME_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(HOME_DIR)
 

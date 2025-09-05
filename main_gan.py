@@ -15,7 +15,7 @@ import gan.memutils.memory_consumption as memco
 import gan.metrics4arome as METR
 import gan.metrics4arome.spectrum_analysis as Spectral
 import gan.metrics4arome.wasserstein_distances as WD
-import metrics4arome.inception_metrics as inception
+import gan.metrics4arome.inception_metrics as inception
 import gan.model.trainer_ddp as trainer
 import gan.plot.plotting_functions as plf
 import torch
@@ -133,12 +133,15 @@ def get_expe_parameters():
     parser.add_argument('--min_file', type=str, default=None )
     parser.add_argument('--id_file', type=str, default="Large_lt_train_labels_1.csv")
     parser.add_argument('--pretrained_model', type=int, default=-1)
-    parser.add_argument('--output_dir', type=str, default='/project/scratch/p200177/DE_371/victorsanchez/results/gan_training/exp_train_without_Noise_Injection/')
+    parser.add_argument('--output_dir', type=str, default='/project/home/p200177/DE_371/experiments_WP1/gan_training/exp_train_without_Noise_Injection/')
 
     # Model architecture hyper-parameters
     
     parser.add_argument('--model', type=str, default='stylegan2', \
-                        choices=['stylegan2', 'stylegan2_fp16'])
+                        choices=['stylegan2', 'stylegan2_fp16', 'stylegan2_3d'])
+    
+    parser.add_argument('--g_dim', type=str, default='2d', choices=['2d', '3d'])
+    parser.add_argument('--d_dim', type=str, default='2d', choices=['2d', '3d'])
     
     # choices of loss function and initialization
     parser.add_argument('--train_type', type=str, default='stylegan',\
@@ -224,6 +227,8 @@ def get_expe_parameters():
     parser.add_argument('--nb_timesteps', type=int, default=15)
     parser.add_argument('--timestep_period', type=int, default=3)
     parser.add_argument('--stack_sample_along_time_and_variable', action='store_true')
+    parser.add_argument('--timestep_labelling', action='store_true')
+    parser.add_argument('--variable_first', action='store_true')
     parser.add_argument('--cutoff_dataset_leadtimes', action='store_true', help='To only consider [t+dt, t+2*dt...] and not the leadtime between t and dt')
     
     # Training settings -schedulers
@@ -262,7 +267,7 @@ def get_expe_parameters():
     parser.add_argument('--test_step', type=int, default=2000)# if very_small_exp else (1000 if small_exp else 3000)) #set to 0 if not needed
 
     # parser.add_argument('--confi/home/mrmn/sanchezv/project/code/styleganpnria/gan/configs/Set_UseNoiseFalseg_dir', type=str, default="/home/users/u101833/project/DE371_StyleGAN/gan/configs/Set_UseNoiseFalse/", help="The config files absolute path")
-    parser.add_argument('--config_dir', type=str, default="/project/scratch/p200177/DE_371/victorsanchez/results/gan_training/Set_UseNoiseFalse/", help="The config files absolute path")
+    parser.add_argument('--config_dir', type=str, default="/project/home/p200177/DE_371/experiments_WP1/gan_training/Set_UseNoiseFalse/", help="The config files absolute path")
     parser.add_argument('--dataset_handler_config', type=str, default="dataset_handler_config.yaml", help="The dataset_handler config file")
     parser.add_argument('--scheduler_config', type=str, default="scheduler_config.yaml", help="The scheduler config file")
     return parser
@@ -297,14 +302,23 @@ if __name__=="__main__" :
          print("unable to write params config file")
          print(e)
 
-    if config.model=='stylegan2':
-        import gan.model.stylegan2 as RN
+    if config.g_dim == config.d_dim:
+        if config.model=='stylegan2':
+            import gan.model.stylegan2 as RN
 
-    elif config.model=='stylegan2_fp16':
-        import gan.model.stylegan2_fp16 as RN
+        elif config.model=='stylegan2_fp16':
+            import gan.model.stylegan2_fp16 as RN
 
-    else:
-        raise ValueError('Model unknown')
+        elif config.model=='stylegan2_3d':
+            import gan.model.stylegan2_3d as RN
+
+        else:
+            raise ValueError('Model unknown')
+
+    else :
+        import gan.model.stylegan2 as RN_2D
+        import gan.model.stylegan2_3d as RN_3D
+        # import gan.model.stylegan2_fp16 as RN_fp16
 
     ###############################################################################
     ############################ BUILDING MODELS ##################################
@@ -312,34 +326,97 @@ if __name__=="__main__" :
 
     load_optim = False
 
+    if config.g_dim != config.d_dim :
+        #TODO : Implement that on the trainer
+        raise NotImplementedError
+    
     try:
 
         if config.train_type=='stylegan':
 
-            model_names = RN.library[config.model]
-
-            modelG_n, modelD_n = getattr(RN, model_names['G']), getattr(RN, model_names['D'])
-
-            if config.model=='stylegan2':
-
-                modelG = modelG_n(config.crop_size[0], config.latent_dim, config.n_mlp,
-                                    channel_multiplier=config.channel_multiplier, 
-                                    nb_var=config.g_channels,# if not config.mean_pert else len(config.var_names)*2,
-                                    var_rr=('rr' in config.var_names),
-                                    tanh_output=config.tanh_output,
-                                    use_noise=config.use_noise)
-
-                modelD = modelD_n(config.crop_size[0],
-                                channel_multiplier=config.channel_multiplier, 
-                                    nb_var=config.d_channels,)# if not config.mean_pert else len(config.var_names)*2)
-
-                modelG_ema = modelG_n(config.crop_size[0], config.latent_dim, config.n_mlp,
-                                    channel_multiplier=config.channel_multiplier, 
-                                    nb_var=config.g_channels,# if not config.mean_pert else len(config.var_names)*2,
-                                    var_rr=('rr' in config.var_names),
-                                    tanh_output=config.tanh_output,
-                                    use_noise=config.use_noise)
+            if config.g_dim == config.d_dim:
+                model_names = RN.library[config.model]
+                modelG_n, modelD_n = getattr(RN, model_names['G']), getattr(RN, model_names['D'])
+            else :
+                model_names_2d = RN_2D.library[config.model]
+                model_names_3d = RN_3D.library[config.model]
+                if config.g_dim == '2d':
+                    modelG_n = getattr(RN_2D, model_names_2d['G'])
+                    modelD_n = getattr(RN_3D, model_names_3d['D'])
+                elif config.g_dim == '3d':
+                    modelG_n = getattr(RN_3D, model_names_3d['G'])
+                    modelD_n = getattr(RN_2D, model_names_2d['D'])
+                else :
+                    raise NotImplementedError
                 
+            if config.model in ['stylegan2','stylegan2_3d']:
+
+                if config.g_dim == '2d' :
+                    modelG = modelG_n(config.crop_size[0], config.latent_dim, config.n_mlp,
+                                    channel_multiplier=config.channel_multiplier, 
+                                    nb_var=config.g_channels,# if not config.mean_pert else len(config.var_names)*2,
+                                    var_rr=('rr' in config.var_names),
+                                    tanh_output=config.tanh_output,
+                                    use_noise=config.use_noise)
+
+                    modelG_ema = modelG_n(config.crop_size[0], config.latent_dim, config.n_mlp,
+                                    channel_multiplier=config.channel_multiplier, 
+                                    nb_var=config.g_channels,# if not config.mean_pert else len(config.var_names)*2,
+                                    var_rr=('rr' in config.var_names),
+                                    tanh_output=config.tanh_output,
+                                    use_noise=config.use_noise)
+                   
+                elif config.g_dim == '3d':
+                    if not config.variable_first:
+                        modelG = modelG_n(config.crop_size[0], config.latent_dim, config.n_mlp,
+                                                channel_multiplier=config.channel_multiplier, 
+                                                nb_var=config.nb_timesteps, # Channel
+                                                nb_frames=config.g_channels, # Depth
+                                                var_rr=('rr' in config.var_names),
+                                                tanh_output=config.tanh_output,
+                                                use_noise=config.use_noise)
+                            
+                        modelG_ema = modelG_n(config.crop_size[0], config.latent_dim, config.n_mlp,
+                                                channel_multiplier=config.channel_multiplier, 
+                                                nb_var=config.nb_timesteps, # Channel
+                                                nb_frames=config.g_channels, # Depth
+                                                var_rr=('rr' in config.var_names),
+                                                tanh_output=config.tanh_output,
+                                                use_noise=config.use_noise)
+                    else :
+                        modelG = modelG_n(config.crop_size[0], config.latent_dim, config.n_mlp,
+                                                channel_multiplier=config.channel_multiplier, 
+                                                nb_var=config.g_channels, # Channel
+                                                nb_frames=config.nb_timesteps, # Depth
+                                                var_rr=('rr' in config.var_names),
+                                                tanh_output=config.tanh_output,
+                                                use_noise=config.use_noise)
+                            
+                        modelG_ema = modelG_n(config.crop_size[0], config.latent_dim, config.n_mlp,
+                                                channel_multiplier=config.channel_multiplier, 
+                                                nb_var=config.g_channels, # Channel
+                                                nb_frames=config.nb_timesteps, # Depth
+                                                var_rr=('rr' in config.var_names),
+                                                tanh_output=config.tanh_output,
+                                                use_noise=config.use_noise)
+                else :
+                    raise NotImplementedError
+
+                if config.d_dim == '2d' or (config.d_dim == '3d' and config.variable_first):
+                    print(f'Init Discriminator with : {config.d_channels} channels')
+                    modelD = modelD_n(config.crop_size[0],
+                                channel_multiplier=config.channel_multiplier, 
+                                    nb_var=config.d_channels)# if not config.mean_pert else len(config.var_names)*2)
+                
+                elif config.d_dim == '3d' and not config.variable_first:
+                    print(f'Init Discriminator with : {config.nb_timesteps} channels')
+                    modelD = modelD_n(config.crop_size[0],
+                                channel_multiplier=config.channel_multiplier, 
+                                    nb_var=config.nb_timesteps)
+                else :
+
+                    raise NotImplementedError
+   
             elif config.model=='stylegan2_fp16':
 
                 modelG = modelG_n(config.crop_size[0], config.latent_dim, config.n_mlp,

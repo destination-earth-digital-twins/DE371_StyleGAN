@@ -248,6 +248,7 @@ class Trainer():
             self.scheduler_D = AllocScheduler(self.config.lrD_sched, self.optim_D, self.config.lrD_gamma, "Discriminator", base_lr=self.config.lr_D * d_reg_ratio)
         elif self.config.pretrained_model > 0 and self.config.lrD_sched != "None" :
             print("Loading scheduler from pretrained stage for Discriminator...")   
+            self.scheduler_D = AllocScheduler(self.config.lrD_sched, self.optim_D, self.config.lrD_gamma, "Discriminator", base_lr=self.config.lr_D * d_reg_ratio)
             self.scheduler_D.load_state_dict(torch.load(f"{self.config.output_dir}/models/SchedDisc_{self.config.pretrained_model}"))
         else :
             print(f"Schedulers for Discriminator set to None")
@@ -256,6 +257,7 @@ class Trainer():
             self.scheduler_G = AllocScheduler(self.config.lrG_sched, self.optim_G, self.config.lrG_gamma, "Generator", base_lr=self.config.lr_G * g_reg_ratio)
         elif self.config.pretrained_model > 0 and self.config.lrD_sched != "None" :
             print("Loading scheduler from pretrained stage for Generator...")   
+            self.scheduler_G = AllocScheduler(self.config.lrG_sched, self.optim_G, self.config.lrG_gamma, "Generator", base_lr=self.config.lr_G * g_reg_ratio)
             self.scheduler_G.load_state_dict(torch.load(f"{self.config.output_dir}/models/SchedGen_{self.config.pretrained_model}"))
         else :
             print(f"Schedulers for Generator set to None")
@@ -288,6 +290,8 @@ class Trainer():
         if self.config.train_type in ["stylegan","wave_d"]:
             self.D_backward = GAN.Discrim_Step_StyleGAN
             self.G_backward = GAN.Generator_Step_StyleGAN
+        else :
+            raise NotImplementedError
 
     def instantiate_metrics_log(self):
 
@@ -408,8 +412,12 @@ class Trainer():
             batch, _, _ = modelG([samples_z])
 
         modelG.train()
-
-        batch = torch.cat((batch, samples[:self.config.plot_samples // 4, :, :, :]), dim=0)
+        # for id, sample in enumerate(samples[0][0]):
+        #     print(id, sample.min(), sample.mean(), sample.max()) 
+        if len(samples.shape) == 4 :
+            batch = torch.cat((batch, samples[:self.config.plot_samples // 4, :, :, :]), dim=0)
+        else :
+            batch = torch.cat((batch, samples[:self.config.plot_samples // 4, :, :, :, :]), dim=0)
 
         if not self.config.multi_timestep_mode:
             plotFunc.online_sample_plot(self.config, batch, Step)
@@ -457,7 +465,7 @@ class Trainer():
 
     ########################### TRAINING FUNCTIONS ############################
 
-    def Discrim_Update(self, modelD, modelG, samples, step=0):
+    def Discrim_Update(self, modelD, modelG, samples, step=0, labels=None):
 
         requires_grad(modelG, False)
         requires_grad(modelD, True)
@@ -481,7 +489,7 @@ class Trainer():
         # self.optim_D.step()
         return loss_0, samples
 
-    def Generator_Update(self, modelD, modelG, samples, step=0):
+    def Generator_Update(self, modelD, modelG, samples, step=0, labels=None):
 
         requires_grad(modelG, True)
         requires_grad(modelD, False)
@@ -544,6 +552,9 @@ class Trainer():
 
         modelG.eval()
         real_samples, _, _ = next(DataIter)
+        if real_samples.ndim ==5 :
+            b, c, d, h, w = real_samples.shape
+            real_samples = real_samples.reshape(b, c*d, h, w)
         real_samples = real_samples.cuda()
         sample_num = min(real_samples.shape[0], self.config.test_samples)
 
@@ -553,6 +564,9 @@ class Trainer():
 
         with torch.no_grad():
             fake_samples, _, _ = modelG([z])
+            if fake_samples.ndim == 5 :
+                b, c, d, h, w = fake_samples.shape
+                fake_samples = fake_samples.reshape(b, c*d, h, w)
         metric_results = {}
 
         for metr in self.test_metrics:
@@ -623,9 +637,15 @@ class Trainer():
                 postfix=f"")
             else:
                 loop = enumerate(self.train_dataloader)
-            
+            label = None
             for i, batch in loop:
-                img, _, _ = batch
+
+                if not self.config.timestep_labelling :
+                    img, _, _ = batch
+                else :
+                    img, _, _, label = batch
+                
+                
                 t = time.perf_counter()
                 Step = epoch * N_batch + step
                 if self.config.pretrained_model > 0:
@@ -634,14 +654,12 @@ class Trainer():
                 true_epoch = epoch + self.config.pretrained_model  # used only in output funcs
 
                 ############################### Discriminator Updates #########
-                loss_d, samples = self.Discrim_Update(modelD, modelG, img,
-                                                        step=Step)  # all losses are already reduced after this step
+                loss_d, samples = self.Discrim_Update(modelD, modelG, img, step=Step, labels=label)  # all losses are already reduced after this step
                 
                 
                 ############################ Generator Update #################
 
-                loss_g = self.Generator_Update(modelD, modelG, samples,
-                                                step=Step)  # all losses are already reduced after this step
+                loss_g = self.Generator_Update(modelD, modelG, samples,step=Step, labels=label)  # all losses are already reduced after this step
                 
 
                 if is_main_gpu():

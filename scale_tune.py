@@ -14,11 +14,29 @@ import matplotlib.pyplot as plt
 from itertools import product
 from argparse import ArgumentParser
 import os
+import pytorch_forecasting
+from pytorch_forecasting.metrics import QuantileLoss
 #import spectral_loss_filtered as spec
 
 #from hyperparams.util import str2intlist, load_all_lt, select_random_dates, load_whole_model, list_all_obs
 # Tunning alpha (interp) and beta (scale) terms
 from glob import glob
+
+from scipy.stats import wasserstein_distance
+
+
+def huber_loss(input, target, delta=1.0, reduction='mean'):
+    return F.huber_loss(input, target, delta=delta, reduction=reduction)
+
+def quantile_loss(q,y_pred, target) :
+    # calculate quantile loss
+    losses = []
+    for i, q in enumerate(q):
+        errors = target - y_pred
+        losses.append(torch.max((q - 1) * errors, q * errors).unsqueeze(-1))
+    losses = 2 * torch.cat(losses, dim=-1).mean()
+
+    return losses
 
 def add_noise(scale,sig,device):
    noise = torch.empty(scale.shape).normal_()
@@ -35,8 +53,8 @@ def learning_rate(t, lr0):
     return 0.01
 
 def convert_uvt2fft(batch_gen, batch_y):
-    new_batch_gen = torch.cat((torch.sqrt(batch_gen[:,0:1,:,:]**2 + batch_gen[:,1:2,:,:]**2), batch_gen[:,2:,:,:]),dim=1)
-    new_batch_y = torch.cat((torch.sqrt(batch_y[:,0:1,:,:]**2 + batch_y[:,1:2,:,:]**2),batch_y[:,2:,:,:]),dim=1)
+    new_batch_gen = torch.cat((torch.sqrt(batch_gen[:,1:2,:,:]**2 + batch_gen[:,2:3,:,:]**2), batch_gen[:,3:,:,:]),dim=1)
+    new_batch_y = torch.cat((torch.sqrt(batch_y[:,1:2,:,:]**2 + batch_y[:,2:3,:,:]**2),batch_y[:,3:,:,:]),dim=1)
 
     return new_batch_gen, new_batch_y
 if __name__=="__main__" :
@@ -48,7 +66,7 @@ if __name__=="__main__" :
     parser.add_argument("--lr0",type=float, default=0.001)
     parser.add_argument("--scale_rule",type=str,default='sigmoid')
     parser.add_argument("--pca_cut",type=int,default=10)
-    parser.add_argument("--inflate",type=float, default=1.0)
+    parser.add_argument("--inflate",type=float, default=1.3)
     parser.add_argument("--start",type=str, default="ones")
     parser.add_argument("--lambda_bias",type=float, default=1.0)
     parser.add_argument("--lambda_spectrum",type=float, default=0.0)
@@ -60,28 +78,29 @@ if __name__=="__main__" :
 
     ########################### Directories ###########################
     parser.add_argument("--fake_data_dir", type=str, 
-                        default='/project/scratch/p200177/DE_371/victorsanchez/results/inversion/Ens_Perceptual_Random_VGG_Loss_sol3/Inversion_Perceptual_Random_VGG_Loss_sol3/')
+                        default='/project/scratch/p200177/DE_371/angeliquebonamy/results/dates/GOOD_DATA/vgg/inv/')
     parser.add_argument("--real_data_dir", type=str, 
-                        default='/project/home/p200177/DE_371/datasets/dataset_Meteo_France/IS_1_1.0_0_0_0_0_0_256_large_lt_done/')
+                        default='/project/home/p200177/DE_371/datasets/dataset_Meteo_France_rr_u_v_t2m/data/IS_rr_debug_1_1.0_0_0_0_0_0_256_large_lt/')
     parser.add_argument("--ensemble_data_dir", type=str, 
-                        default='/project/scratch/p200177/DE_371/victorsanchez/results/inversion/Ens_Perceptual_Random_VGG_Loss_sol3/Pack_Perceptual_Random_VGG_Loss_sol3/')
+                        default='/project/scratch/p200177/DE_371/angeliquebonamy/results/dates/GOOD_DATA/vgg/pack/')
     parser.add_argument("--ckpt_dir", type=str, 
-                        default='/project/scratch/p200177/DE_371/victorsanchez/models/trained_generator/000024.pt')
+                        default='/project/scratch/p200177/DE_371/angeliquebonamy/GAN_training/gan_training_new_dataset/exp_train_ep_with_Noise_Injection/models/102000.pt')
     parser.add_argument("--eigendir", type=str, 
-                        default='/project/home/p200177/DE_371/datasets/dataset_Meteo_France/eigenvalues_gan_training/')
+                        default='/project/scratch/p200177/DE_371/angeliquebonamy/test_scale_tune/Eigenvalues/')
     parser.add_argument("--output_dir", type=str, 
-                        default='/project/scratch/p200177/DE_371/victorsanchez/results/scaled_perturbation/ScaleTune/')
-
+                        default='/project/scratch/p200177/DE_371/angeliquebonamy/test_scale_tune/vgg/sigmoid_stdmean_rruvt/')
+    
+    parser.add_argument('--scale_tune_loss',type =str, ["scale_tune_loss_quantile","scale_tune_loss_quantile_adaptive_rr","scale_tune_loss_mean_std_adaptive_rr"] )
     args = parser.parse_args()
-
 
     output_dir = f"{args.output_dir}interp_scale_pca_{args.pca_cut}_{args.inflate_random}_{args.inflate}_bias_{args.start}_{args.lambda_bias}_spread_{args.lambda_spread}_ff_{args.convert_ff_t}_{args.invert_step}/"
     os.makedirs(output_dir, exist_ok=True)
+    print("JE SUIS OUTPUT DIR")
     instances = len(glob(output_dir + "Instance_*/"))
     print("instances already existing", instances)
     os.makedirs(output_dir + f"Instance_{instances+1}/",exist_ok=True)
     output_dir = output_dir + f"Instance_{instances+1}/"
-    df = pd.read_csv(args.real_data_dir + 'Large_lt_val_labels.csv') #Large_lt_val_labels
+    df = pd.read_csv(args.real_data_dir + 'Large_lt_val_labels.csv') 
     df_date = df.copy()
 
     liste_dates = df_date['Date'].unique().tolist()
@@ -103,7 +122,7 @@ if __name__=="__main__" :
 
     print('loading G')
 
-    G = Generator(256, 512,n_mlp=8,nb_var=3)
+    G = Generator(256, 512,n_mlp=8,nb_var=4)
     #print('###########################################"##################################################################################################################')
     ckpt = torch.load(args.ckpt_dir, map_location='cpu')['g_ema']
     if 'module' in list(ckpt.items())[0][0]: #juglling with Pytorch versioning and different module packaging
@@ -137,132 +156,167 @@ if __name__=="__main__" :
         print("#"*80)
         pbar = tqdm(len(ensemble_dataset))
         for idx, (date,lt) in enumerate(ensemble_dataset):
-            batch_w = torch.tensor(np.load(args.fake_data_dir + f"w_{date[:10]}_{lt}_{args.invert_step}.npy").astype(np.float32)).to(device)
-            batch_y = torch.tensor(np.load(args.ensemble_data_dir + f"Rsemble_{date[:10]}_{lt}.npy").astype(np.float32)).to(device)
-            
-            t =  idx / len(ensemble_dataset)
-            optim.lr = learning_rate(t, args.lr0)
-            scale_noise = add_noise(scale,sigma(t,epoch),device)
-            interp_noise = add_noise(interp,sigma(t,epoch),device)
+            if os.path.isfile(args.fake_data_dir + f"w_{date[:10]}_{lt}_{args.invert_step}.npy")==False or os.path.isfile(args.ensemble_data_dir + f"Rsemble_{date[:10]}_{lt}.npy")==False:
+                continue
+            else:
+                batch_w = torch.tensor(np.load(args.fake_data_dir + f"w_{date[:10]}_{lt}_{args.invert_step}.npy").astype(np.float32)).to(device)
+                batch_y = torch.tensor(np.load(args.ensemble_data_dir + f"Rsemble_{date[:10]}_{lt}.npy").astype(np.float32)).to(device)
+                
+                t =  idx / len(ensemble_dataset)
+                optim.lr = learning_rate(t, args.lr0)
+                scale_noise = add_noise(scale,sigma(t,epoch),device)
+                interp_noise = add_noise(interp,sigma(t,epoch),device)
 
-            try:
-                Cov = torch.load(args.fake_data_dir + f'Cov_{date[:10]}_{lt}_{args.pca_cut}_{args.invert_step}.pt')
-                w_avg = torch.load(args.fake_data_dir + f'w_avg_{date[:10]}_{lt}_{args.pca_cut}_{args.invert_step}.pt')
+                try:
+                    Cov = torch.load(args.fake_data_dir + f'Cov_{date[:10]}_{lt}_{args.pca_cut}_{args.invert_step}.pt')
+                    w_avg = torch.load(args.fake_data_dir + f'w_avg_{date[:10]}_{lt}_{args.pca_cut}_{args.invert_step}.pt')
 
-                if w_avg.shape!=(args.pca_cut,512):
-                    Cov, w_avg = pca.computeReducedCovarianceW(batch_w[:,:args.pca_cut],cut=args.n_samples-1)
+                    if w_avg.shape!=(args.pca_cut,512):
+                        Cov, w_avg = pca.computeReducedCovarianceW(batch_w[:,:args.pca_cut],cut=args.n_samples-1)
+                        torch.save(Cov, args.fake_data_dir + f'Cov_{date[:10]}_{lt}_{args.pca_cut}_{args.invert_step}.pt')
+                        torch.save(w_avg, args.fake_data_dir + f'w_avg_{date[:10]}_{lt}_{args.pca_cut}_{args.invert_step}.pt')
+
+                except FileNotFoundError:
+                    Cov, w_avg  = pca.computeReducedCovarianceW(batch_w[:,:args.pca_cut],cut=args.n_samples-1)
                     torch.save(Cov, args.fake_data_dir + f'Cov_{date[:10]}_{lt}_{args.pca_cut}_{args.invert_step}.pt')
                     torch.save(w_avg, args.fake_data_dir + f'w_avg_{date[:10]}_{lt}_{args.pca_cut}_{args.invert_step}.pt')
-
-            except FileNotFoundError:
-                Cov, w_avg  = pca.computeReducedCovarianceW(batch_w[:,:args.pca_cut],cut=args.n_samples-1)
-                torch.save(Cov, args.fake_data_dir + f'Cov_{date[:10]}_{lt}_{args.pca_cut}_{args.invert_step}.pt')
-                torch.save(w_avg, args.fake_data_dir + f'w_avg_{date[:10]}_{lt}_{args.pca_cut}_{args.invert_step}.pt')
-            
-            try :
-                assert w_avg.shape==(args.pca_cut,512)
-            except AssertionError:
-                print(date, lt, batch_w.shape, w_avg.shape)
-                raise AssertionError("Uncorrect shape")
-
-            gen = smpca.fast_style_mixing(interp_noise, scale_noise, batch_w, Cov, w_avg, w0, args.n_samples, G, Whitening, device=device, scale_rule=args.scale_rule) 
-            if args.convert_ff_t:
-                gen, batch_y = convert_uvt2fft(gen, batch_y)
-            if args.optim_criterion == 'distrib_matching':
-                mean_loss = F.l1_loss(gen.mean(dim=0), batch_y.mean(dim=0))
-                inflation = args.inflate if not args.inflate_random else (1.0 + uniform(0,args.inflate))
-                std_loss = F.l1_loss(torch.std(gen,dim=0, unbiased=True), inflation * torch.std(batch_y,dim=0, unbiased=True))
-
-                if args.lambda_spectrum>0.0:
-                    #spl = specLoss(batch_y,gen)
-                    loss = args.lambda_bias * mean_loss + args.lambda_spread * std_loss# \
-                    #            + args.lambda_spectrum * spl
                 
+                try :
+                    assert w_avg.shape==(args.pca_cut,512)
+                except AssertionError:
+                    print(date, lt, batch_w.shape, w_avg.shape)
+                    raise AssertionError("Uncorrect shape")
+                gen = smpca.fast_style_mixing(
+                        alphas=interp_noise,
+                        betas=scale_noise,
+                        batch_w=batch_w,
+                        K=Cov,
+                        w_avg=w_avg, #w0,
+                        n_samples=args.n_samples,
+                        G=G,
+                        Whitening=Whitening,
+                        device=device,
+                        beta_rule=args.scale_rule
+                    )  
+                if args.convert_ff_t:
+                    gen, batch_y = convert_uvt2fft(gen, batch_y)
+                if args.optim_criterion == 'distrib_matching':
+                    
+                    scale_loss_type = args.scale_tune_loss
+                    inflation = args.inflate if not args.inflate_random else (1.0 + uniform(0, args.inflate))
+
+                    if scale_loss_type == 'scale_tune_loss_quantile_adaptive_rr':
+                        quan_loss_rr = quantile_loss([0.9, 0.1, 0.5, 0.75, 0.25, 0.05, 0.95], batch_y[:,0,:,:], gen[:,0,:,:])
+                        mean_loss_uvt = F.l1_loss(gen[:,1:,:,:].mean(dim=0), batch_y[:,1:,:,:].mean(dim=0))
+                        std_loss_uvt = F.l1_loss(torch.std(gen[:,1:,:,:], dim=0, unbiased=True), 
+                                                inflation * torch.std(batch_y[:,1:,:,:], dim=0, unbiased=True))
+                        
+                    elif scale_loss_type == 'scale_tune_loss_mean_std_rr':
+                        mean_loss_rr = F.l1_loss(gen[:,0,:,:].mean(dim=0), batch_y[:,0,:,:].mean(dim=0))
+                        std_loss_rr = F.l1_loss(torch.std(gen[:,0,:,:], dim=0, unbiased=True), 
+                                                inflation * torch.std(batch_y[:,0,:,:], dim=0, unbiased=True))
+                        
+                        mean_loss_uvt = F.l1_loss(gen[:,1:,:,:].mean(dim=0), batch_y[:,1:,:,:].mean(dim=0))
+                        std_loss_uvt = F.l1_loss(torch.std(gen[:,1:,:,:], dim=0, unbiased=True), 
+                                                inflation * torch.std(batch_y[:,1:,:,:], dim=0, unbiased=True))
+                    else:
+                        mean_loss = F.l1_loss(gen.mean(dim=0), batch_y.mean(dim=0))
+                        std_loss = F.l1_loss(torch.std(gen, dim=0, unbiased=True), 
+                                            inflation * torch.std(batch_y, dim=0, unbiased=True))
+
+                    # Final loss computation
+                    if args.lambda_spectrum > 0.0:
+                        # spl = specLoss(batch_y, gen)  # décommenter si besoin
+                        loss = args.lambda_bias * mean_loss + args.lambda_spread * std_loss
+                    elif scale_loss_type == 'scale_tune_loss_quantile_adaptive_rr':
+                        loss = quan_loss_rr + args.lambda_bias * mean_loss_uvt + args.lambda_spread * std_loss_uvt
+                    elif scale_loss_type == 'scale_tune_loss_mean_std_rr':
+                        loss = (args.lambda_bias * mean_loss_rr + args.lambda_spread * std_loss_rr +
+                                args.lambda_bias * mean_loss_uvt + args.lambda_spread * std_loss_uvt)
+                    else:
+                        loss = args.lambda_bias * mean_loss + args.lambda_spread * std_loss
+
+                    
+                        
+                elif args.optim_criterion == 'exchangeability':
+                    # TODO : Not operationnal at all, need to be tested
+                    # Naïve version
+                    # loss_batch_y = 0
+                    # for i in range(batch_y.shape[0]):
+                    #     for j in range(i, batch_y.shape[0]):
+                    #         if i!=j: # TODO : Maybe the MSE is not an optimal distance criterion
+                    #             loss_batch_y+=F.mse_loss(batch_y[i], batch_y[j])
+                    # loss_gen = 0
+                    # for i in range(gen.shape[0]):
+                    #     for j in range(i, gen.shape[0]):
+                    #         if i!=j:
+                    #             loss_gen+=F.mse_loss(gen[i], gen[j])
+                    
+                    # loss_inter = 0
+                    # for i in range(batch_y.shape[0]):
+                    #     for j in range(gen.shape[0]):
+                    #         loss_inter+=F.mse_loss(batch_y[i], gen[j])
+                    
+                    # loss = loss_batch_y - 2 * loss_inter + loss_gen
+                    raise NotImplementedError
+                
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
+                emaloss = 0.9 * emaloss + 0.1 * loss.item() if idx>0 else loss.item()
+                ema_spec = 0# 0.9 * ema_spec + 0.1 * spl.item() if idx>0 else spl.item()
+
+                if args.scale_rule=='sigmoid':
+                    ema_scale = 0.1 * F.sigmoid(scale.detach().cpu()).numpy() + 0.9 * ema_scale if idx>0 else F.sigmoid(scale.detach().cpu()).numpy()
                 else:
-                    #with torch.no_grad():
-                    #    spl = specLoss(batch_y,gen)
-                    loss = args.lambda_bias * mean_loss + args.lambda_spread * std_loss
-            elif args.optim_criterion == 'exchangeability':
-                # TODO : Not operationnal at all, need to be tested
-                # Naïve version
-                # loss_batch_y = 0
-                # for i in range(batch_y.shape[0]):
-                #     for j in range(i, batch_y.shape[0]):
-                #         if i!=j: # TODO : Maybe the MSE is not an optimal distance criterion
-                #             loss_batch_y+=F.mse_loss(batch_y[i], batch_y[j])
-                # loss_gen = 0
-                # for i in range(gen.shape[0]):
-                #     for j in range(i, gen.shape[0]):
-                #         if i!=j:
-                #             loss_gen+=F.mse_loss(gen[i], gen[j])
+                    ema_scale = 0.1 * scale.detach().cpu().numpy() + 0.9 * ema_scale if idx>0 else scale.detach().cpu().numpy()
+                ema_interp = 0.1 * F.sigmoid(interp).detach().cpu().numpy() + 0.9 * ema_interp if idx>0 else F.sigmoid(interp).detach().cpu().numpy()
+
+                with torch.no_grad():
+                    emabias = mean_loss.item() * 0.1 + 0.9 * emabias if idx>0 else mean_loss.item()
+                pbar.set_description(
+                    f"t : {t:.3f}, ema loss (0.9) : {emaloss:.4f}, ema spec {ema_spec:.4f} ema bias (0.9) : {emabias:.4f}, lr {learning_rate(t,args.lr0):.4f}, sigma : {sigma(t,epoch):.4f}"
+                )
+
                 
-                # loss_inter = 0
-                # for i in range(batch_y.shape[0]):
-                #     for j in range(gen.shape[0]):
-                #         loss_inter+=F.mse_loss(batch_y[i], gen[j])
-                
-                # loss = loss_batch_y - 2 * loss_inter + loss_gen
-                raise NotImplementedError
+                track[0].append(emaloss)
+                track[1].append(ema_scale)
+                track[2].append(ema_interp)
+                track[3].append(emabias)
+                track[4].append(ema_spec)
 
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
+                if (idx%512)==0:
+                    
+                    print(f"scale : {scale.detach().cpu().numpy()}", flush=True)
+                    print(f"interp : {F.sigmoid(interp.detach().cpu()).numpy()}", flush=True)
+                if (idx%512)==0 or idx==len(ensemble_dataset)-1:
 
-            emaloss = 0.9 * emaloss + 0.1 * loss.item() if idx>0 else loss.item()
-            ema_spec = 0# 0.9 * ema_spec + 0.1 * spl.item() if idx>0 else spl.item()
+                    var_gen = torch.std(gen.detach(),dim=0, unbiased=True).cpu().numpy()
+                    var_real = torch.std(batch_y.detach(),dim=0, unbiased=True).cpu().numpy()
 
-            if args.scale_rule=='sigmoid':
-                ema_scale = 0.1 * F.sigmoid(scale.detach().cpu()).numpy() + 0.9 * ema_scale if idx>0 else F.sigmoid(scale.detach().cpu()).numpy()
-            else:
-                ema_scale = 0.1 * scale.detach().cpu().numpy() + 0.9 * ema_scale if idx>0 else scale.detach().cpu().numpy()
-            ema_interp = 0.1 * F.sigmoid(interp).detach().cpu().numpy() + 0.9 * ema_interp if idx>0 else F.sigmoid(interp).detach().cpu().numpy()
+                    n_var = 2 if args.convert_ff_t else 3
+                    fig, axs = plt.subplots(2,n_var,figsize = (6,6), sharex=True, sharey=True)
+                    for j in range(n_var):
+                        cmap = 'viridis' if (j< n_var - 1) else 'coolwarm'
+                        axs[0,j].imshow(var_real[j], origin = 'lower', cmap=cmap)
+                        axs[1,j].imshow(var_gen[j], origin = 'lower', cmap=cmap, vmin = var_real[j].min(), vmax = var_real[j].max())
 
-            with torch.no_grad():
-                emabias = mean_loss.item() * 0.1 + 0.9 * emabias if idx>0 else mean_loss.item()
-            
-            pbar.set_description(
-                f"t : {t:.3f}, ema loss (0.9) : {emaloss:.4f}, ema spec {ema_spec:.4f} ema bias (0.9) : {emabias:.4f}, lr {learning_rate(t,args.lr0):.4f}, sigma : {sigma(t,epoch):.4f}"
-            )
+                    fig.tight_layout()
+                    plt.savefig(output_dir + f'std_real_vs_fake_{date}_{lt}_{idx}_{t:.3f}_{epoch}.png')
+                    plt.close()
+                    if not args.convert_ff_t:
+                        with torch.no_grad():
+                            gen, batch_y = convert_uvt2fft(gen.detach(), batch_y.detach())
+                    ff_gen = gen[:,0].detach().cpu().mean(dim=0).numpy()
+                    ff_real = batch_y[:,0].detach().cpu().mean(dim=0).numpy()
+                    fig, axs = plt.subplots(1,2,figsize = (6,6), sharex=True, sharey=True)
 
-            
-            track[0].append(emaloss)
-            track[1].append(ema_scale)
-            track[2].append(ema_interp)
-            track[3].append(emabias)
-            track[4].append(ema_spec)
+                    axs[0].imshow(ff_gen, origin = 'lower', cmap='viridis')
+                    axs[1].imshow(ff_real, origin = 'lower', cmap='viridis')
 
-            if (idx%512)==0:
-                
-                print(f"scale : {scale.detach().cpu().numpy()}", flush=True)
-                print(f"interp : {F.sigmoid(interp.detach().cpu()).numpy()}", flush=True)
-            if (idx%512)==0 or idx==len(ensemble_dataset)-1:
-
-                var_gen = torch.std(gen.detach(),dim=0, unbiased=True).cpu().numpy()
-                var_real = torch.std(batch_y.detach(),dim=0, unbiased=True).cpu().numpy()
-
-                n_var = 2 if args.convert_ff_t else 3
-                fig, axs = plt.subplots(2,n_var,figsize = (6,6), sharex=True, sharey=True)
-                for j in range(n_var):
-                    cmap = 'viridis' if (j< n_var - 1) else 'coolwarm'
-                    axs[0,j].imshow(var_real[j], origin = 'lower', cmap=cmap)
-                    axs[1,j].imshow(var_gen[j], origin = 'lower', cmap=cmap, vmin = var_real[j].min(), vmax = var_real[j].max())
-
-                fig.tight_layout()
-                plt.savefig(output_dir + f'std_real_vs_fake_{date}_{lt}_{idx}_{t:.3f}_{epoch}.png')
-                plt.close()
-                if not args.convert_ff_t:
-                    with torch.no_grad():
-                        gen, batch_y = convert_uvt2fft(gen.detach(), batch_y.detach())
-                ff_gen = gen[:,0].detach().cpu().mean(dim=0).numpy()
-                ff_real = batch_y[:,0].detach().cpu().mean(dim=0).numpy()
-                fig, axs = plt.subplots(1,2,figsize = (6,6), sharex=True, sharey=True)
-
-                axs[0].imshow(ff_gen, origin = 'lower', cmap='viridis')
-                axs[1].imshow(ff_real, origin = 'lower', cmap='viridis')
-
-                fig.tight_layout()
-                plt.savefig(output_dir + f'ff_mean_real_vs_fake_{date}_{lt}_{idx}_{t:.3f}_{epoch}.png')
-                plt.close()
+                    fig.tight_layout()
+                    plt.savefig(output_dir + f'ff_mean_real_vs_fake_{date}_{lt}_{idx}_{t:.3f}_{epoch}.png')
+                    plt.close()
 
         fig, axs = plt.subplots(1,5,figsize = (16,4))
         axs[0].plot(track[0])
