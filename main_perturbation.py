@@ -40,8 +40,6 @@ def str2list(li):
 def compute_generate_save(G, params, metrics_list, Means, Mins, Maxs, apply_log_transform, dt, current_timestep, temporal_noises):
 
     N_samples = params.N_samples
-    if params.verbose:
-
     Ens_r = torch.tensor(np.load(params.pack_dir+f'Rsemble_{datename}_{lt}.npy'), dtype = torch.float32)
     w_ens = torch.tensor(np.load(params.data_dir + f'w_{params.date_index}_{params.lt_index}_{params.inv_step}.npy').astype(np.float32))
     inv_ens=np.load(params.data_dir + f'invertFsemble_{params.date_index}_{params.lt_index}_{params.inv_step}.npy').astype(np.float32)
@@ -94,7 +92,8 @@ def compute_generate_save(G, params, metrics_list, Means, Mins, Maxs, apply_log_
         theta=params.theta,
         sigma=params.sigma,
         current_timestep=current_timestep,
-        temporal_noises=temporal_noises
+        temporal_noises=temporal_noises,
+        Shape=params.Shape
     )
 
     if params.verbose:
@@ -158,6 +157,9 @@ def compute_generate_save(G, params, metrics_list, Means, Mins, Maxs, apply_log_
         crop=[0,-1,0,-1],
         mem_idx=0 if params.N_conditioners>1 else cond_indices, 
         figtitle=f"Generated samples for {title}", 
+        var_names=['u','v','t2m'], 
+        dict_var={'u': 0, 'v': 1, 't2m': 2},
+        colormap_var=['viridis','viridis','coolwarm'],
         figname=params.output_dir + f"/samples/genFsemble_{title}.png"
     )
 
@@ -245,7 +247,7 @@ if __name__=="__main__" :
     
 
     ########################## CONTROL of Data to perturb ######################
-    parser.add_argument("--dates_file", type=str, default = 'updated_file1_valid.csv')
+    parser.add_argument("--dates_file", type=str, default = 'Large_lt_test_labels.csv')
     parser.add_argument("--date_start", type=str, default = "2021-07-01")
     parser.add_argument("--date_stop", type=str, default = "2021-07-02")
     parser.add_argument("--leadtimes", type=utils.str2intlist, default= [3,6,9,12,15,18,21,24,27,30,33,36,39,42,45])

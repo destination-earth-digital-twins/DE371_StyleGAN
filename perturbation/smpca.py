@@ -41,12 +41,12 @@ def sm_pca(
     theta=0.5,
     sigma=0.1,
     current_timestep=0,
-    temporal_noises=[]
-
+    temporal_noises=[],
+    Shape=(3,256,256)
 ):
     N, R, D = Ens_w.shape
     per_cond = int(ceil(N_samples / N_seeds))
-    Ens_final = np.zeros((N * per_cond, 4, 256, 256), dtype="float32")
+    Ens_final = np.zeros((N * per_cond, Shape[0], 256, 256), dtype="float32")
     w_final = np.zeros((N * per_cond, R, D))
 
     if Ens_feature is not None:
@@ -117,8 +117,6 @@ def sm_pca(
                             with torch.no_grad():
                                 w_nopca = G.style(z)
                             if n_styles_pert > 0:
-                                        .unsqueeze(1)
-                                        .repeat(1, (R - n_styles_pert), 1)))
                                 w_pert = torch.cat(
                                     [
                                         new_w,
@@ -177,8 +175,8 @@ def sm_pca(
                 )
 
             assert torch.isfinite(w_new).all()
-            if verbose:
             w = w_new
+                
 
             # features for generator
             features_in = None
