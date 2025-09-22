@@ -28,9 +28,9 @@ def split_csv_with_validation_first(params,train_start_date,test_end_date,test_s
   test_data.to_csv(f"{params.main_path}{params.giga_directory}INST1/IS_bootstrap_no_duplicate_rr_cumul_correct_test.csv", index=False)
   validation_data.to_csv(f"{params.main_path}{params.giga_directory}INST1/IS_bootstrap_no_duplicate_rr_cumul_correct_valid.csv", index=False)
 
-  print(f"Validation data saved to {f"{params.main_path}{params.data_directory}/IS_bootstrap_no_duplicate_rr_cumul_correct_valid.csv")
-  print(f"Train data saved  {f"{params.main_path}{params.data_directory}/IS_bootstrap_no_duplicate_rr_cumul_correct_train.csv")
-  print(f"Test data saved {f"{params.main_path}{params.data_directory}/IS_bootstrap_no_duplicate_rr_cumul_correct_test.csv")
+  print(f"Validation data saved to {f"{params.main_path}{params.data_directory}/IS_bootstrap_no_duplicate_rr_cumul_correct_valid.csv}")
+  print(f"Train data saved  {f"{params.main_path}{params.data_directory}/IS_bootstrap_no_duplicate_rr_cumul_correct_train.csv}")
+  print(f"Test data saved {f"{params.main_path}{params.data_directory}/IS_bootstrap_no_duplicate_rr_cumul_correct_test.csv}")
   
 def More_than(n,params):
   
