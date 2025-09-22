@@ -81,7 +81,7 @@ if __name__ == "__main__":
 
 #     # ADD missing dates
     if params.method_type=="complete_members":
-        More_than(8,params)
+        More_than(n_ensemble,params)
 
     #SPLIT 
     if params.method_type=="split_dataset":

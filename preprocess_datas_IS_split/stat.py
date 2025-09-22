@@ -26,7 +26,7 @@ def compute_area_greater_than(variable, data_dir, gridshape,threshold_list, args
     Returns:
         list[float]: store every value greater than the threshold
     """
-    gigafile_set = {gigafile for gigafile in os.scandir(data_dir) if gigafile.name not in ["INST1","area_proportions.npy", "area_proportions.png", "labels.csv"]}
+    gigafile_set = {gigafile for gigafile in os.scandir(data_dir) }
     n_gigafiles = len(gigafile_set)
     x_length, y_length = gridshape[0], gridshape[1]
     l_mean_proportion = np.zeros([len(threshold_list)])
