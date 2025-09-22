@@ -1,9 +1,8 @@
 # StyleGAN4AROME
+
 A new proposal to generate ensemble predictions matching the AROME-EPS dataset. Even though several models are available for training, the current research is focusing on stylegan2 network (see the [original implementation](https://github.com/NVlabs/stylegan2) and the [pytorch implementation](https://github.com/NVlabs/stylegan2-ada-pytorch). The goal is to enrich the AROME-EPS dataset by generating samples mimicking the training data (i.e. to re-sample data from the latent distribution).  
 A non-exhaustive diagram representing the global architecture is available on [Google Drive](https://drive.google.com/file/d/12Yidj0SBGblODHQIHi9Gf1WzNTqLoiJq/view?usp=sharing).  
-Most of the core code is taken as is from [Rosinality's stylegan2-pytorch github page](https://github.com/rosinality/stylegan2-pytorch) and adapted to  run on Meteo France clusters. 
-See the paper here: ??
-Authors: C. Brochet, G. Moldovan, V. Sanchez, A. Bonamy
+Most of the core code is taken as is from [Rosinality's stylegan2-pytorch github page](https://github.com/rosinality/stylegan2-pytorch) and Enriching Operational High-Resolution Ensemble Forecasts with StyleGAN-2 [https://doi.org/10.1175/AIES-D-24-0058.1].
 
 # Repository Structure
 
