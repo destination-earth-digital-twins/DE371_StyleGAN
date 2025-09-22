@@ -36,6 +36,7 @@ if __name__ == "__main__":
     parser.add_argument("--old_param", type=str)
     parser.add_argument("--n_bootstrap", type=int, default=4, help="number boostrap")
     parser.add_argument("--bootstrap", action = "store_true", help="apply boostrap or not")
+    parser.add_argument("--n_ensemble", type=int, default=4, help="number boostrap")
     parser.add_argument('--method_type', type=str, choices=["stat","importance_sampling","merge_into_giga_file", "complete_members","split_dataset"], help='Type of methods we want to apply ')
 
 
