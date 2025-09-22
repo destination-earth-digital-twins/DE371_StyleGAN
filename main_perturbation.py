@@ -79,8 +79,8 @@ def compute_generate_save(G, params, metrics_list, Means, Mins, Maxs, apply_log_
         sm_ind=params.style_indices,
         device=params.device, 
         sample_rule=params.sample_rule, 
-        betas=betas,
-        alphas=alphas,
+        #betas=betas,
+        #alphas=alphas,
         verbose=params.verbose,
         Whitening=Whitening,
         Coloring=Coloring,
@@ -88,23 +88,21 @@ def compute_generate_save(G, params, metrics_list, Means, Mins, Maxs, apply_log_
         import_perturbation=params.import_perturbation,
         save_perturbation=params.save_perturbation,
         path_perturbation=path_perturbation,
-        Ens_feature=Ens_feature,
-        feature_id=params.feature_id,
-        feature_scale=params.feature_scale,
-        temporal_consistency=params.temporal_consistency,
-        dt=dt,
-        theta=params.theta,
-        sigma=params.sigma,
-        current_timestep=current_timestep,
-        initial_timestep=params.initial_timestep,
-        temporal_noises=temporal_noises
+        #Ens_feature=Ens_feature,
+        #feature_id=params.feature_id,
+        #feature_scale=params.feature_scale,
+        #temporal_consistency=params.temporal_consistency,
+        #dt=dt,
+        #theta=params.theta,
+        #sigma=params.sigma,
+        #current_timestep=current_timestep,
+        #initial_timestep=params.initial_timestep,
+        #temporal_noises=temporal_noises
     )
 
     if params.verbose:
         print(gen.mean(axis=(0,-2,-1)))
         print(Ens_r.mean(axis=(0,-2,-1)))
-    
-    
     
     if params.save_w_perturbated:
         if params.save_perturbation and not params.import_perturbation :
@@ -119,31 +117,36 @@ def compute_generate_save(G, params, metrics_list, Means, Mins, Maxs, apply_log_
     if params.save_perturbation and not params.import_perturbation :
         np.save(params.output_dir + f'/samples/perturbation_{title}.npy', w_new[1])
 
+    # Convert NumPy arrays to tensors
+    Ens_r_tensor = torch.as_tensor(Ens_r, dtype=torch.float32)
+    inv_ens_tensor = torch.as_tensor(inv_ens, dtype=torch.float32)
+    gen_tensor   = torch.as_tensor(gen, dtype=torch.float32)
+
     if params.import_normalized_data:
         Ens_r_denorm = utils.denormalize(
-                                        data=Ens_r,
-                                        normalization_type=params.normalization,
-                                        Means=Means,
-                                        Mins=Mins,
-                                        Maxs=Maxs,
-                                        apply_log_transform=apply_log_transform
-                                        )
+            data=Ens_r_tensor,
+            normalization_type=params.normalization,
+            Means=Means,
+            Mins=Mins,
+            Maxs=Maxs,
+            apply_log_transform=apply_log_transform
+        )
         inv_ens_denorm = utils.denormalize(
-                                        data=inv_ens,
-                                        normalization_type=params.normalization,
-                                        Means=Means,
-                                        Mins=Mins,
-                                        Maxs=Maxs,
-                                        apply_log_transform=apply_log_transform
-                                        )
+            data=inv_ens_tensor,
+            normalization_type=params.normalization,
+            Means=Means,
+            Mins=Mins,
+            Maxs=Maxs,
+            apply_log_transform=apply_log_transform
+        )
     gen_denorm = utils.denormalize(
-                                    data=gen,
-                                    normalization_type=params.normalization,
-                                    Means=Means,
-                                    Mins=Mins,
-                                    Maxs=Maxs,
-                                    apply_log_transform=apply_log_transform
-                                    )
+        data=gen_tensor,
+        normalization_type=params.normalization,
+        Means=Means,
+        Mins=Mins,
+        Maxs=Maxs,
+        apply_log_transform=apply_log_transform
+    )
     
     if params.save_normalized_sample:
         np.save(params.output_dir + f'/samples/genFsemble_{title}.npy', gen)
@@ -152,9 +155,9 @@ def compute_generate_save(G, params, metrics_list, Means, Mins, Maxs, apply_log_
     
 
     online_pert_plot(
-        packsample=Ens_r_denorm.numpy(), 
-        invsample=inv_ens_denorm, 
-        pert_sample=gen_denorm,
+        packsample=Ens_r_tensor.detach().cpu().numpy(), 
+        invsample=inv_ens_tensor.detach().cpu().numpy(), 
+        pert_sample=gen_denorm.detach().cpu().numpy(),
         crop=[0,-1,0,-1],
         mem_idx=0 if params.N_conditioners>1 else cond_indices, 
         figtitle=f"Generated samples for {title}", 
@@ -162,8 +165,8 @@ def compute_generate_save(G, params, metrics_list, Means, Mins, Maxs, apply_log_
     )
 
     online_pert_diff_plot(
-        invsample=inv_ens_denorm, 
-        pert_sample=gen_denorm,
+        invsample=inv_ens_tensor.detach().cpu().numpy(), 
+        pert_sample=gen_denorm.detach().cpu().numpy(),
         crop=[0,-1,0,-1],
         mem_idx=0 if params.N_conditioners>1 else cond_indices, 
         figtitle=f"Generated samples for {title}", 
@@ -171,10 +174,10 @@ def compute_generate_save(G, params, metrics_list, Means, Mins, Maxs, apply_log_
     )
 
     if params.runtime_metrics:
-        dic = {'Mean' : {'real':Ens_r_denorm.mean(axis=(0,-2,-1)), 'fake':gen_denorm.mean(axis=(0,-2,-1))},
-             'Std' : {'real': np.sqrt(Ens_r_denorm.var(axis=0).mean(axis=(-2,-1))), 'fake': np.sqrt(gen_denorm.var(axis=0).mean(axis=(-2,-1)))},
-             'Max' : {'real':Ens_r_denorm.max(axis=(0,-2,-1)), 'fake':gen_denorm.max(axis=(0,-2,-1))},
-             'Align' : 1.0 - (gen_denorm.std(axis=0) * Ens_r_denorm.std(axis=0)).sum(axis=(-2,-1)) / (np.sqrt((Ens_r_denorm.std(axis=0) ** 2).sum(axis=(-2,-1))) *  np.sqrt((gen0.std(axis=0) **2).sum(axis=(-2,-1)))),
+        dic = {'Mean' : {'real':Ens_r_tensor.mean(axis=(0,-2,-1)), 'fake':gen_denorm.mean(axis=(0,-2,-1))},
+             'Std' : {'real': np.sqrt(Ens_r_tensor.var(axis=0).mean(axis=(-2,-1))), 'fake': np.sqrt(gen_denorm.var(axis=0).mean(axis=(-2,-1)))},
+             'Max' : {'real':Ens_r_tensor.max(axis=(0,-2,-1)), 'fake':gen_denorm.max(axis=(0,-2,-1))},
+             'Align' : 1.0 - (gen_denorm.std(axis=0) * Ens_r_tensor.std(axis=0)).sum(axis=(-2,-1)) / (np.sqrt((Ens_r_tensor.std(axis=0) ** 2).sum(axis=(-2,-1))) *  np.sqrt((gen0.std(axis=0) **2).sum(axis=(-2,-1)))),
         }
         if params.verbose: print(dic)
         return dic
@@ -217,7 +220,7 @@ if __name__=="__main__" :
     parser.add_argument('--save_normalized_sample', action='store_true')
 
     parser.add_argument("--var_indices", type=utils.str2intlist, default=[1,2,3])
-    parser.add_argument("--Shape", type=make_tuple, default=(3,256,256), help='size of the samples')
+    parser.add_argument("--Shape", type=make_tuple, default=(4,256,256), help='size of the samples')
     parser.add_argument("--N_samples", type=int, default=10, help='number of new samples') 
     parser.add_argument("--N_conditioners",type=int, default=16, help="number of 'seed' samples used for conditioning")
     parser.add_argument("--inv_step", type=int, default=2000, help='step of inversion to load w')
@@ -256,7 +259,10 @@ if __name__=="__main__" :
     parser.add_argument('--device', type=str, default='cuda') # if torch.cuda.is_available() else 'cpu')
 
     params = parser.parse_args()
-    params.output_dir = params.output_dir + f"{params.sample_rule}_{params.style_indices}_{params.unbias}_{params.scale_interp_step}_{params.N_conditioners}_{params.add_name}/" 
+    style_indices_str = ''
+    for i in params.style_indices:
+        style_indices_str += i
+    params.output_dir = params.output_dir + f"{params.sample_rule}_{style_indices_str}_{params.unbias}_{params.scale_interp_step}_{params.N_conditioners}_{params.add_name}/" 
 
     if params.import_perturbation or params.temporal_consistency :
         params.dir_perturbation = params.dir_perturbation + f"{params.sample_rule}_{params.style_indices}_{params.unbias}_{params.scale_interp_step}_{params.N_conditioners}_{params.add_name}/" 
@@ -266,7 +272,7 @@ if __name__=="__main__" :
 
     ################## selecting dates
     print('reading dates')
-    df = pd.read_csv(params.real_data_dir + params.dates_file)
+    df = pd.read_csv(params.dates_file)
     df_date = df.copy()
     df_date['Date'] = pd.to_datetime(df_date['Date'])
     df_extract = df_date[(df_date['Date']>=params.date_start) & (df_date['Date']<=params.date_stop)]
@@ -277,8 +283,8 @@ if __name__=="__main__" :
     Maxs=None
     Mins=None
     if params.normalization=="meanmax":
-        Means = np.load(f'{params.real_data_dir}{params.mean_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
-        Maxs = np.load(f'{params.real_data_dir}{params.max_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
+        Means = np.load(f'{params.mean_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
+        Maxs = np.load(f'{params.max_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
     elif params.normalization=="minmax":
        Mins = np.load(f'{params.real_data_dir}stat_files/{params.min_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
        Maxs = np.load(f'{params.real_data_dir}stat_files/{params.max_file}')[params.var_indices].reshape(1,params.Shape[0],1,1)
@@ -295,7 +301,7 @@ if __name__=="__main__" :
         os.mkdir(params.output_dir + 'log/')
     source_readme = params.path_root_readme
     target_readme = params.output_dir + 'ReadMe_0.txt'
-    copyfile(source_readme, target_readme)
+    #copyfile(source_readme, target_readme)
     
     
     ################ loading network #################

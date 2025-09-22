@@ -18,206 +18,141 @@ import perturbation.pca_stylegan as pca
 
 
 def sm_pca(
-    Ens_w,
-    G,
-    N_samples,
-    sm_ind=[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-    device="cuda:0",
-    sample_rule="stochastic",
-    N_seeds=16,
-    betas=1.0,
-    alphas=0.0,
-    verbose=False,
-    Whitening=None,
-    Coloring=None,
-    w0=None,
-    renorm=False,
-    import_perturbation=False,
-    save_perturbation=False,
-    path_perturbation='',
-    Ens_feature=None,
-    feature_id=6,
-    feature_scale=1,
-    temporal_consistency=False,
-    dt=3,
-    theta=0.5,
-    sigma=0.1,
-    current_timestep=(0,3),
-    initial_timestep=3,
-    temporal_noises=[]
-
-):
-
+        Ens_w, 
+        G, 
+        N_samples, 
+        sm_ind = [0]*14, 
+        device = 'cuda:0', 
+        sample_rule = 'stochastic',
+        N_seeds=16, 
+        random_unbias=False,
+        scale=1.0,
+        interp=0.0,
+        verbose=False,
+        Whitening=None,
+        Coloring=None,
+        w0=None,
+        renorm=False,
+        import_perturbation=False,
+        save_perturbation=False,
+        path_perturbation=''
+    ):
+    
     N, R, D = Ens_w.shape
+    N_seeds = min(N_seeds, N)
     per_cond = int(ceil(N_samples / N_seeds))
 
-    Ens_final = np.zeros((N * per_cond, 3, 256, 256), dtype="float32")
-    w_final = np.zeros((N * per_cond, R, D))
+    # --- replace pre-allocation with lists ---
+    Ens_perturbated_list = []
+    w_perturbated_list = []
+    perturbation_list = [] if save_perturbation and not import_perturbation else None
 
-    if Ens_feature is not None:
-        Ens_feature = Ens_feature.to(device)
-        noise = G.make_noise()
-
-    if save_perturbation and not import_perturbation :
-        perturbation = np.zeros((N * per_cond, R, D))
-    if save_perturbation and import_perturbation :
-        raise NotImplementedError
-    
     sm_ind_np = np.array(sm_ind).astype(np.bool_)
 
-    w_extract = Ens_w[:, sm_ind_np, :].to(device)
-    if verbose:
+    w_extract = Ens_w[:,sm_ind_np,:].to(device)
+    if verbose : 
         print(f"Extracted w_extract {w_extract.size()}")
     n_styles_pert = w_extract.size()[1]
 
-    if sample_rule == "stochastic":
+    if sample_rule=='stochastic':
         assert Coloring is not None
         assert Whitening is not None
         assert w0 is not None
-        if verbose:
-            print(f"betas (scale factor) {betas}")
-        if n_styles_pert > 0:
-            K, _ = pca.compute_K_covariance(
-                w_extract, cut=N - 1, verbose=verbose, renorm=renorm
+        if verbose: print(f"scale {scale}")
+        if n_styles_pert>0:
+            Cov, w_avg = pca.compute_K_covariance(
+                                                        w_extract,
+                                                        cut=N-1,
+                                                        verbose=verbose,
+                                                        renorm=renorm
             )
         else:
-            K = None
+            Cov, w_avg = None, None
     else:
-        K = None
+        Cov, w_avg = None,None
 
-    if sample_rule == "stochastic":
+    if sample_rule=='stochastic':
         Ens_w1 = Ens_w.to(device)
         if N_seeds < N:
             seeds = random.sample(range(N), N_seeds)
             Ens_w1 = Ens_w[seeds].to(device)
             print(Ens_w1.shape)
-
-    with torch.no_grad():
         
-        for k in range(
-            N_seeds
-        ):  # generating a common multiple of each conditioning sample
-            if verbose:
-                print(f"member {k} is fixed")
-            if sample_rule == "stochastic":
+    with torch.no_grad():
+        for k in range(N_seeds):
+            if verbose: print(f"member {k} is fixed")
+            if sample_rule=='stochastic':
+                #w_start = interp.view(1,R,1) * Ens_w1.mean(dim=0) + (1.0 - interp).view(1,R,1) * Ens_w1[k]
+                w_start = interp * Ens_w1.mean(dim=0) + (1.0 - interp) * Ens_w1[k]
+
                 if n_styles_pert:
-                    z = torch.empty((per_cond, D)).normal_().contiguous().to(device)
+                    z = torch.empty((per_cond,D)).normal_().contiguous().to(device)
                     with torch.no_grad():
                         w = G.style(z)
                     diff = torch.bmm(
-                        Whitening.to(device).unsqueeze(0).repeat(per_cond, 1, 1),
-                        (w - w.mean(dim=0)).unsqueeze(-1),
-                    )  # diff of shape N_samples  x D
-                    new_w = torch.einsum("abc, dc-> dab", K, diff.squeeze(dim=-1))
+                        Whitening.to(device).unsqueeze(0).repeat(per_cond,1,1), 
+                        (w - w.mean(dim=0)).unsqueeze(-1)
+                    )
+                    new_w = torch.einsum('abc, dc-> dab',Cov, diff.squeeze(dim=-1))
 
-                w_start = (
-                    alphas.view(1, 14, 1) * Ens_w1.mean(dim=0)
-                    + (1.0 - alphas).view(1, 14, 1) * Ens_w1[k]
-                )
-                if import_perturbation and path_perturbation is not None:
-                    w_pert = torch.tensor(np.load(path_perturbation)[k * per_cond : (k + 1) * per_cond].astype(np.float32)).to(device)
-                else:
-                    if not temporal_consistency :
-                        if (R - n_styles_pert) > 0:
-                            z = torch.empty((per_cond, 512)).normal_().to(device)
-                            with torch.no_grad():
-                                w_nopca = G.style(z)
-                            if n_styles_pert > 0:
-                                w_pert = torch.cat(
-                                    [
-                                        new_w,
-                                        (w_nopca - w_nopca.mean(dim=0))
-                                        .unsqueeze(1)
-                                        .repeat(1, (R - n_styles_pert), 1),
-                                    ],
-                                    dim=1,
-                                )
-                            else:
-                                w_pert = (
-                                    (w_nopca - w_nopca.mean(dim=0))
-                                    .unsqueeze(1)
-                                    .repeat(1, (R - n_styles_pert), 1)
-                                )
-                        else:
-                            w_pert = new_w
+                if import_perturbation :
+                    if path_perturbation :
+                        w_pert = np.load(path_perturbation)[k * per_cond : (k + 1) * per_cond]
+                        w_pert = torch.from_numpy(w_pert).to(device)
                     else :
-                        if path_perturbation is None:
-                            raise ImportError(f'path_perturbation parameter has to be imported but instead got : {path_perturbation}')
-                        w_pert_init = torch.tensor(np.load(path_perturbation)[k * per_cond : (k + 1) * per_cond].astype(np.float32)).to(device)
+                        raise FileNotFoundError('Specify a path for the perturbation')
+                else :
+                    if (R - n_styles_pert) > 0:
+                        z = torch.empty((per_cond,512)).normal_().to(device)
+                        with torch.no_grad():
+                            w_nopca = G.style(z)
+                        if n_styles_pert > 0:
+                            w_pert = torch.cat([new_w, (w_nopca - w_nopca.mean(dim=0)).unsqueeze(1).repeat(1,(R-n_styles_pert),1)],dim=1)
+                        else:
+                            w_pert = (w_nopca - w_nopca.mean(dim=0)).unsqueeze(1).repeat(1,(R-n_styles_pert),1)
+                    else:
+                        w_pert = new_w
 
-                        w_pert = deepcopy(w_pert_init) * (1-theta*dt)**(current_timestep[1])
-                        list_temporal_noise = [temporal_noises[current_timestep[0]-k]*(1-theta*dt)**k for k in range(current_timestep[0]+1)]
-                        w_pert += sigma * torch.sqrt(torch.tensor(dt)) * torch.from_numpy(np.array(list_temporal_noise)).sum()
-
-      
-                w_new = w_start + betas.view(1, 14, 1) * w_pert
-
-            elif sample_rule == "extrapolation":
+                if import_perturbation:
+                    w_new = w_start + w_pert.type(w_start.type())
+                else:
+                    #w_new = w_start + scale.view(1,R,1) * w_pert
+                    w_new = w_start + scale * w_pert
+                
+            elif sample_rule == 'extrapolation':
                 if save_perturbation or import_perturbation:
                     raise NotImplementedError
                 w_interm = []
                 for kk in range(k, N_seeds):
                     if k != kk:
-                        print(k, kk)
-                        w_interm.append(
-                            (Ens_w[k] + 1.5 * (Ens_w[kk] - Ens_w[k])).to(device)
-                        )
-                        w_interm.append(
-                            (Ens_w[kk] + 1.5 * (Ens_w[k] - Ens_w[kk])).to(device)
-                        )
-
-                if k == (N_seeds - 1):
-
-                    return Ens_final[:N_samples], w_final
-
+                        w_interm.append((Ens_w[k] + 1.5 * (Ens_w[kk] - Ens_w[k])).to(device))
+                        w_interm.append((Ens_w[kk] + 1.5 * (Ens_w[k] - Ens_w[kk])).to(device))
+                if k==(N_seeds-1):
+                    break
                 else:
-
                     w_new = torch.stack(w_interm, axis=0)
-                    per_cond = w_new.size()[0]
             else:
-                raise ValueError(
-                    f"sampling rule unknown, should be 'stochastic' or 'extrapolation' but is {sample_rule}"
-                )
+                raise ValueError(f"sampling rule not good, should be 'stochastic' or 'extrapolation'")
 
             assert torch.isfinite(w_new).all()
-            if verbose:
-                print("wnew", w_new.shape)
-            w = w_new
+            if verbose: print('wnew', w_new.shape)
 
-            # features for generator
-            features_in = None
-            if Ens_feature is not None:
-                
-                print('shape w_inv',Ens_w1[k].unsqueeze(0).shape)
-                sample, features_out_inv, _ = G([(Ens_w1[k].unsqueeze(0)).to(device)], input_is_latent=True, return_features=True, noise=noise)
+            sample, _, _ = G([w_new.to(device)], input_is_latent=True)
 
-                print('shape features_out_inv',features_out_inv[feature_id].shape)
-                print('shape w_new',w.shape)
-                sample, features_out_pert, _ = G([w.to(device)], input_is_latent=True, return_features=True, noise=noise)
-                print('shape features_out_pert',features_out_pert[feature_id].shape)
+            # --- append to lists ---
+            Ens_perturbated_list.append(sample.detach().cpu().numpy())
+            w_perturbated_list.append(w_new.detach().cpu().numpy())
+            if perturbation_list is not None:
+                perturbation_list.append((scale.view(1,R,1) * w_pert).detach().cpu().numpy())
 
-                print('shape features from encoder',Ens_feature[k].shape)
-                F = Ens_feature[k].unsqueeze(0).repeat(per_cond, 1, 1, 1)
-                print('shape features from encoder ready',F.shape)
-                feature_map_from_pert = features_out_pert[feature_id]
-                feature_map_from_inv = features_out_inv[feature_id].repeat(per_cond, 1, 1, 1)
-                
-                feature_to_insert = F + feature_map_from_pert - feature_map_from_inv
-                features_in = [None]*(feature_id)+ [feature_to_insert] + [None]*(13-(feature_id))
-                sample, _, _ = G([w.to(device)],  features_in=features_in, feature_scale=feature_scale, input_is_latent=True, noise=noise)
-            else :
-                
-                sample, _, _ = G([w.to(device)],  input_is_latent=True)
-
-            Ens_final[k * per_cond : (k + 1) * per_cond] = sample.detach().cpu().numpy()
-            w_final[k * per_cond : (k + 1) * per_cond] = w.detach().cpu().numpy()
-            if save_perturbation and not import_perturbation:
-                perturbation[k * per_cond : (k + 1) * per_cond] = (w_pert).detach().cpu().numpy()
-
-    if save_perturbation and not import_perturbation :
-        return Ens_final[:N_samples], (w_final, perturbation)
-    else :
-        return Ens_final[:N_samples], w_final
+    # --- concatenate all at the end ---
+    Ens_perturbated = np.concatenate(Ens_perturbated_list, axis=0)[:N_samples]
+    w_perturbated = np.concatenate(w_perturbated_list, axis=0)
+    if perturbation_list is not None:
+        perturbation = np.concatenate(perturbation_list, axis=0)
+        return Ens_perturbated, (w_perturbated, perturbation)
+    else:
+        return Ens_perturbated, w_perturbated
 
 
 def fast_style_mixing(
@@ -237,58 +172,57 @@ def fast_style_mixing(
     and make the resulting physical samples differentiable wrt alpha's and beta's
     To be used with scale_tune script
     """
-    R, D = w_avg.shape  # Repeats, Dimension (typicallly = 14, 512)
-    n_styles_no_pca = 14 - R
-    
-    # sigmoid is applied to alphas --> stored value is thus sigmoid(alphas)
-    w_start = (
-        F.sigmoid(alphas).view(1, 14, 1) * batch_w.mean(dim=0)
-        + (1.0 - F.sigmoid(alphas).view(1, 14, 1)) * batch_w
-    )
+    R, D = w_avg.shape  # Repeats, Dimension (typically = n_layers, 512)
+    B, n_layers, w_dim = batch_w.shape
 
-    # perturbation on styles implying filtering
+    # --- build w_start ---
+    interp_ = F.sigmoid(alphas).view(1, n_layers, 1).expand(B, n_layers, 1)
+    w_mean = batch_w.mean(dim=0, keepdim=True).expand_as(batch_w)  # (B, n_layers, w_dim)
+    w_start = interp_ * w_mean + (1.0 - interp_) * batch_w         # (B, n_layers, w_dim)
+
+    # how many layers are *not* covered by PCA components
+    n_styles_no_pca = n_layers - R
+
+    # perturbation on scales implying filtering
     if R > 0:
         z = torch.empty((n_samples, D)).normal_().contiguous().to(device)
         with torch.no_grad():
             w = G.style(z)
         diff = torch.bmm(
             Whitening.to(device).unsqueeze(0).repeat(n_samples, 1, 1),
-            (w - w.mean(dim=0)).unsqueeze(-1),
-        )  # diff of shape N_samples  x D
-        new_w = torch.einsum("abc, dc-> dab", K, diff.squeeze(dim=-1))
+            (w - w.mean(dim=0)).unsqueeze(-1)
+        )
+        new_w = torch.einsum('abc, dc->dab', K, diff.squeeze(dim=-1))  # (n_samples, R, D)
 
-    # perturbation on styles implying random noise
+    # perturbation on scales implying random noise
     if n_styles_no_pca > 0:
         z = torch.empty((n_samples, 512)).normal_().to(device)
         with torch.no_grad():
             w_nopca = G.style(z)
+        rand_block = (w_nopca - w_nopca.mean(dim=0)).unsqueeze(1).repeat(1, n_styles_no_pca, 1)
         if R > 0:
-            w_pert = torch.cat(
-                [
-                    new_w,
-                    (w_nopca - w_nopca.mean(dim=0))
-                    .unsqueeze(1)
-                    .repeat(1, n_styles_no_pca, 1),
-                ],
-                dim=1,
-            )
+            w_pert = torch.cat([new_w, rand_block], dim=1)
         else:
-            w_pert = (
-                (w_nopca - w_nopca.mean(dim=0))
-                .unsqueeze(1)
-                .repeat(1, n_styles_no_pca, 1)
-            )
+            w_pert = rand_block
     else:
         w_pert = new_w
 
-    # betas viewed as linear parameters
+    # match batch size if needed
+    if w_pert.shape[0] != B:
+        if w_pert.shape[0] == 1:
+            w_pert = w_pert.expand(B, -1, -1)
+        else:
+            w_pert = w_pert[:B]
+
+    # --- apply beta scaling ---
     if beta_rule == "linear":
-        res = w_start + betas.view(1, 14, 1) * w_pert
-        gen, _, _ = G([res], input_is_latent=True)
+        scale_eff = betas.view(1, n_layers, 1).expand_as(w_pert)
+        res = w_start + scale_eff * w_pert
 
-    # constraining betas to be strictly in (0,1)
     elif beta_rule == "sigmoid":
-        res = w_start + F.sigmoid(betas).view(1, 14, 1) * w_pert
-    gen, _, _ = G([res], input_is_latent=True)
+        scale_eff = F.sigmoid(betas).view(1, n_layers, 1).expand_as(w_pert)
+        res = w_start + scale_eff * w_pert
 
+    gen, _, _ = G([res], input_is_latent=True)
     return gen
+

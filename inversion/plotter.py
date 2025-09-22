@@ -129,7 +129,7 @@ def online_pert_plot(
           mem_pert_idx=0,figtitle=" ", 
           figname="inv.png",  
           var_names=['u','v','t2m'], 
-          dict_var={'u': 0, 'v': 1, 't2m': 2},
+          dict_var={'u': 1, 'v': 2, 't2m': 3},
           colormap_var=['viridis','viridis','coolwarm']
           ):
 
@@ -137,8 +137,10 @@ def online_pert_plot(
         for id, var in enumerate(var_names):
             var_id = dict_var[var]
 
-            vmin = np.min([np.min(packsample[:,var_id,crop[0]:crop[1],crop[2]:crop[3]])])
-            vmax = np.min([np.max(packsample[:,var_id,crop[0]:crop[1],crop[2]:crop[3]])])
+            vmin = np.min(packsample[:, var_id, crop[0]:crop[1] if crop[1]!=-1 else None,
+                                            crop[2]:crop[3] if crop[3]!=-1 else None])
+            vmax = np.max(packsample[:, var_id, crop[0]:crop[1] if crop[1]!=-1 else None,
+                                            crop[2]:crop[3] if crop[3]!=-1 else None])
 
             ax[0][id].set_title(f"{var} real")
             im = ax[0][id].imshow(packsample[mem_idx,var_id,crop[0]:crop[1],crop[2]:crop[3]], clim=(vmin, vmax), origin="lower", cmap=colormap_var[id])
@@ -170,7 +172,7 @@ def online_pert_diff_plot(
           mem_pert_idx=0,figtitle=" ", 
           figname="inv.png",  
           var_names=['u','v','t2m'], 
-          dict_var={'u': 0, 'v': 1, 't2m': 2},
+          dict_var={'u': 1, 'v': 2, 't2m': 3},
           colormap_var=['viridis','viridis','coolwarm']
           ):
 
@@ -178,9 +180,10 @@ def online_pert_diff_plot(
         for id, var in enumerate(var_names):
             var_id = dict_var[var]
 
-            vmin = np.min([np.min(invsample[:,var_id,crop[0]:crop[1],crop[2]:crop[3]])])
-            vmax = np.min([np.max(invsample[:,var_id,crop[0]:crop[1],crop[2]:crop[3]])])
-
+            vmin = np.min(invsample[:, var_id, crop[0]:crop[1] if crop[1]!=-1 else None,
+                                            crop[2]:crop[3] if crop[3]!=-1 else None])
+            vmax = np.max(invsample[:, var_id, crop[0]:crop[1] if crop[1]!=-1 else None,
+                                            crop[2]:crop[3] if crop[3]!=-1 else None])
             ax[0][id].set_title(f"{var} inv")
             im = ax[0][id].imshow(invsample[mem_idx,var_id,crop[0]:crop[1],crop[2]:crop[3]], clim=(vmin, vmax), origin="lower", cmap=colormap_var[id])
             fig.colorbar(im, ax=ax[0][id], shrink=0.5)

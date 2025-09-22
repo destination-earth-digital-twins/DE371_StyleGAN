@@ -45,12 +45,12 @@ if __name__=="__main__" :
     parser = ArgumentParser()
 
     parser.add_argument("--n_epochs",type=int,default=20)
-    parser.add_argument("--n_samples",type=int,default=16)
+    parser.add_argument("--n_samples",type=int,default=15)
     parser.add_argument("--inflate_random",action="store_true")
     parser.add_argument("--lr0",type=float, default=0.001)
     parser.add_argument("--scale_rule",type=str,default='sigmoid')
     parser.add_argument("--pca_cut",type=int,default=10)
-    parser.add_argument("--inflate",type=float, default=1.0)
+    parser.add_argument("--inflate",type=float, default=1.2) # 1.2, before it was 1.0
     parser.add_argument("--start",type=str, default="ones")
     parser.add_argument("--lambda_bias",type=float, default=1.0)
     parser.add_argument("--lambda_spectrum",type=float, default=0.0)
@@ -62,18 +62,18 @@ if __name__=="__main__" :
 
     ########################### Directories ###########################
     parser.add_argument("--fake_data_dir", type=str, 
-                        default='/project/scratch/p200177/DE_371/victorsanchez/results/inversion/Ens_Perceptual_Random_VGG_Loss_sol3/Inversion_Perceptual_Random_VGG_Loss_sol3/')
+                        default='/project/home/p200177/DE_371/experiments_WP1/MEPS/inversion/final/validation/inversion/') # inversion done on validation
     parser.add_argument("--real_data_dir", type=str, 
-                        default='/project/home/p200177/DE_371/datasets/dataset_Meteo_France/IS_1_1.0_0_0_0_0_0_256_large_lt_done/')
+                        default='/project/home/p200177/DE_371/datasets/datasets_SMHI/256x256/')
     parser.add_argument("--ensemble_data_dir", type=str, 
-                        default='/project/scratch/p200177/DE_371/victorsanchez/results/inversion/Ens_Perceptual_Random_VGG_Loss_sol3/Pack_Perceptual_Random_VGG_Loss_sol3/')
+                        default='/project/home/p200177/DE_371/experiments_WP1/MEPS/inversion/final/validation/pack/') # pack from validation inversion run
     parser.add_argument("--ckpt_dir", type=str, 
-                        default='/project/home/p200177/DE_371/resources/models/trained_generator/000024.pt')
+                        default='/project/home/p200177/DE_371/experiments_WP1/MEPS/training/2025-05-27/models/072000.pt')
     parser.add_argument("--eigendir", type=str, 
-                        default='/project/home/p200177/DE_371/datasets/dataset_Meteo_France/eigenvalues_gan_training/')
+                        default='/project/home/p200177/DE_371/experiments_WP1/MEPS/perturbation/220925/eigenvalues/')
     parser.add_argument("--output_dir", type=str, 
-                        default='/project/scratch/p200177/DE_371/victorsanchez/results/scaled_perturbation/ScaleTune/')
-    parser.add_argument("--leadtimes", type=utils.str2intlist, default=[3,6,9,12,15,18,21,24,27,30,33,36,39,42,45])
+                        default='/project/home/p200177/DE_371/experiments_WP1/MEPS/perturbation/220925/scale_tune_new/')
+    #parser.add_argument("--leadtimes", type=utils.str2intlist, default=[3,6,9,12,15,18,21,24,27,30,33,36,39,42,45])
 
     args = parser.parse_args()
 
@@ -84,13 +84,12 @@ if __name__=="__main__" :
     print("instances already existing", instances)
     os.makedirs(output_dir + f"Instance_{instances+1}/",exist_ok=True)
     output_dir = output_dir + f"Instance_{instances+1}/"
-    df = pd.read_csv(args.real_data_dir + 'Large_lt_val_labels.csv') #Large_lt_val_labels
+    df = pd.read_csv('/project/home/p200177/DE_371/experiments_WP1/MEPS/inversion/final/validation/labels_validation.csv')
     df_date = df.copy()
 
     liste_dates = df_date['Date'].unique().tolist()
     print(liste_dates)
-    leadtimes = args.leadtimes
-    # leadtimes = [6,12,18,24,30,36,42]
+    leadtimes = [1,4,7,10,13,16]
 
     ensemble_dataset = list(product(liste_dates,leadtimes))
     print(len(ensemble_dataset))
@@ -107,7 +106,7 @@ if __name__=="__main__" :
 
     print('loading G')
 
-    G = Generator(256, 512,n_mlp=8,nb_var=3)
+    G = Generator(256, 512,n_mlp=8,nb_var=4)
     #print('###########################################"##################################################################################################################')
     ckpt = torch.load(args.ckpt_dir, map_location='cpu')['g_ema']
     if 'module' in list(ckpt.items())[0][0]: #juglling with Pytorch versioning and different module packaging
