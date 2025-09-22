@@ -2,14 +2,19 @@
 
 A new proposal to generate ensemble predictions matching the AROME-EPS dataset. Even though several models are available for training, the current research is focusing on stylegan2 network (see the [original implementation](https://github.com/NVlabs/stylegan2) and the [pytorch implementation](https://github.com/NVlabs/stylegan2-ada-pytorch). The goal is to enrich the AROME-EPS dataset by generating samples mimicking the training data (i.e. to re-sample data from the latent distribution).  
 A non-exhaustive diagram representing the global architecture is available on [Google Drive](https://drive.google.com/file/d/12Yidj0SBGblODHQIHi9Gf1WzNTqLoiJq/view?usp=sharing).  
-Most of the core code is taken as is from [Rosinality's stylegan2-pytorch github page](https://github.com/rosinality/stylegan2-pytorch) and Enriching Operational High-Resolution Ensemble Forecasts with StyleGAN-2 [https://doi.org/10.1175/AIES-D-24-0058.1].
+Most of the core code is taken as is from [Rosinality's stylegan2-pytorch github page](https://github.com/rosinality/stylegan2-pytorch).
+
+# Context
+The StyleGAN architecture has been the starting point of the DE_371 work, given encouraging results recently obtained by Brochet et al. [Multivariate emulation of convective-scale numerical weather predictions with generative adversarial networks]https://doi.org/10.1175/AIES-D-23-0006.1 and [Enriching Operational High-Resolution Ensemble Forecasts with StyleGAN-2] https://doi.org/10.1175/AIES-D-24-0058.1.
+
+Let us now recall the two main configurations explored in this work, referred to as unconditional and conditional generations. In the unconditional setting, the machine learning method generates random samples from the training distribution. On the other hand, conditional generation aims at producing samples consistent with a given distribution. The latter is the configuration retained to super-sample NWP ensembles: in that case, the generated members should be consistent, and thus conditioned on, existing NWP members. The conditional setup with StyleGAN is a two-step procedure. The first step is called inversion, and consists in projecting existing NWP members in the latent space of the StyleGAN. The second step performs the conditional generation through latent space edition: new members are obtained by perturbing the existing ones in the latent space. 
 
 # Repository Structure
 
 | Path | Description |
 | --- | --- |
 |[DE371_StyleGAN](https://github.com/destination-earth-digital-twins/DE371_StyleGAN)|Root folder of the repository|
-|&ensp;&ensp;&boxvr;&nbsp; [docs](https://github.com/destination-earth-digital-twins/DE371_StyleGAN/tree/wp1_refacto/docs)|Documentation folder|
+|&ensp;&ensp;&boxvr;&nbsp; [autoencoder](https://github.com/destination-earth-digital-twins/DE371_StyleGAN/tree/wp1_refacto/encoders)|Subfolder with auto-encoder-based StyleGAN Inversion approach |
 |&ensp;&ensp;&boxvr;&nbsp; [encoders](https://github.com/destination-earth-digital-twins/DE371_StyleGAN/tree/wp1_refacto/encoders)|Subfolder with Encoder-based StyleGAN Inversion approach |
 |&ensp;&ensp;&boxvr;&nbsp; [gan](https://github.com/destination-earth-digital-twins/DE371_StyleGAN/tree/wp1_refacto/gan)|Subfolder with StyleGAN code|
 |&ensp;&ensp;&boxvr;&nbsp; [grandEnsemble](https://github.com/destination-earth-digital-twins/DE371_StyleGAN/tree/wp1_refacto/grandEnsemble)|Subfolder with grandEnsemble study|
@@ -17,13 +22,15 @@ Most of the core code is taken as is from [Rosinality's stylegan2-pytorch github
 |&ensp;&ensp;&boxvr;&nbsp; [latent_analysis](https://github.com/destination-earth-digital-twins/DE371_StyleGAN/tree/wp1_refacto/latent_analysis)|Subfolder for latent analysis of StyleGAN|
 |&ensp;&ensp;&boxvr;&nbsp; [perturbation](https://github.com/destination-earth-digital-twins/DE371_StyleGAN/tree/wp1_refacto/perturbation)|Subfolder with perturbation-related files|
 |&ensp;&ensp;&boxvr;&nbsp; [plot_analysis](https://github.com/destination-earth-digital-twins/DE371_StyleGAN/tree/wp1_refacto/plot_analysis)|Main folder for plot analysis|
+|&ensp;&ensp;&boxvr;&nbsp; [preprocessing](https://github.com/destination-earth-digital-twins/DE371_StyleGAN/tree/wp1_refacto/preprocessing)|Subfolder with preprocessing-related files|
 |&ensp;&ensp;&boxvr;&nbsp; [scripts_examples](https://github.com/destination-earth-digital-twins/DE371_StyleGAN/tree/wp1_refacto/)|Main folder for scripts|
+|&ensp;&ensp;&boxvr;&nbsp; [time_interpolation](https://github.com/destination-earth-digital-twins/DE371_StyleGAN/tree/wp1_refacto/)|folder to compute time interpolation between different generated samples|
 |&ensp;&ensp;&boxvr;&nbsp; [container.def](https://github.com/destination-earth-digital-twins/DE371_StyleGAN/tree/wp1_refacto/container.def)|Apptainer configuration file|
 |&ensp;&ensp;&boxvr;&nbsp; [Dockerfile](https://github.com/destination-earth-digital-twins/DE371_StyleGAN/tree/wp1_refacto/Dockerfile)|Docker configuration file|
 |&ensp;&ensp;&boxvr;&nbsp; [main_gan.py](https://github.com/destination-earth-digital-twins/DE371_StyleGAN/tree/wp1_refacto/main_gan.py)|Script for main GAN operations|
 |&ensp;&ensp;&boxvr;&nbsp; [main_inversion.py](https://github.com/destination-earth-digital-twins/DE371_StyleGAN/tree/wp1_refacto/main_inversion.py)|Script for inversion operations|
 |&ensp;&ensp;&boxvr;&nbsp; [main_perturbation.py](https://github.com/destination-earth-digital-twins/DE371_StyleGAN/tree/wp1_refacto/main_perturbation.py)|Script for generation of GAN ensembles|
-|&ensp;&ensp;&boxvr;&nbsp; [preprocessing](https://github.com/destination-earth-digital-twins/DE371_StyleGAN/tree/wp1_refacto/preprocessing)|Subfolder with preprocessing-related files|
+
 |&ensp;&ensp;&boxvr;&nbsp; [README.md](https://github.com/destination-earth-digital-twins/DE371_StyleGAN/tree/wp1_refacto/README.md)|Main repository documentation|
 |&ensp;&ensp;&boxur;&nbsp; [requirements.txt](https://github.com/destination-earth-digital-twins/DE371_StyleGAN/tree/wp1_refacto/requirements.txt)|List of required Python packages|
 
@@ -34,7 +41,7 @@ Most of the core code is taken as is from [Rosinality's stylegan2-pytorch github
 
 The dataset comprises 516 AROME ensemble forecasts covering the period from June 15th, 2020, to November 12th, 2021. Each ensemble forecast is composed of 16 members and includes lead times at 1-hour intervals, ranging up to 45 hours. It follows that [516x45x16=371520]() individual samples are available for training if each members of the enseble at a given lead time is considered individually.
 
-The data is restricted to a region encompassing the south and center of France with a resolution of [256x256]. Four variables are here considered: the precipitation (rr) the horizontal (u) and vertical (v) components of the wind speed vector at 10 meters and the temperature at 2 meters (t2m). Each individual sample can be conceptualized as a tensor with 4 channels, a width of 256 and a height of 256 [4, 256, 256].
+The data is restricted to a region encompassing the south and center of France with a resolution of [256x256]. Four variables are here considered: the precipitation (rr in mm/h) the horizontal (u) and vertical (v) in m/s components of the wind speed vector at 10 meters and the temperature at 2 meters (t2m)in K. Each individual sample can be conceptualized as a tensor with 4 channels, a width of 256 and a height of 256 [4, 256, 256].
 
 To efficiently load and organize the dataset, a metadata CSV file is utilized. The file structure is illustrated below:
 
@@ -46,21 +53,6 @@ To efficiently load and organize the dataset, a metadata CSV file is utilized. T
 | _sample1442   | 1,0        | 256  | 256  | 2021-06-02 | 0        | 2      |
 | _sample1443   | 1,0        | 256  | 256  | 2021-06-02 | 0        | 3      |
 | _sample1444   | 1,0        | 256  | 256  | 2021-06-02 | 0        | 4      |
-| _sample1445   | 1,0        | 256  | 256  | 2021-06-02 | 0        | 5      |
-| _sample1446   | 1,0        | 256  | 256  | 2021-06-02 | 0        | 6      |
-| _sample1447   | 1,0        | 256  | 256  | 2021-06-02 | 0        | 7      |
-| _sample1448   | 1,0        | 256  | 256  | 2021-06-02 | 0        | 8      |
-| _sample1449   | 1,0        | 256  | 256  | 2021-06-02 | 0        | 9      |
-| _sample1450   | 1,0        | 256  | 256  | 2021-06-02 | 0        | 10     |
-| _sample1451   | 1,0        | 256  | 256  | 2021-06-02 | 0        | 11     |
-| _sample1452   | 1,0        | 256  | 256  | 2021-06-02 | 0        | 12     |
-| _sample1453   | 1,0        | 256  | 256  | 2021-06-02 | 0        | 13     |
-| _sample1454   | 1,0        | 256  | 256  | 2021-06-02 | 0        | 14     |
-| _sample1455   | 1,0        | 256  | 256  | 2021-06-02 | 0        | 15     |
-| _sample1456   | 1,0        | 256  | 256  | 2021-06-02 | 1        | 0      |
-| _sample1457   | 1,0        | 256  | 256  | 2021-06-02 | 1        | 1      |
-| _sample1458   | 1,0        | 256  | 256  | 2021-06-02 | 1        | 2      |
-| ...           | ...        | ...  | ...  | ...        | ...      | ...    |
 
 - **`Name`**: A unique identifier for each sample.
 - **`Importance`**: Importance level.
@@ -70,6 +62,7 @@ To efficiently load and organize the dataset, a metadata CSV file is utilized. T
 - **`Member`**: Member index within the ensemble.
 
 This metadata file plays a crucial role in loading the dataset efficiently and ensuring the proper association of each sample with its corresponding attributes. Please update the file path in your code to reflect the location of your metadata CSV file.
+
 ## Training Experiments
 
 Experiments are run with the [main_gan.py](https://github.com/destination-earth-digital-twins/DE371_StyleGAN/tree/wp1_refacto/main_gan.py) file
@@ -78,7 +71,7 @@ Experiments are run with the [main_gan.py](https://github.com/destination-earth-
 ### Launching example
 
 ```python
-python3 main_gan.py
+  sbatch ./scripts_examples/init_training.sh
 ``` 
 will launch an experiment with the configuration given by the .yaml files.
 
@@ -152,10 +145,10 @@ Once a skilled Generator is obtained, one can invert real AROME ensemble forecas
   - *Default*: `1000`
 
 - **`--var_indices`**: List of variable indices to invert (e.g., [1,2,3]). Highly dependant on the shape of the samples of the dataset.  
-  - *Default*: `[1,2,3]`
+  - *Default*: `[0,1,2,3]`
 
 - **`--Shape`**: Size of the samples as a tuple (channels, height, width).  
-  - *Default*: `(3,256,256)`
+  - *Default*: `(4,256,256)`
 
 - **`--noise_regularize`**: Weight of the noise regularization during inversion.  
   - *Default*: `10e5`
@@ -211,10 +204,10 @@ Once a skilled Generator is obtained real ensemble members have successfully bee
   - *Default*: `''`
 
 - **`--var_indices`**: List of variable indices to be used.  
-  - *Default*: `[1,2,3]`
+  - *Default*: `[0,1,2,3]`
 
 - **`--Shape`**: Size of the samples as a tuple (channels, height, width).  
-  - *Default*: `(3,256,256)`
+  - *Default*: `(4,256,256)`
 
 - **`--N_samples`**: Ensemble size of the generated ensembles.  
   - *Default*: `120`
@@ -251,3 +244,7 @@ Once a skilled Generator is obtained real ensemble members have successfully bee
 
 - **`--runtime_metrics`**: Flag to enable the collection of runtime metrics.  
   - *Default*: `False`
+
+The files containing the values for normalization can be generated in the subfolder **preprocessing/Preprocess_datas_IS_split**.  
+
+Each folder presented here includes its own description file.
