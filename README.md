@@ -30,7 +30,6 @@ Let us now recall the two main configurations explored in this work, referred to
 |&ensp;&ensp;&boxvr;&nbsp; [main_gan.py](https://github.com/destination-earth-digital-twins/DE371_StyleGAN/tree/wp1_refacto/main_gan.py)|Script for main GAN operations|
 |&ensp;&ensp;&boxvr;&nbsp; [main_inversion.py](https://github.com/destination-earth-digital-twins/DE371_StyleGAN/tree/wp1_refacto/main_inversion.py)|Script for inversion operations|
 |&ensp;&ensp;&boxvr;&nbsp; [main_perturbation.py](https://github.com/destination-earth-digital-twins/DE371_StyleGAN/tree/wp1_refacto/main_perturbation.py)|Script for generation of GAN ensembles|
-
 |&ensp;&ensp;&boxvr;&nbsp; [README.md](https://github.com/destination-earth-digital-twins/DE371_StyleGAN/tree/wp1_refacto/README.md)|Main repository documentation|
 |&ensp;&ensp;&boxur;&nbsp; [requirements.txt](https://github.com/destination-earth-digital-twins/DE371_StyleGAN/tree/wp1_refacto/requirements.txt)|List of required Python packages|
 
