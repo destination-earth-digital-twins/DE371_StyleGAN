@@ -1,13 +1,18 @@
+
+# Context
+
+A new proposal to generate ensemble predictions matching the AROME-EPS dataset. The goal is to enrich the AROME-EPS dataset by generating samples mimicking the training data (i.e. to re-sample data from the latent distribution).  
+
+The StyleGAN architecture has been the starting point of the  work, given encouraging results recently obtained by Brochet et al. [Multivariate emulation of convective-scale numerical weather predictions with generative adversarial networks]https://doi.org/10.1175/AIES-D-23-0006.1 and [Enriching Operational High-Resolution Ensemble Forecasts with StyleGAN-2] https://doi.org/10.1175/AIES-D-24-0058.1.
+
+Let us now recall the two main configurations explored in this work, referred to as unconditional and conditional generations. In the unconditional setting, the machine learning method generates random samples from the training distribution. On the other hand, conditional generation aims at producing samples consistent with a given distribution. The latter is the configuration retained to super-sample NWP ensembles: in that case, the generated members should be consistent, and thus conditioned on, existing NWP members. The conditional setup with StyleGAN is a two-step procedure. The first step is called inversion, and consists in projecting existing NWP members in the latent space of the StyleGAN. The second step performs the conditional generation through latent space edition: new members are obtained by perturbing the existing ones in the latent space.
+
 # StyleGAN4AROME
 
-A new proposal to generate ensemble predictions matching the AROME-EPS dataset. Even though several models are available for training, the current research is focusing on stylegan2 network (see the [original implementation](https://github.com/NVlabs/stylegan2) and the [pytorch implementation](https://github.com/NVlabs/stylegan2-ada-pytorch). The goal is to enrich the AROME-EPS dataset by generating samples mimicking the training data (i.e. to re-sample data from the latent distribution).  
+Even though several models are available for training, the current research is focusing on stylegan2 network (see the [original implementation](https://github.com/NVlabs/stylegan2) and the [pytorch implementation](https://github.com/NVlabs/stylegan2-ada-pytorch). 
 A non-exhaustive diagram representing the global architecture is available on [Google Drive](https://drive.google.com/file/d/12Yidj0SBGblODHQIHi9Gf1WzNTqLoiJq/view?usp=sharing).  
 Most of the core code is taken as is from [Rosinality's stylegan2-pytorch github page](https://github.com/rosinality/stylegan2-pytorch).
 
-# Context
-The StyleGAN architecture has been the starting point of the DE_371 work, given encouraging results recently obtained by Brochet et al. [Multivariate emulation of convective-scale numerical weather predictions with generative adversarial networks]https://doi.org/10.1175/AIES-D-23-0006.1 and [Enriching Operational High-Resolution Ensemble Forecasts with StyleGAN-2] https://doi.org/10.1175/AIES-D-24-0058.1.
-
-Let us now recall the two main configurations explored in this work, referred to as unconditional and conditional generations. In the unconditional setting, the machine learning method generates random samples from the training distribution. On the other hand, conditional generation aims at producing samples consistent with a given distribution. The latter is the configuration retained to super-sample NWP ensembles: in that case, the generated members should be consistent, and thus conditioned on, existing NWP members. The conditional setup with StyleGAN is a two-step procedure. The first step is called inversion, and consists in projecting existing NWP members in the latent space of the StyleGAN. The second step performs the conditional generation through latent space edition: new members are obtained by perturbing the existing ones in the latent space. 
 
 # Repository Structure
 
