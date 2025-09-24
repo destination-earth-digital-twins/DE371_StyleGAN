@@ -6,7 +6,7 @@ This repository focuses on handling observations and preparing datasets for trai
 
 ## Importance Sampling (IS)
 
-Inspired by  Ravuri et al. (2021) dans [*Skilful precipitation nowcasting using deep generative models of radar*](https://doi.org/10.1038/s41586-021-03854-z), Importance Sampling helps avoid over-representing samples with little or no precipitation in the dataset. By assigning an "importance" score to each sample based on its contribution to the training process, we can prioritize the most significant data points. 
+Inspired by  Ravuri et al. (2021) in [*Skilful precipitation nowcasting using deep generative models of radar*](https://doi.org/10.1038/s41586-021-03854-z), Importance Sampling helps avoid over-representing samples with little or no precipitation in the dataset. By assigning an "importance" score to each sample based on its contribution to the training process, we can prioritize the most significant data points. 
 
 This method ensures that the network learns to better reproduce precipitation patterns by focusing on samples with meaningful precipitation data.
 
