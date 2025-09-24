@@ -67,6 +67,10 @@ To efficiently load and organize the dataset, a metadata CSV file is utilized. T
 
 This metadata file plays a crucial role in loading the dataset efficiently and ensuring the proper association of each sample with its corresponding attributes. Please update the file path in your code to reflect the location of your metadata CSV file.
 
+The files containing the values for normalization can be generated in the subfolder **preprocessing/Preprocess_datas_IS_split**.  
+
+Each folder presented here includes its own description file.
+
 ## Training Experiments
 
 Experiments are run with the [main_gan.py](https://github.com/destination-earth-digital-twins/DE371_StyleGAN/tree/wp1_refacto/main_gan.py) file
@@ -97,6 +101,4 @@ Once a skilled Generator is obtained real ensemble members have successfully bee
 The perturbation is configurated with the parser parameters described in ** scripts_examples/init_perturbation.sh **
 
 
-The files containing the values for normalization can be generated in the subfolder **preprocessing/Preprocess_datas_IS_split**.  
 
-Each folder presented here includes its own description file.
