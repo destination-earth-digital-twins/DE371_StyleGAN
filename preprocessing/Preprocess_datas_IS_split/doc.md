@@ -58,3 +58,5 @@ If you want to compare the number of pixels with precipitation greater than or e
 ## Summary
 
 This repository provides a structured approach to preparing datasets for StyleGAN. By using importance sampling, optional bootstrap sampling, and member selection, we ensure a well-balanced and meaningful dataset. The final splits enable effective model training, validation, and testing.
+
+Authors: C. Brochet,V. Sanchez, A. Bonamy

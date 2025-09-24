@@ -111,3 +111,4 @@ The perturbation is configurated with the parser parameters described in **scrip
   sbatch ./scripts_examples/init_perturbation.sh
 ``` 
 
+Authors: C. Brochet, G. Moldovan, V. Sanchez, A. Bonamy
