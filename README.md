@@ -89,16 +89,25 @@ will launch an experiment with the configuration given by the .yaml files.
 
 Once a skilled Generator is obtained, one can invert real AROME ensemble forecasts to the latent space using [main_inversion](https://github.com/destination-earth-digital-twins/DE371_StyleGAN/tree/wp1_refacto//main_inversion.py).
 
-The inversion is configurated with the parser parameters described in ** scripts_examples/init_inversion.sh **
+The inversion is configurated with the parser parameters described in **scripts_examples/init_inversion.sh**
 
 For more details, check the original [StyleGAN2 paper](https://arxiv.org/abs/1912.04958) and the [implementation](https://github.com/rosinality/stylegan2-pytorch) this repository is based on.
 
+### Launching example
+
+```python
+  sbatch ./scripts_examples/init_inversion.sh
+``` 
 
 ## GENERATION OF GAN-ENRICHED ENSEMBLES
 
 Once a skilled Generator is obtained real ensemble members have successfully been inverted to the latent space, one can enrich this ensembles using [main_perturbation.py](https://github.com/destination-earth-digital-twins/DE371_StyleGAN/tree/wp1_refacto//main_perturbation.py)
 
-The perturbation is configurated with the parser parameters described in ** scripts_examples/init_perturbation.sh **
+The perturbation is configurated with the parser parameters described in **scripts_examples/init_perturbation.sh**
 
+### Launching example
 
+```python
+  sbatch ./scripts_examples/init_perturbation.sh
+``` 
 
