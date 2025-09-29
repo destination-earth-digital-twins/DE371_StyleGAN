@@ -8,4 +8,4 @@ To launch this part of the code, run the following command.
 ```
 python3 main_inversion.py --inversion_type='optimization'
 ```
-Author: Victor Sanchez
+Author: Victor Sanchez ANgélique BONAMY

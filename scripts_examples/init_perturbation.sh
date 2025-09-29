@@ -19,33 +19,28 @@ module load Apptainer/1.2.4-GCCcore-12.3.0
 
 # Inversion with pixel loss 
 
-apptainer exec --nv /PATH/TO/apptainer_container/container.sif python3 main_inversion.py \
+apptainer exec --nv /PATH/TO/apptainer_container/container.sif python3 main_perturbation.py \
         
         ### Directory Paths
         --ckpt_dir='Path to the checkpoint directory containing the pre-trained StyleGAN model.' \ 
         --real_data_dir=' Path to the directory containing real data used for inversion. ' \
-        --output_dir=' Path to the directory where the inversion results will be stored. ' \ 
+        --data_dir="Path to the data directory containing the inversed ensembles. " \
+        --output_dir=' Path to the directory where the gan-enriched ensembles will be stored. ' \ 
         --pack_dir=' Path to the directory where the real normalized ensembles that are inverted are stored. ' \ 
         --mean_file=' File containing mean values for normalization.  ' \
         --max_file=' File containing max values for normalization. ' \ 
         --device=' Device to run the inversion on (e.g., 'cuda:0').' \  
 
-        #### Inversion Parameters
-        --lr_rampup=' Duration of the learning rate warmup, Default: `0.05`' \
-        --lr_rampdown=' Duration of the learning rate decay, Default: `0.25`' \
-        --lr= "Learning rate for optimization, Default`0.1`" \
-        --noise="Strength of the noise level, Default*: `0.005`" \
-        --noise_ramp= 'Duration of the noise level decay, Default: `0.75` '\
-        --invstep='Number of optimization iterations.  ' \
+        #### Perturbation Parameters
+        --inv_step='Number of optimization iterations.  ' \
         --var_indices= " List of variable indices to invert (e.g., [0,1,2,3]). Highly dependant on the shape of the samples of the dataset." \
         --Shape= ' Size of the samples as a tuple (channels, height, width). ' \ 
-        --noise_regularize= ' Weight of the noise regularization during inversion. ' \
-        --loss= " Type of loss function used (options: 'mse','mae', amse, vgg).  " \
-        --loss_intens= "Weight of the pixel loss.  " \
-        --inv_checkpoints=" List of optimization steps to save results. " \
-
-        #### Data Control for Inversion
-
+        --N_samples=" Ensemble size of the generated ensembles. " \
+        --sample_rule="Perturbation method used for generating new ensembles (options: 'random', 'normal', 'w', 'extrapolation')." \
+        --style_indices="Which vectors of the latent code should be perturbed, default[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]" \
+        --conditioning_members=" Number of members used to generate perturbed ensembles (Max = 16)." \
+        
+        #### Data Control for Perturbation
         --dates_file="CSV file containing dates for inversion.  " \
         --date_start="Start date for inversion in the format 'YYYY-MM-DD'." \
         --date_stop="Stop date for inversion in the format 'YYYY-MM-DD'.  " \

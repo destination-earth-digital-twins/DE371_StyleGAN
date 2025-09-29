@@ -6,7 +6,6 @@ import os
 from time import perf_counter
 
 
-# launch this on sxrecyf -> way too long otherwise
 
 def load_concat(indexes, df, new_im, data_path, save_path):
     df_tmp = df.iloc[indexes]
