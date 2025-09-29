@@ -1,27 +1,16 @@
 
 import numpy as np
 import matplotlib.pyplot as plt
-import sys
-sys.path.insert(0, '/home/moldovang/sxbigdata1/stylegan2-pytorch-master')
-
-from utils import (
-
-    real_fake,
-
-    )
-
 
 import numpy as np
 import matplotlib as mpl
-import matplotlib.font_manager as fm# Collect all the font names available to matplotlib
-
-#import plotly.figure_factory as ff
-
-import matplotlib.gridspec as gridspec
-import torch
-from torch.nn import functional as F
+import matplotlib.font_manager as fm
 import matplotlib.gridspec as gridspec
 
+import matplotlib.gridspec as gridspec
+
+
+# TODO : Not sure we need to keep that file
 font_names = [f.name for f in fm.fontManager.ttflist]
 #print(font_names)
 
@@ -29,20 +18,6 @@ mpl.rcParams['font.family'] = 'Helvetica'
 plt.rcParams['font.size'] = 14
 plt.rcParams['axes.linewidth'] = 2
 #plt.rcParams['text.usetex'] = True
-
-
-
-
-#print("sizes are", real.size(), fake.size())
-# img_grid_real = torchvision.utils.make_grid(real[:8,:1,:,:],)
-# img_grid_fake = torchvision.utils.make_grid(fake[:8,:1,:,:],)
-# writer.add_image("Real", img_grid_real, global_step=tensorboard_step)
-# writer.add_image("Fake", img_grid_fake, global_step=tensorboard_step)
-
-
-
-
-
 
 
 mse_SG = np.load('L_mse_' + str(0) + '_SG' + '.npy' )

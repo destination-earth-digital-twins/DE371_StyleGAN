@@ -22,10 +22,10 @@ from cartopy.mpl.geoaxes import GeoAxes
 
 cmapRR = colors.ListedColormap(["white","mediumpurple","blue","dodgerblue","darkseagreen","seagreen","greenyellow","yellow", "navajowhite","sandybrown","darkorange","red","darkred","black"], name='from_list', N=None)
 
-def extract_lonlat(fpath="/home/mrmn/brochetc/"):
+def extract_lonlat(fpath="/project/home/p200177/DE_371"):
     #Extraction des longitudes,latitudes des pdg. A modifier si grille modifiée !
 
-    filename = fpath + 'styleganPNRIA/gan/projection_artistic/latlon.file'
+    filename = fpath + '/resources/latitude_longitude/latlon.file'
     with open(filename,'rb') as f:
                lonlat=pickle.load(f,encoding="latin1")
     return lonlat

@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt
 from itertools import product
 from argparse import ArgumentParser
 import os
+import utils.utils as utils
 #import spectral_loss_filtered as spec
 
 #from hyperparams.util import str2intlist, load_all_lt, select_random_dates, load_whole_model, list_all_obs
@@ -39,6 +40,7 @@ def convert_uvt2fft(batch_gen, batch_y):
     new_batch_y = torch.cat((torch.sqrt(batch_y[:,0:1,:,:]**2 + batch_y[:,1:2,:,:]**2),batch_y[:,2:,:,:]),dim=1)
 
     return new_batch_gen, new_batch_y
+
 if __name__=="__main__" :
     parser = ArgumentParser()
 
@@ -48,13 +50,15 @@ if __name__=="__main__" :
     parser.add_argument("--lr0",type=float, default=0.001)
     parser.add_argument("--scale_rule",type=str,default='sigmoid')
     parser.add_argument("--pca_cut",type=int,default=10)
-    parser.add_argument("--inflate",type=float, default=1.0)
+    parser.add_argument("--inflate",type=float, default=0.2)
     parser.add_argument("--start",type=str, default="ones")
     parser.add_argument("--lambda_bias",type=float, default=1.0)
     parser.add_argument("--lambda_spectrum",type=float, default=0.0)
     parser.add_argument("--lambda_spread",type=float, default=1.0)
     parser.add_argument("--convert_ff_t",action="store_true")
     parser.add_argument("--invert_step",type=int, default=1000)
+    parser.add_argument("--optim_criterion", type=str, default='distrib_matching', choices=['distrib_matching','exchangeability'])
+
 
     ########################### Directories ###########################
     parser.add_argument("--fake_data_dir", type=str, 
@@ -64,11 +68,12 @@ if __name__=="__main__" :
     parser.add_argument("--ensemble_data_dir", type=str, 
                         default='/project/scratch/p200177/DE_371/victorsanchez/results/inversion/Ens_Perceptual_Random_VGG_Loss_sol3/Pack_Perceptual_Random_VGG_Loss_sol3/')
     parser.add_argument("--ckpt_dir", type=str, 
-                        default='/project/scratch/p200177/DE_371/victorsanchez/models/trained_generator/000024.pt')
+                        default='/project/home/p200177/DE_371/resources/models/trained_generator/000024.pt')
     parser.add_argument("--eigendir", type=str, 
                         default='/project/home/p200177/DE_371/datasets/dataset_Meteo_France/eigenvalues_gan_training/')
     parser.add_argument("--output_dir", type=str, 
                         default='/project/scratch/p200177/DE_371/victorsanchez/results/scaled_perturbation/ScaleTune/')
+    parser.add_argument("--leadtimes", type=utils.str2intlist, default=[3,6,9,12,15,18,21,24,27,30,33,36,39,42,45])
 
     args = parser.parse_args()
 
@@ -84,7 +89,8 @@ if __name__=="__main__" :
 
     liste_dates = df_date['Date'].unique().tolist()
     print(liste_dates)
-    leadtimes = [3,6,9,12,15,18,21,24,27,30,33,36,39,42]
+    leadtimes = args.leadtimes
+    # leadtimes = [6,12,18,24,30,36,42]
 
     ensemble_dataset = list(product(liste_dates,leadtimes))
     print(len(ensemble_dataset))
@@ -148,12 +154,12 @@ if __name__=="__main__" :
                 w_avg = torch.load(args.fake_data_dir + f'w_avg_{date[:10]}_{lt}_{args.pca_cut}_{args.invert_step}.pt')
 
                 if w_avg.shape!=(args.pca_cut,512):
-                    Cov, w_avg = pca.computeReducedCovarianceW(batch_w[:,:args.pca_cut],cut=args.n_samples-1)
+                    Cov, w_avg = pca.compute_K_covariance(batch_w[:,:args.pca_cut],cut=args.n_samples-1)
                     torch.save(Cov, args.fake_data_dir + f'Cov_{date[:10]}_{lt}_{args.pca_cut}_{args.invert_step}.pt')
                     torch.save(w_avg, args.fake_data_dir + f'w_avg_{date[:10]}_{lt}_{args.pca_cut}_{args.invert_step}.pt')
 
             except FileNotFoundError:
-                Cov, w_avg  = pca.computeReducedCovarianceW(batch_w[:,:args.pca_cut],cut=args.n_samples-1)
+                Cov, w_avg  = pca.compute_K_covariance(batch_w[:,:args.pca_cut],cut=args.n_samples-1)
                 torch.save(Cov, args.fake_data_dir + f'Cov_{date[:10]}_{lt}_{args.pca_cut}_{args.invert_step}.pt')
                 torch.save(w_avg, args.fake_data_dir + f'w_avg_{date[:10]}_{lt}_{args.pca_cut}_{args.invert_step}.pt')
             
@@ -162,24 +168,58 @@ if __name__=="__main__" :
             except AssertionError:
                 print(date, lt, batch_w.shape, w_avg.shape)
                 raise AssertionError("Uncorrect shape")
-
-            gen = smpca.fast_style_mixing(interp_noise, scale_noise, batch_w, Cov, w_avg, w0, args.n_samples, G, Whitening, device=device, scale_rule=args.scale_rule) 
+            # TODO : The style mixing has to be done with w_avg or with w0 ??
+            # For me it has to be done with w_avg
+            gen = smpca.fast_style_mixing(
+                    alphas=interp_noise,
+                    betas=scale_noise,
+                    batch_w=batch_w,
+                    K=Cov,
+                    w_avg=w_avg, #w0,
+                    n_samples=args.n_samples,
+                    G=G,
+                    Whitening=Whitening,
+                    device=device,
+                    beta_rule=args.scale_rule
+                ) 
             if args.convert_ff_t:
                 gen, batch_y = convert_uvt2fft(gen, batch_y)
-            mean_loss = F.l1_loss(gen.mean(dim=0), batch_y.mean(dim=0))
-            inflation = args.inflate if not args.inflate_random else (1.0 + uniform(0,args.inflate))
-            std_loss = F.l1_loss(torch.std(gen,dim=0, unbiased=True), inflation * torch.std(batch_y,dim=0, unbiased=True))
+            if args.optim_criterion == 'distrib_matching':
+                mean_loss = F.l1_loss(gen.mean(dim=0), batch_y.mean(dim=0))
+                inflation = args.inflate if not args.inflate_random else (1.0 + uniform(0,args.inflate))
+                std_loss = F.l1_loss(torch.std(gen,dim=0, unbiased=True), inflation * torch.std(batch_y,dim=0, unbiased=True))
 
-            if args.lambda_spectrum>0.0:
-                #spl = specLoss(batch_y,gen)
-                loss = args.lambda_bias * mean_loss + args.lambda_spread * std_loss# \
-                #            + args.lambda_spectrum * spl
-            
-            else:
-                #with torch.no_grad():
-                #    spl = specLoss(batch_y,gen)
-                loss = args.lambda_bias * mean_loss + args.lambda_spread * std_loss
-            
+                if args.lambda_spectrum>0.0:
+                    #spl = specLoss(batch_y,gen)
+                    loss = args.lambda_bias * mean_loss + args.lambda_spread * std_loss# \
+                    #            + args.lambda_spectrum * spl
+                
+                else:
+                    #with torch.no_grad():
+                    #    spl = specLoss(batch_y,gen)
+                    loss = args.lambda_bias * mean_loss + args.lambda_spread * std_loss
+            elif args.optim_criterion == 'exchangeability':
+                # TODO : Not operationnal at all, need to be tested
+                # Naïve version
+                # loss_batch_y = 0
+                # for i in range(batch_y.shape[0]):
+                #     for j in range(i, batch_y.shape[0]):
+                #         if i!=j: # TODO : Maybe the MSE is not an optimal distance criterion
+                #             loss_batch_y+=F.mse_loss(batch_y[i], batch_y[j])
+                # loss_gen = 0
+                # for i in range(gen.shape[0]):
+                #     for j in range(i, gen.shape[0]):
+                #         if i!=j:
+                #             loss_gen+=F.mse_loss(gen[i], gen[j])
+                
+                # loss_inter = 0
+                # for i in range(batch_y.shape[0]):
+                #     for j in range(gen.shape[0]):
+                #         loss_inter+=F.mse_loss(batch_y[i], gen[j])
+                
+                # loss = loss_batch_y - 2 * loss_inter + loss_gen
+                raise NotImplementedError
+
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()

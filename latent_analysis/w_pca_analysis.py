@@ -1,0 +1,209 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# ##########################################################
+# This script is to do a PCA on the different latent space W
+# ##########################################################
+
+# ## OBS! Before running this script, make sure you have run mkl_w_sample.py with "ckpt_dir" set accordingly
+
+import numpy as np
+import glob
+import argparse
+import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
+from latent_analysis.pca_utils import PCA, log_likelihood
+import os
+
+if __name__=="__main__" :
+
+    # Argument parser 
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--ckpt_dir',        type=str, default='/project/home/p200177/DE_371/resources/models/trained_generator/000024.pt')
+    parser.add_argument('--output_dir',      type=str, default='/project/scratch/p200177/DE_371/victorsanchez/results/pca/comparison_hybrid')
+    parser.add_argument('--w_inversion_dir1', type=str, default='/project/home/p200177/DE_371/experiments_WP1/inversion_process_analysis/final_inversion_on_test_set/perceptual_exp45/inversion')
+    parser.add_argument('--inversion_step_1',  type=str, default="1000")
+    parser.add_argument('--w_inversion_dir2', type=str, default='/project/home/p200177/DE_371/experiments_WP1/encoder_inversion/restyle_psp/exp1/inversion') 
+    parser.add_argument('--inversion_step_2',  type=str, default="10")
+    parser.add_argument('--w_inversion_dir3', type=str, default='/project/home/p200177/DE_371/experiments_WP1/hybrid_inversion/restyle_psp/exp1/inversion') 
+    parser.add_argument('--inversion_step_3',  type=str, default="500")
+
+    parser.add_argument('--w_samples_dir',   type=str, default='//project/scratch/p200177/DE_371/victorsanchez/results/pca/w_samples') # samples generated with mkl_w_sample.py
+    parser.add_argument('--case',           type=str, default="2021-07-28_3", help="specific inversion case to consider") # %Y-%m-%d_lt
+    parser.add_argument('--arome_875_w_samples_file',  type=str, default='') # samples generated with mkl_w_sample.py
+    args = parser.parse_args()
+    if not os.path.exists(args.output_dir):
+        os.makedirs(args.output_dir)
+        
+    ## Loading files
+    ## From unconditionnal gan
+    files_w = glob.glob(f"{args.w_samples_dir}/w/_w*.npy")
+    files_x = glob.glob(f"{args.w_samples_dir}/x/_x*.npy")
+
+    ## From Gan Inversion
+    w_inv1 = np.load(f"{args.w_inversion_dir1}/w_{args.case}_{args.inversion_step_1}.npy")[0]
+    print('shape w_inv1 : ', w_inv1.shape)
+    w_inv2 = np.load(f"{args.w_inversion_dir2}/w_{args.case}_{args.inversion_step_2}.npy")[0]
+    print('shape w_inv2 : ', w_inv2.shape)
+    w_inv3 = np.load(f"{args.w_inversion_dir3}/w_{args.case}_{args.inversion_step_3}.npy")[0]
+    print('shape w_inv3 : ', w_inv3.shape)
+
+
+
+    ## load random w samples generated from mapping network of gan
+    w_samples = []
+    print("loading w samples")
+    for f in files_w:
+        w_sample=np.load(f)
+        if w_sample.ndim<3: # (B, 512)
+            w_samples.append(w_sample[0,:])
+        else: # (B, 14, 512)
+            w_samples.append(w_sample[0,0,:])
+
+    ## PCA samples generated from GAN
+    num_components = 3
+    print(f"pca on w_samples on {num_components} principal axis")
+    w_samples_reduced, w_samples_sorted_eigenvalue, w_samples_sorted_eigenvectors = PCA(X=np.array(w_samples), num_components=num_components)
+    prop_var_w_samples = w_samples_sorted_eigenvalue / np.sum(w_samples_sorted_eigenvalue)
+
+    print("loading w_inv1")
+    for w_inv in [w_inv1, w_inv2, w_inv3]:
+        if w_inv.ndim<3: # (B, 512)
+            w_inv = w_inv[:,:]
+        else: # (B, 14, 512)
+            w_inv = w_inv[:,0,:]
+
+    eigenvector_subset = w_samples_sorted_eigenvectors[:,0:num_components]
+    w_inv1_projected = np.dot(eigenvector_subset.transpose() , (w_inv1-np.mean(w_inv1, axis=0)).transpose() ).transpose()
+    w_inv2_projected = np.dot(eigenvector_subset.transpose() , (w_inv2-np.mean(w_inv2, axis=0)).transpose() ).transpose()
+    w_inv3_projected = np.dot(eigenvector_subset.transpose() , (w_inv3-np.mean(w_inv3, axis=0)).transpose() ).transpose()
+
+    # 2D scatter plot of first two components
+    print('2D scatter plot of first two components')
+    fig, ax = plt.subplots(figsize=(21,7),nrows=1,ncols=3)
+    ax[0].scatter(w_samples_reduced[:,0],w_samples_reduced[:,1],cmap='prism', c='blue', alpha=0.1)
+    ax[1].scatter(w_samples_reduced[:,0],w_samples_reduced[:,2],cmap='prism', c='blue', alpha=0.1)
+    ax[2].scatter(w_samples_reduced[:,1],w_samples_reduced[:,2],cmap='prism', c='blue', alpha=0.1)
+    for i in range(len(w_inv1_projected)):
+        ax[0].scatter(w_inv1_projected[i,0], w_inv1_projected[i,1],cmap='prism', c='red')
+        ax[0].scatter(w_inv2_projected[i,0], w_inv2_projected[i,1],cmap='prism', c='green')
+        ax[0].scatter(w_inv3_projected[i,0], w_inv3_projected[i,1],cmap='prism', c='magenta')
+        ax[0].text(w_inv1_projected[i,0], w_inv1_projected[i,1],  '%s' % (str(i)), size=20, zorder=1,  color='red') 
+        ax[0].text(w_inv2_projected[i,0],w_inv2_projected[i,1],  '%s' % (str(i)), size=20, zorder=1,  color='green')
+        ax[0].text(w_inv3_projected[i,0],w_inv3_projected[i,1],  '%s' % (str(i)), size=20, zorder=1,  color='magenta')
+
+        ax[1].scatter(w_inv1_projected[i,0], w_inv1_projected[i,2],cmap='prism', c='red')
+        ax[1].scatter(w_inv2_projected[i,0], w_inv2_projected[i,2],cmap='prism', c='green')
+        ax[1].scatter(w_inv3_projected[i,0], w_inv3_projected[i,2],cmap='prism', c='magenta')
+        ax[1].text(w_inv1_projected[i,0], w_inv1_projected[i,2],  '%s' % (str(i)), size=20, zorder=1,  color='red') 
+        ax[1].text(w_inv2_projected[i,0],w_inv2_projected[i,2],  '%s' % (str(i)), size=20, zorder=1,  color='green')
+        ax[1].text(w_inv3_projected[i,0],w_inv3_projected[i,2],  '%s' % (str(i)), size=20, zorder=1,  color='magenta')
+
+        ax[2].scatter(w_inv1_projected[i,1], w_inv1_projected[i,2],cmap='prism', c='red')
+        ax[2].scatter(w_inv2_projected[i,1], w_inv2_projected[i,2],cmap='prism', c='green')
+        ax[2].scatter(w_inv3_projected[i,1], w_inv3_projected[i,2],cmap='prism', c='magenta')
+        ax[2].text(w_inv1_projected[i,1], w_inv1_projected[i,2],  '%s' % (str(i)), size=20, zorder=1,  color='red') 
+        ax[2].text(w_inv2_projected[i,1],w_inv2_projected[i,2],  '%s' % (str(i)), size=20, zorder=1,  color='green')
+        ax[2].text(w_inv3_projected[i,1],w_inv3_projected[i,2],  '%s' % (str(i)), size=20, zorder=1,  color='magenta')
+
+    ax[0].set_xlabel('pc1')
+    ax[0].set_ylabel('pc2')
+    ax[0].set_label(['optim', 'encoder', 'hybrid'])
+    ax[1].set_xlabel('pc1')
+    ax[1].set_ylabel('pc3')
+    ax[1].set_label(['optim', 'encoder', 'hybrid'])
+    ax[2].set_xlabel('pc2')
+    ax[2].set_ylabel('pc3')
+    ax[2].set_label(['optim', 'encoder', 'hybrid'])
+    fig.suptitle('Figure 1: PCA on first three components',size = 25)
+    figname = f"{args.output_dir}/projected_pca_2d_w_scatter_{args.case}.png"
+    fig.savefig(figname, dpi=100)
+
+
+    # 3D scatter plot of first three components
+    print('3D scatter plot of first three components')
+    fig = plt.figure(figsize=(10,7))
+    ax = fig.add_subplot(projection='3d')
+    ax.scatter(w_samples_reduced[:,0],w_samples_reduced[:,1],w_samples_reduced[:,2],cmap='prism', c='blue', alpha=0.1)
+    # ax.scatter(pca_w_875_arome.components_[0],pca_w_875_arome.components_[1],pca_w_875_arome.components_[2],cmap='prism', c='magenta')
+    for i in range(len(w_inv1_projected)):
+        ax.scatter(w_inv1_projected[i,0], w_inv1_projected[i,1], w_inv1_projected[i,2], cmap='prism', c='red')
+        ax.scatter(w_inv2_projected[i,0], w_inv2_projected[i,1], w_inv2_projected[i,2], cmap='prism', c='green')
+        ax.scatter(w_inv3_projected[i,0], w_inv3_projected[i,1], w_inv3_projected[i,2], cmap='prism', c='magenta')
+        ax.text(w_inv1_projected[i,0], w_inv1_projected[i,1], w_inv1_projected[i,2], '%s' % (str(i)), size=20, zorder=1,  color='red') 
+        ax.text(w_inv2_projected[i,0], w_inv2_projected[i,1], w_inv2_projected[i,2], '%s' % (str(i)), size=20, zorder=1,  color='green')
+        ax.text(w_inv3_projected[i,0], w_inv3_projected[i,1], w_inv3_projected[i,2], '%s' % (str(i)), size=20, zorder=1,  color='magenta')
+    ax.set_xlabel('pc1')
+    ax.set_ylabel('pc2')
+    ax.set_zlabel('pc3')
+    fig.suptitle('Figure 2: PCA on first three components 3d',size = 25)
+    figname = f"{args.output_dir}/projected_pca_3d_w_scatter_{args.case}.png"
+    fig.savefig(figname, dpi=100)
+
+    ########## Visualize all components ##############
+    num_components=512
+    w_samples_reduced, w_samples_sorted_eigenvalue, w_samples_sorted_eigenvectors = PCA(X=np.array(w_samples), num_components=num_components)
+    prop_var_w_samples = w_samples_sorted_eigenvalue / np.sum(w_samples_sorted_eigenvalue)
+
+    num_components=16
+    w_inv1_reduced, w_inv1_sorted_eigenvalue, w_inv1_sorted_eigenvectors = PCA(X=w_inv1, num_components=num_components)
+    prop_var_w_inv1 = w_inv1_sorted_eigenvalue / np.sum(w_inv1_sorted_eigenvalue)
+    w_inv2_reduced, w_inv2_sorted_eigenvalue, w_inv2_sorted_eigenvectors = PCA(X=w_inv2, num_components=num_components)
+    prop_var_w_inv2 = w_inv2_sorted_eigenvalue / np.sum(w_inv2_sorted_eigenvalue)
+    w_inv3_reduced, w_inv3_sorted_eigenvalue, w_inv3_sorted_eigenvectors = PCA(X=w_inv3, num_components=num_components)
+    prop_var_w_inv3 = w_inv3_sorted_eigenvalue / np.sum(w_inv3_sorted_eigenvalue)
+    
+    # scree_plot
+    print('plotting scree plots')
+    fig = plt.figure(figsize=(16,7))
+    ax = fig.add_subplot()
+    ax.plot(np.arange(1, len(prop_var_w_samples)+1), prop_var_w_samples, marker='o', c='blue')
+    ax.plot(np.arange(1, len(prop_var_w_inv1)+1), prop_var_w_inv1, marker='o', c='red')
+    ax.plot(np.arange(1, len(prop_var_w_inv2)+1), prop_var_w_inv2, marker='o', c='green')
+    ax.plot(np.arange(1, len(prop_var_w_inv3)+1), prop_var_w_inv3, marker='o', c='magenta')
+    ax.set_xlabel('Principal Component',size = 20)
+    ax.set_yscale('log')
+    ax.set_ylabel('Proportion of Variance Explained',size = 20)
+    fig.suptitle('Figure 3: Scree Plot for Proportion of Variance Explained',size = 25)
+    ax.grid(True)
+    figname = f"{args.output_dir}/scree_plot_w_scatter_{args.case}.png"
+    fig.savefig(figname, dpi=100)
+
+    # scree_plot kaiser
+    fig = plt.figure(figsize=(16,7))
+    ax = fig.add_subplot()
+    ax.plot(np.arange(1, len(w_samples_sorted_eigenvalue)+1), w_samples_sorted_eigenvalue, marker='o', c='blue')
+    # ax.plot(np.arange(1, len(prop_var_w_875_arome)+1), prop_var_w_875_arome, marker='o', c='magenta')
+    ax.plot(np.arange(1, len(w_inv1_sorted_eigenvalue)+1), w_inv1_sorted_eigenvalue, marker='o', c='red')
+    ax.plot(np.arange(1, len(w_inv2_sorted_eigenvalue)+1), w_inv2_sorted_eigenvalue, marker='o', c='green')
+    ax.plot(np.arange(1, len(w_inv3_sorted_eigenvalue)+1), w_inv3_sorted_eigenvalue, marker='o', c='magenta')
+    ax.set_xlabel('Principal Component',size = 20)
+    ax.set_yscale('log')
+    ax.set_ylabel('Proportion of Variance Explained',size = 20)
+    fig.suptitle('Figure 4: Scree Plot for Eigenvalues',size = 25)
+    ax.axhline(y=1, color='r',linestyle='--')
+    ax.grid(True)
+    figname = f"{args.output_dir}/scree_plot_kaiser_w_scatter_{args.case}.png"
+    fig.savefig(figname, dpi=100)
+
+
+    # log likelihood plot 
+    print('log likelihood plot')
+    fig, ax = plt.subplots()
+    colorss = ['blue', 'red', 'green', 'magenta']
+    for id, evals in enumerate([w_samples_sorted_eigenvalue, w_inv1_sorted_eigenvalue, w_inv2_sorted_eigenvalue, w_inv3_sorted_eigenvalue]):
+        ll = log_likelihood(evals)
+        # Fraction of variance explained
+        cut=50
+        fraction_var = np.cumsum(evals[0:cut] / np.sum(evals))
+        
+        xs = np.arange(1, cut+1)
+        ys = ll[0:cut]
+
+        ax.set_xlabel("num PCs")
+        ax.set_ylabel("profile log likelihood")
+        ax.set_title(f"profile log likelihood L*={np.argmax(ll)+1}")
+        ax.set_label(f'{id}')
+        ax.plot(xs, ys, c=colorss[id])
+    ax.grid(True)
+    figname = f"{args.output_dir}/profile_log_likelihood_w_scatter_{args.case}.png"
+    fig.savefig(figname, dpi=100)

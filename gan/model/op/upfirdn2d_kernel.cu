@@ -206,10 +206,19 @@ __global__ void upfirdn2d_kernel(scalar_t *out, const scalar_t *input,
   }
 }
 
-torch::Tensor upfirdn2d_op(const torch::Tensor &input,
-                           const torch::Tensor &kernel, int up_x, int up_y,
-                           int down_x, int down_y, int pad_x0, int pad_x1,
-                           int pad_y0, int pad_y1) {
+torch::Tensor upfirdn2d_op(
+                        const torch::Tensor &input,
+                        const torch::Tensor &kernel,
+                        int up_x,
+                        int up_y,
+                        int down_x,
+                        int down_y,
+                        int pad_x0,
+                        int pad_x1,
+                        int pad_y0,
+                        int pad_y1
+  )
+  {
   int curDevice = -1;
   cudaGetDevice(&curDevice);
   cudaStream_t stream = at::cuda::getCurrentCUDAStream();

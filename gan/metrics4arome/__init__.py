@@ -8,7 +8,7 @@ Created on Wed Feb  2 17:53:46 2022
 metrics version 2
 
 File include :
-    
+
     metric2D and criterion2D APIs to be used by Trainer class from trainer_horovod
     provide a directly usable namespace from already implemented metrics
 
@@ -17,12 +17,7 @@ import gan.metrics4arome.general_metrics as GM
 import gan.metrics4arome.wasserstein_distances as WD
 import gan.metrics4arome.sliced_wasserstein as SWD
 import gan.metrics4arome.spectrum_analysis as Spectral
-import metrics4arome.inception_metrics as inception
-#import metrics4arome.scattering_metric as scat
-#import metrics4arome.structure_functions as sfunc
-import gan.metrics4arome.multivariate as multiv
-import gan.metrics4arome.length_scales as ls
-import gan.metrics4arome.quantiles_metric as quant
+# import metrics4arome.inception_metrics as inception
 
 
 ###################### standard parameters
@@ -46,31 +41,31 @@ vars_rr_u_v_t2m = ['rr', 'u', 'v', 't2m']
 
 class metric2D():
     def __init__(self,long_name, func, variables, names = ['metric'], mean_pert=False):
-        
+
         self.long_name = long_name
-        
+
         self.names = names # names for each of the func's output items
-        
+
         self.func = func #should return np.array OR tensor to benefit from parallel estimation
-        
+
         self.variables = variables # variables on which the metric is applied
 
         self.mean_pert = mean_pert
-        
+
     def selectVars(self, *args) :
-        
+
         """
         select in the input data the variables to compute metric on
         """
-        
+
         if len(args[0])==2 :
-            
+
             real_data, fake_data = args[0]
             var_dict_f = {var: i for i, var in enumerate(sorted(self.variables, key=lambda var_f:var_dict[var_f]))}
             if self.mean_pert:
                 var_dict_f.update({var+"_mean": i+8 for i, var in enumerate(sorted(self.variables, key=lambda var_f:var_dict[var_f]))})
                 var_dict.update({var+"_mean": i+8 for i, var in enumerate(sorted(all_var, key=lambda var_f:var_dict[var_f]))})
-            
+
             VI = [var_dict[v] for v in self.variables]
             VI_f = [var_dict_f[v] for v in self.variables] # changed here because otherwise indexes may be wrong for monovar
             if self.mean_pert:
@@ -78,56 +73,56 @@ class metric2D():
                 VI_f = VI_f + [var_dict_f[v + "_mean"] for v in self.variables]
             real_data = real_data[:, VI,:,:]
             fake_data = fake_data[:, VI_f,:,:]
-        
+
             return real_data, fake_data
-        
+
         else :
-            
+
             return args[0]
-    
+
 
     def __call__(self, *args, **kwargs):
-        
-        
+
+
         ########## selecting variables check #########
         try :
             select = kwargs['select']
         except KeyError :
-            
+
             select = True
-        
+
         ############# selection ################
-    
+
         if select :
-        
+
             data = self.selectVars(args)
-        
+
         else :
-            
+
             data = args
-            
+
         ########### computation ################
 
         reliq_kwargs ={ k :v for k,v in kwargs.items() if k!='select'}
-        
+
         if len(data) == 2:
-            
+
             return self.func(data[0], data[1] ,**reliq_kwargs)
-        
+
         else :
-            
+
             return self.func(data[0], **reliq_kwargs)
-   
+
 #################
 #################
-    
+
 class criterion2D(metric2D):
     def __init__(self,  long_name, func, variables, names):
         super().__init__(long_name, func, variables, names)
 
 ##############################################################################
         ################## Metrics catalogue #####################
-        
+
 standalone_metrics = {'spectral_compute','spectral_distrib','struct_metric','ls_metric','ls_metric_all','IntraMapVariance',
                     'InterMapVariance'}
 
@@ -143,7 +138,7 @@ distance_metrics = {'Orography_RMSE', 'W1_Center', "W1_Center_NUMPY", "W1_random
 
 
 ###################### Usable namespace #######################################
-        
+
 Orography_RMSE = metric2D('RMS Error on orography synthesis  ',\
                         GM.orography_RMSE,'orog')
 
@@ -223,11 +218,11 @@ spectral_compute = metric2D('Power Spectral Density  ',\
 #                   Spectral.PowerSpectralDensity_Distrib, vars_wo_orog, names = ['PSDu', 'PSDv','PSDt2m']     )
 
 
-# FID score
+# # FID score
 
-fid = metric2D('Fréchet Inception Distance  ',\
-             inception.FIDclass(inception.inceptionPath).FID,\
-             ['FID'])
+# fid = metric2D('Fréchet Inception Distance  ',\
+#              inception.FIDclass(inception.inceptionPath).FID,\
+#              ['FID'])
 """
 # scattering metrics with sparsity and shape estimators
 scat_sparse = scat.scattering_metric(
@@ -244,29 +239,29 @@ scat_SWD_metric_renorm = metric2D('Scattering Estimators', scat_sparse.scatterin
 scat_rmse = metric2D('Scattering Estimators', scat_sparse.scattering_rmse,
                               vars_wo_orog)
 
-# structure functions 
+# structure functions
 
-struct_metric = metric2D('First order structure function', 
+struct_metric = metric2D('First order structure function',
                          lambda data : sfunc.increments(data, max_length = 16),\
                        vars_wo_orog)
 """
 
-#multivariate_comparisons
-multivar = metric2D('Multivariate data ', multiv.multi_variate_correlations,\
-                  all_var_no_rr_orog, names=['Corr_r','Corr_f'])
+# #multivariate_comparisons
+# multivar = metric2D('Multivariate data ', multiv.multi_variate_correlations,\
+#                   all_var_no_rr_orog, names=['Corr_r','Corr_f'])
 
-# Correlation length maps
+# # Correlation length maps
 
-scale = 2.5 # number of kilometers per grid point
-ls_metric_all = metric2D('Correlation length maps', lambda  data : ls.length_scale(data, sca =scale),\
-                     all_var_no_rr_orog)
+# scale = 2.5 # number of kilometers per grid point
+# ls_metric_all = metric2D('Correlation length maps', lambda  data : ls.length_scale(data, sca =scale),\
+#                      all_var_no_rr_orog)
 
-ls_dist = metric2D('Correlation length RMSE', lambda real, fake : ls.length_scale_abs(real, fake, sca =scale),\
-                   vars_u_v_t, names = ['Lcorr_u', 'Lcorr_v', 'Lcorr_t2m'])
+# ls_dist = metric2D('Correlation length RMSE', lambda real, fake : ls.length_scale_abs(real, fake, sca =scale),\
+#                    vars_u_v_t, names = ['Lcorr_u', 'Lcorr_v', 'Lcorr_t2m'])
 
-# quantile scores
+# # quantile scores
 
-qlist = [0.01,0.1,0.9,0.99]
+# qlist = [0.01,0.1,0.9,0.99]
 
-quant_metric = metric2D('Quantiles RMSE score', lambda real, fake : quant.quantile_score(real, fake, qlist = qlist), \
-                          vars_u_v_t)
+# quant_metric = metric2D('Quantiles RMSE score', lambda real, fake : quant.quantile_score(real, fake, qlist = qlist), \
+#                           vars_u_v_t)
